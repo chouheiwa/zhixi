@@ -43,9 +43,17 @@ export interface CollectionStatus {
   error?: string;
 }
 
+/** Per-user settings stored in DB */
+export interface UserSettings {
+  userId: string;
+  /** The start date from which to collect data (user-chosen) */
+  collectStartDate: string;
+}
+
 /** Message types for chrome.runtime messaging */
 export type MessageAction =
   | { action: 'fetchProxy'; url: string }
-  | { action: 'collectIncome'; startDate: string; endDate: string }
-  | { action: 'getCollectionStatus' }
+  | { action: 'syncIncome' }
+  | { action: 'startCollect'; startDate: string; endDate: string }
+  | { action: 'getCollectStatus' }
   | { action: 'openDashboard' };

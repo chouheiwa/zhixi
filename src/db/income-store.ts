@@ -1,5 +1,5 @@
 import { db } from './database';
-import type { IncomeRecord, DailySummary } from '@/shared/types';
+import type { IncomeRecord, DailySummary, UserSettings } from '@/shared/types';
 
 export async function upsertIncomeRecords(records: IncomeRecord[]): Promise<void> {
   await db.incomeRecords.bulkPut(records);
@@ -51,7 +51,38 @@ export async function hasRecordsForDate(userId: string, date: string): Promise<b
   return count > 0;
 }
 
+/** Get all dates that have records for a user */
+export async function getCollectedDates(userId: string): Promise<Set<string>> {
+  const records = await db.incomeRecords
+    .where('userId')
+    .equals(userId)
+    .toArray();
+  return new Set(records.map(r => r.recordDate));
+}
+
+/** Get missing dates between startDate and yesterday for a user */
+export async function getMissingDates(userId: string, startDate: string): Promise<string[]> {
+  const { eachDayInRange, formatDate } = await import('@/shared/date-utils');
+  const yesterday = formatDate((() => { const d = new Date(); d.setDate(d.getDate() - 1); return d; })());
+
+  if (startDate > yesterday) return [];
+
+  const allDays = eachDayInRange(startDate, yesterday);
+  const collected = await getCollectedDates(userId);
+  return allDays.filter(d => !collected.has(d)).reverse(); // newest first
+}
+
 export async function getAllContentIds(): Promise<string[]> {
   const records = await db.incomeRecords.orderBy('contentId').uniqueKeys();
   return records as string[];
+}
+
+// ============ User Settings ============
+
+export async function getUserSettings(userId: string): Promise<UserSettings | undefined> {
+  return db.userSettings.get(userId);
+}
+
+export async function saveUserSettings(settings: UserSettings): Promise<void> {
+  await db.userSettings.put(settings);
 }
