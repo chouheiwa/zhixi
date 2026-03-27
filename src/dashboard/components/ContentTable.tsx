@@ -111,7 +111,7 @@ export function ContentTable({ records, onContentClick }: Props) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <h3 style={{ fontSize: 14, margin: 0 }}>内容明细</h3>
+        <h3 style={{ fontSize: 14, margin: 0 }}>内容明细 <span style={{ fontSize: 12, color: '#999', fontWeight: 400 }}>共 {sorted.length} 篇</span></h3>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {selectMode && selected.size > 0 && (
             <span style={{ fontSize: 12, color: '#666' }}>已选 {selected.size} 篇</span>
