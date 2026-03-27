@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { formatDate, getDateRange } from '@/shared/date-utils';
 import { useIncomeData } from '@/hooks/use-income-data';
 import { useCurrentUser } from '@/hooks/use-current-user';
@@ -10,11 +10,13 @@ import { ConversionAnalysis } from './components/ConversionAnalysis';
 import { TopContentRanking } from './components/TopContentRanking';
 import { CollectorPanel } from './components/CollectorPanel';
 import { ExportImportPanel } from './components/ExportImportPanel';
+import { ContentDetailChart } from './components/ContentDetailChart';
 
 export function Dashboard() {
   const { start: defaultStart, end: defaultEnd } = getDateRange(30);
   const [startDate, setStartDate] = useState(formatDate(defaultStart));
   const [endDate, setEndDate] = useState(formatDate(defaultEnd));
+  const [detailRefreshKey, setDetailRefreshKey] = useState(0);
 
   const { user, loading: userLoading } = useCurrentUser();
   const { records, summaries, loading, refresh } = useIncomeData(user?.id ?? '', startDate, endDate);
@@ -24,6 +26,25 @@ export function Dashboard() {
     setStartDate(formatDate(start));
     setEndDate(formatDate(end));
   };
+
+  // Deduplicated content items for the detail chart selector
+  const contentItems = useMemo(() => {
+    const map = new Map<string, { contentId: string; contentToken: string; title: string }>();
+    for (const r of records) {
+      if (!map.has(r.contentToken)) {
+        map.set(r.contentToken, {
+          contentId: r.contentId,
+          contentToken: r.contentToken,
+          title: r.title,
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [records]);
+
+  const handleDetailFetched = useCallback(() => {
+    setDetailRefreshKey(k => k + 1);
+  }, []);
 
   if (userLoading) {
     return (
@@ -63,7 +84,10 @@ export function Dashboard() {
             <ConversionAnalysis records={records} />
             <TopContentRanking records={records} />
           </div>
-          <ContentTable records={records} />
+          <ContentTable records={records} onDetailFetched={handleDetailFetched} />
+          {contentItems.length > 0 && (
+            <ContentDetailChart key={detailRefreshKey} items={contentItems} />
+          )}
         </div>
       )}
 

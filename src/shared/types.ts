@@ -43,6 +43,26 @@ export interface CollectionStatus {
   error?: string;
 }
 
+/** Per-content daily detailed metrics */
+export interface ContentDailyRecord {
+  /** Compound key: userId + contentToken + date */
+  userId: string;
+  contentToken: string;
+  contentId: string;
+  contentType: string;
+  title: string;
+  date: string;
+  pv: number;
+  show: number;
+  upvote: number;
+  comment: number;
+  like: number;
+  collect: number;
+  share: number;
+  play: number;
+  collectedAt: number;
+}
+
 /** Per-user settings stored in DB */
 export interface UserSettings {
   userId: string;
