@@ -5,7 +5,6 @@ import { useCurrentUser } from '@/hooks/use-current-user';
 import { DateRangePicker } from './components/DateRangePicker';
 import { DailyTrendChart } from './components/DailyTrendChart';
 import { ContentTable, type ContentTableItem } from './components/ContentTable';
-import { TypeComparisonChart } from './components/TypeComparisonChart';
 import { ConversionAnalysis } from './components/ConversionAnalysis';
 import { TopContentRanking } from './components/TopContentRanking';
 import { CollectorPanel } from './components/CollectorPanel';
@@ -74,7 +73,6 @@ export function Dashboard() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
               <DailyTrendChart summaries={summaries} startDate={startDate} endDate={endDate} />
-              <TypeComparisonChart records={records} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
                 <ConversionAnalysis records={records} />
                 <TopContentRanking records={records} />
