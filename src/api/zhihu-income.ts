@@ -1,4 +1,4 @@
-import { ZHIHU_INCOME_API, DEFAULT_PAGE_SIZE, MIN_REQUEST_INTERVAL } from '@/shared/constants';
+import { ZHIHU_INCOME_API, DEFAULT_PAGE_SIZE, REQUEST_INTERVAL_MIN, REQUEST_INTERVAL_MAX } from '@/shared/constants';
 import type { IncomeRecord } from '@/shared/types';
 import { proxyFetch } from './fetch-proxy';
 
@@ -54,7 +54,8 @@ export function parseIncomeResponse(apiData: IncomeApiResponse, recordDate: stri
   }));
 }
 
-function sleep(ms: number): Promise<void> {
+function randomDelay(): Promise<void> {
+  const ms = REQUEST_INTERVAL_MIN + Math.random() * (REQUEST_INTERVAL_MAX - REQUEST_INTERVAL_MIN);
   return new Promise((r) => setTimeout(r, ms));
 }
 
@@ -71,7 +72,7 @@ export async function fetchDayIncome(date: string): Promise<IncomeRecord[]> {
     allRecords.push(...records);
     if (records.length === 0) break;
     page++;
-    await sleep(MIN_REQUEST_INTERVAL);
+    await randomDelay();
   }
 
   return allRecords;
@@ -87,6 +88,7 @@ export async function fetchDateRangeIncome(
   const allRecords: IncomeRecord[] = [];
 
   for (let i = 0; i < days.length; i++) {
+    if (i > 0) await randomDelay();
     const dayRecords = await fetchDayIncome(days[i]);
     allRecords.push(...dayRecords);
     onProgress?.(days[i], i + 1, days.length);
