@@ -141,6 +141,129 @@ function olsFit(xs: number[][], y: number[]): number[] | null {
 }
 
 /**
+ * Spearman rank correlation coefficient.
+ * Measures monotonic (not necessarily linear) relationship.
+ * Computed as Pearson correlation of ranked values.
+ */
+export function spearmanCorrelation(x: number[], y: number[]): number {
+  if (x.length < 2) return 0;
+  return pearsonCorrelation(rankArray(x), rankArray(y));
+}
+
+function rankArray(arr: number[]): number[] {
+  const indexed = arr.map((v, i) => ({ v, i }));
+  indexed.sort((a, b) => a.v - b.v);
+  const ranks = new Array(arr.length);
+  let i = 0;
+  while (i < indexed.length) {
+    let j = i;
+    while (j < indexed.length && indexed[j].v === indexed[i].v) j++;
+    const avgRank = (i + j + 1) / 2; // average rank for ties
+    for (let k = i; k < j; k++) ranks[indexed[k].i] = avgRank;
+    i = j;
+  }
+  return ranks;
+}
+
+/**
+ * Log-log elasticity regression.
+ * Fits: ln(y) = a + b*ln(x) for each feature independently.
+ * b = "x increases 1% → y increases b%"
+ * Skips zero values (log undefined).
+ */
+export function elasticityAnalysis(
+  xs: number[][],
+  y: number[]
+): { elasticities: number[]; r2s: number[] } {
+  const elasticities: number[] = [];
+  const r2s: number[] = [];
+
+  for (const x of xs) {
+    // Filter out pairs where either x or y is <= 0
+    const validIndices: number[] = [];
+    for (let i = 0; i < x.length; i++) {
+      if (x[i] > 0 && y[i] > 0) validIndices.push(i);
+    }
+
+    if (validIndices.length < 3) {
+      elasticities.push(0);
+      r2s.push(0);
+      continue;
+    }
+
+    const logX = validIndices.map(i => Math.log(x[i]));
+    const logY = validIndices.map(i => Math.log(y[i]));
+
+    // Simple OLS on log-log
+    const result = olsFit([logX], logY);
+    if (!result) {
+      elasticities.push(0);
+      r2s.push(0);
+      continue;
+    }
+
+    elasticities.push(result[1]);
+
+    // R² for log-log fit
+    let mean = 0;
+    for (const v of logY) mean += v;
+    mean /= logY.length;
+    let ssTot = 0, ssRes = 0;
+    for (let i = 0; i < logY.length; i++) {
+      const predicted = result[0] + result[1] * logX[i];
+      ssRes += (logY[i] - predicted) ** 2;
+      ssTot += (logY[i] - mean) ** 2;
+    }
+    r2s.push(ssTot === 0 ? 0 : Math.max(0, 1 - ssRes / ssTot));
+  }
+
+  return { elasticities, r2s };
+}
+
+/**
+ * Contribution percentage from NNLS coefficients.
+ * Multiplies each coefficient by the mean of its feature, then normalizes to 100%.
+ */
+export function contributionPercentages(
+  coefficients: number[],
+  xs: number[][]
+): number[] {
+  // coefficients[0] is intercept, coefficients[1..] are feature weights
+  const contributions = xs.map((x, i) => {
+    const mean = x.reduce((a, b) => a + b, 0) / x.length;
+    return Math.max(0, coefficients[i + 1] * mean);
+  });
+
+  const total = contributions.reduce((a, b) => a + b, 0);
+  if (total === 0) return contributions.map(() => 0);
+  return contributions.map(c => (c / total) * 100);
+}
+
+/**
+ * Time-lagged correlation.
+ * Shifts metric forward by `lag` days and computes Pearson correlation with income.
+ * e.g. lag=1: does today's metric correlate with tomorrow's income?
+ */
+export function laggedCorrelation(
+  metric: number[],
+  income: number[],
+  maxLag: number = 3
+): { lag: number; r: number }[] {
+  const results: { lag: number; r: number }[] = [];
+  for (let lag = 0; lag <= maxLag; lag++) {
+    if (metric.length - lag < 3) {
+      results.push({ lag, r: 0 });
+      continue;
+    }
+    // metric[0..n-lag-1] vs income[lag..n-1]
+    const m = metric.slice(0, metric.length - lag);
+    const y = income.slice(lag);
+    results.push({ lag, r: pearsonCorrelation(m, y) });
+  }
+  return results;
+}
+
+/**
  * Solve Ax = b using Gaussian elimination with partial pivoting.
  * Returns null if the system is singular.
  */

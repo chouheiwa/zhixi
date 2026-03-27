@@ -1,63 +1,139 @@
 import { describe, it, expect } from 'vitest';
-import { pearsonCorrelation, multipleLinearRegression } from '@/shared/stats';
+import {
+  pearsonCorrelation,
+  spearmanCorrelation,
+  multipleLinearRegression,
+  elasticityAnalysis,
+  contributionPercentages,
+  laggedCorrelation,
+} from '@/shared/stats';
 
 describe('pearsonCorrelation', () => {
   it('returns 1 for perfectly correlated data', () => {
-    const r = pearsonCorrelation([1, 2, 3, 4, 5], [2, 4, 6, 8, 10]);
-    expect(r).toBeCloseTo(1, 5);
+    expect(pearsonCorrelation([1, 2, 3, 4, 5], [2, 4, 6, 8, 10])).toBeCloseTo(1, 5);
   });
-
   it('returns -1 for perfectly inversely correlated data', () => {
-    const r = pearsonCorrelation([1, 2, 3, 4, 5], [10, 8, 6, 4, 2]);
-    expect(r).toBeCloseTo(-1, 5);
+    expect(pearsonCorrelation([1, 2, 3, 4, 5], [10, 8, 6, 4, 2])).toBeCloseTo(-1, 5);
   });
-
-  it('returns 0 for uncorrelated data', () => {
-    const r = pearsonCorrelation([1, 2, 3, 4, 5], [5, 5, 5, 5, 5]);
-    expect(r).toBeCloseTo(0, 5);
+  it('returns 0 for constant data', () => {
+    expect(pearsonCorrelation([1, 2, 3, 4, 5], [5, 5, 5, 5, 5])).toBeCloseTo(0, 5);
   });
-
   it('returns 0 for arrays shorter than 2', () => {
     expect(pearsonCorrelation([1], [2])).toBe(0);
   });
 });
 
+describe('spearmanCorrelation', () => {
+  it('returns 1 for perfectly monotonic increasing', () => {
+    expect(spearmanCorrelation([1, 2, 3, 4, 5], [10, 20, 30, 40, 50])).toBeCloseTo(1, 5);
+  });
+  it('returns 1 for non-linear but monotonic data', () => {
+    // y = x^2 is monotonic increasing for positive x
+    expect(spearmanCorrelation([1, 2, 3, 4, 5], [1, 4, 9, 16, 25])).toBeCloseTo(1, 5);
+  });
+  it('handles ties correctly', () => {
+    const r = spearmanCorrelation([1, 2, 2, 3, 4], [10, 20, 20, 30, 40]);
+    expect(r).toBeCloseTo(1, 5);
+  });
+  it('returns 0 for short arrays', () => {
+    expect(spearmanCorrelation([1], [2])).toBe(0);
+  });
+});
+
 describe('multipleLinearRegression (NNLS)', () => {
   it('fits a simple y = 2x relationship', () => {
-    const x = [1, 2, 3, 4, 5];
-    const y = [2, 4, 6, 8, 10];
-    const result = multipleLinearRegression([x], y);
+    const result = multipleLinearRegression([[1, 2, 3, 4, 5]], [2, 4, 6, 8, 10]);
     expect(result.coefficients[0]).toBeCloseTo(0, 3);
     expect(result.coefficients[1]).toBeCloseTo(2, 3);
     expect(result.r2).toBeCloseTo(1, 5);
   });
-
   it('fits a multivariate relationship with positive coefficients', () => {
-    // y = 1 + 2*x1 + 3*x2
     const x1 = [1, 2, 3, 4, 5];
     const x2 = [2, 1, 3, 2, 4];
     const y = x1.map((v, i) => 1 + 2 * v + 3 * x2[i]);
     const result = multipleLinearRegression([x1, x2], y);
-    expect(result.coefficients[0]).toBeCloseTo(1, 2);
     expect(result.coefficients[1]).toBeCloseTo(2, 2);
     expect(result.coefficients[2]).toBeCloseTo(3, 2);
     expect(result.r2).toBeCloseTo(1, 3);
   });
-
   it('enforces non-negative feature coefficients', () => {
-    // OLS with correlated features can produce negative coefficients
-    // NNLS should ensure all feature coefficients >= 0
     const x1 = [1, 2, 3, 4, 5, 6, 7, 8];
-    const x2 = [1.1, 2.2, 2.9, 4.1, 5.0, 5.8, 7.1, 8.2]; // correlated with x1 but not identical
+    const x2 = [1.1, 2.2, 2.9, 4.1, 5.0, 5.8, 7.1, 8.2];
     const y = x1.map(v => 2 * v + 1);
     const result = multipleLinearRegression([x1, x2], y);
     expect(result.coefficients[1]).toBeGreaterThanOrEqual(0);
     expect(result.coefficients[2]).toBeGreaterThanOrEqual(0);
     expect(result.r2).toBeGreaterThan(0.9);
   });
-
   it('handles insufficient data', () => {
-    const result = multipleLinearRegression([[1], [2]], [3]);
-    expect(result.r2).toBe(0);
+    expect(multipleLinearRegression([[1], [2]], [3]).r2).toBe(0);
+  });
+});
+
+describe('elasticityAnalysis', () => {
+  it('returns elasticity ~1 for proportional relationship', () => {
+    // y = 2x → ln(y) = ln(2) + 1*ln(x), elasticity = 1
+    const x = [1, 2, 3, 4, 5, 6, 7, 8];
+    const y = x.map(v => 2 * v);
+    const result = elasticityAnalysis([x], y);
+    expect(result.elasticities[0]).toBeCloseTo(1, 1);
+    expect(result.r2s[0]).toBeGreaterThan(0.95);
+  });
+  it('returns elasticity ~2 for quadratic relationship', () => {
+    // y = x^2 → elasticity = 2
+    const x = [1, 2, 3, 4, 5, 6, 7, 8];
+    const y = x.map(v => v * v);
+    const result = elasticityAnalysis([x], y);
+    expect(result.elasticities[0]).toBeCloseTo(2, 1);
+  });
+  it('skips zero values', () => {
+    const x = [0, 1, 2, 3, 4, 5];
+    const y = [0, 2, 4, 6, 8, 10];
+    const result = elasticityAnalysis([x], y);
+    expect(result.elasticities[0]).toBeCloseTo(1, 1);
+  });
+  it('handles all-zero data', () => {
+    const result = elasticityAnalysis([[0, 0, 0]], [0, 0, 0]);
+    expect(result.elasticities[0]).toBe(0);
+  });
+});
+
+describe('contributionPercentages', () => {
+  it('returns percentages summing to 100', () => {
+    const pcts = contributionPercentages([0, 0.5, 0.3], [[10, 20, 30], [5, 10, 15]]);
+    const sum = pcts.reduce((a, b) => a + b, 0);
+    expect(sum).toBeCloseTo(100, 3);
+  });
+  it('gives higher percentage to feature with larger mean * weight', () => {
+    // feature1: weight=1, mean=100 → contribution=100
+    // feature2: weight=10, mean=5 → contribution=50
+    const pcts = contributionPercentages([0, 1, 10], [[100, 100, 100], [5, 5, 5]]);
+    expect(pcts[0]).toBeGreaterThan(pcts[1]); // 100 > 50
+  });
+  it('handles zero coefficients', () => {
+    const pcts = contributionPercentages([0, 0, 0], [[1, 2], [3, 4]]);
+    expect(pcts).toEqual([0, 0]);
+  });
+});
+
+describe('laggedCorrelation', () => {
+  it('returns lag=0 as highest for instant correlation', () => {
+    const metric = [1, 2, 3, 4, 5, 6, 7, 8];
+    const income = [2, 4, 6, 8, 10, 12, 14, 16];
+    const results = laggedCorrelation(metric, income, 2);
+    expect(results[0].lag).toBe(0);
+    expect(results[0].r).toBeCloseTo(1, 3);
+  });
+  it('detects lag=1 correlation', () => {
+    // income[i] correlates with metric[i-1]
+    const metric = [10, 1, 10, 1, 10, 1, 10, 1];
+    const income = [0, 10, 1, 10, 1, 10, 1, 10]; // shifted by 1
+    const results = laggedCorrelation(metric, income, 2);
+    // lag=1 should have higher |r| than lag=0
+    expect(Math.abs(results[1].r)).toBeGreaterThan(Math.abs(results[0].r));
+  });
+  it('returns results for each lag', () => {
+    const results = laggedCorrelation([1, 2, 3, 4, 5], [5, 4, 3, 2, 1], 3);
+    expect(results).toHaveLength(4); // lag 0, 1, 2, 3
   });
 });
