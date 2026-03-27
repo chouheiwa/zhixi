@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
-import { fetchDateRangeIncome } from '@/api/zhihu-income';
-import { upsertIncomeRecords } from '@/db/income-store';
-import type { CollectionStatus } from '@/shared/types';
+import { fetchDateRangeIncome, fetchCurrentUser } from '@/api/zhihu-income';
+import { upsertIncomeRecords, hasRecordsForDate } from '@/db/income-store';
+import type { CollectionStatus, ZhihuUser } from '@/shared/types';
 
 export function useCollector() {
   const [status, setStatus] = useState<CollectionStatus>({
@@ -14,17 +14,29 @@ export function useCollector() {
     setStatus({ isCollecting: true, progress: 0, total: 0 });
 
     try {
+      // Get current user first
+      const user: ZhihuUser = await fetchCurrentUser();
+
       const records = await fetchDateRangeIncome(
         startDate,
         endDate,
-        (currentDate, current, total) => {
-          setStatus({ isCollecting: true, progress: current, total, currentDate });
+        user.id,
+        {
+          shouldSkipDate: (date) => hasRecordsForDate(user.id, date),
+          onProgress: (currentDate, current, total, skipped) => {
+            setStatus({
+              isCollecting: true,
+              progress: current,
+              total,
+              currentDate: skipped ? `${currentDate} (已跳过)` : currentDate,
+            });
+          },
         }
       );
 
       await upsertIncomeRecords(records);
       setStatus({ isCollecting: false, progress: 0, total: 0 });
-      return records.length;
+      return { count: records.length, user };
     } catch (err) {
       const message = err instanceof Error ? err.message : '采集失败';
       setStatus({ isCollecting: false, progress: 0, total: 0, error: message });

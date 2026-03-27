@@ -29,7 +29,7 @@ describe('parseIncomeResponse', () => {
         content_type: 'answer',
       }],
     };
-    const records = parseIncomeResponse(apiData, '2026-03-27');
+    const records = parseIncomeResponse(apiData, '2026-03-27', 'user123');
     expect(records).toHaveLength(1);
     expect(records[0]).toMatchObject({
       contentId: '774741995',
@@ -45,7 +45,7 @@ describe('parseIncomeResponse', () => {
   });
 
   it('returns empty array for empty response', () => {
-    const records = parseIncomeResponse({ total: 0, data: [] }, '2026-03-27');
+    const records = parseIncomeResponse({ total: 0, data: [] }, '2026-03-27', 'user123');
     expect(records).toEqual([]);
   });
 });

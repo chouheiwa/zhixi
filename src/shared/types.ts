@@ -1,5 +1,15 @@
+/** Current Zhihu user info */
+export interface ZhihuUser {
+  id: string;
+  urlToken: string;
+  name: string;
+  avatarUrl: string;
+}
+
 /** A single content item's income data for a specific date range */
 export interface IncomeRecord {
+  /** User ID who owns this record */
+  userId: string;
   contentId: string;
   contentToken: string;
   title: string;

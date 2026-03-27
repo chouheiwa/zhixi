@@ -6,6 +6,7 @@ import { exportToJSON, importFromJSON } from '@/db/export-import';
 import type { IncomeRecord } from '@/shared/types';
 
 const makeRecord = (id: string, date: string): IncomeRecord => ({
+  userId: 'testuser',
   contentId: id,
   contentToken: `token${id}`,
   title: `Title ${id}`,

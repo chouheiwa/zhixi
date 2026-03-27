@@ -6,10 +6,14 @@ import {
   getRecordsByDateRange,
   getDailySummaries,
   getAllContentIds,
+  hasRecordsForDate,
 } from '@/db/income-store';
 import type { IncomeRecord } from '@/shared/types';
 
+const USER_ID = 'testuser123';
+
 const makeRecord = (overrides: Partial<IncomeRecord> = {}): IncomeRecord => ({
+  userId: USER_ID,
   contentId: '100',
   contentToken: 'token100',
   title: 'Test Article',
@@ -36,7 +40,7 @@ describe('upsertIncomeRecords', () => {
     const count = await db.incomeRecords.count();
     expect(count).toBe(1);
   });
-  it('updates existing record with same contentId+recordDate', async () => {
+  it('updates existing record with same userId+contentId+recordDate', async () => {
     await upsertIncomeRecords([makeRecord({ currentRead: 100 })]);
     await upsertIncomeRecords([makeRecord({ currentRead: 200 })]);
     const count = await db.incomeRecords.count();
@@ -47,25 +51,26 @@ describe('upsertIncomeRecords', () => {
 });
 
 describe('getRecordsByDateRange', () => {
-  it('returns records within the specified date range', async () => {
+  it('returns records within the specified date range for user', async () => {
     await upsertIncomeRecords([
       makeRecord({ contentId: '1', recordDate: '2026-03-25' }),
       makeRecord({ contentId: '2', recordDate: '2026-03-26' }),
       makeRecord({ contentId: '3', recordDate: '2026-03-28' }),
+      makeRecord({ contentId: '4', recordDate: '2026-03-25', userId: 'other_user' }),
     ]);
-    const records = await getRecordsByDateRange('2026-03-25', '2026-03-26');
+    const records = await getRecordsByDateRange(USER_ID, '2026-03-25', '2026-03-26');
     expect(records).toHaveLength(2);
   });
 });
 
 describe('getDailySummaries', () => {
-  it('aggregates records by date', async () => {
+  it('aggregates records by date for user', async () => {
     await upsertIncomeRecords([
       makeRecord({ contentId: '1', recordDate: '2026-03-27', currentIncome: 50, currentRead: 100, currentInteraction: 10 }),
       makeRecord({ contentId: '2', recordDate: '2026-03-27', currentIncome: 30, currentRead: 200, currentInteraction: 5 }),
       makeRecord({ contentId: '3', recordDate: '2026-03-26', currentIncome: 20, currentRead: 50, currentInteraction: 3 }),
     ]);
-    const summaries = await getDailySummaries('2026-03-26', '2026-03-27');
+    const summaries = await getDailySummaries(USER_ID, '2026-03-26', '2026-03-27');
     expect(summaries).toHaveLength(2);
     const mar27 = summaries.find((s) => s.date === '2026-03-27')!;
     expect(mar27.totalIncome).toBe(80);
@@ -73,6 +78,20 @@ describe('getDailySummaries', () => {
     expect(mar27.contentCount).toBe(2);
     const mar26 = summaries.find((s) => s.date === '2026-03-26')!;
     expect(mar26.totalIncome).toBe(20);
+  });
+});
+
+describe('hasRecordsForDate', () => {
+  it('returns true when records exist', async () => {
+    await upsertIncomeRecords([makeRecord({ recordDate: '2026-03-27' })]);
+    expect(await hasRecordsForDate(USER_ID, '2026-03-27')).toBe(true);
+  });
+  it('returns false when no records exist', async () => {
+    expect(await hasRecordsForDate(USER_ID, '2026-03-27')).toBe(false);
+  });
+  it('returns false for different user', async () => {
+    await upsertIncomeRecords([makeRecord({ recordDate: '2026-03-27' })]);
+    expect(await hasRecordsForDate('other_user', '2026-03-27')).toBe(false);
   });
 });
 

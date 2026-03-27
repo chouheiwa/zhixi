@@ -5,12 +5,23 @@ export async function upsertIncomeRecords(records: IncomeRecord[]): Promise<void
   await db.incomeRecords.bulkPut(records);
 }
 
-export async function getRecordsByDateRange(startDate: string, endDate: string): Promise<IncomeRecord[]> {
-  return db.incomeRecords.where('recordDate').between(startDate, endDate, true, true).toArray();
+export async function getRecordsByDateRange(
+  userId: string,
+  startDate: string,
+  endDate: string
+): Promise<IncomeRecord[]> {
+  return db.incomeRecords
+    .where('[userId+recordDate]')
+    .between([userId, startDate], [userId, endDate], true, true)
+    .toArray();
 }
 
-export async function getDailySummaries(startDate: string, endDate: string): Promise<DailySummary[]> {
-  const records = await getRecordsByDateRange(startDate, endDate);
+export async function getDailySummaries(
+  userId: string,
+  startDate: string,
+  endDate: string
+): Promise<DailySummary[]> {
+  const records = await getRecordsByDateRange(userId, startDate, endDate);
   const byDate = new Map<string, { income: number; read: number; interaction: number; count: number }>();
   for (const r of records) {
     const existing = byDate.get(r.recordDate) ?? { income: 0, read: 0, interaction: 0, count: 0 };
@@ -29,6 +40,15 @@ export async function getDailySummaries(startDate: string, endDate: string): Pro
       contentCount: agg.count,
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** Check if records exist for a specific user+date */
+export async function hasRecordsForDate(userId: string, date: string): Promise<boolean> {
+  const count = await db.incomeRecords
+    .where('[userId+recordDate]')
+    .equals([userId, date])
+    .count();
+  return count > 0;
 }
 
 export async function getAllContentIds(): Promise<string[]> {
