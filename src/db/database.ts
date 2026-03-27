@@ -6,19 +6,8 @@ class ZhihuAnalysisDB extends Dexie {
   userSettings!: Table<UserSettings>;
 
   constructor() {
-    super('zhihu-income-analysis');
+    super('zhihu-income-analysis-v2');
     this.version(1).stores({
-      incomeRecords: '[contentId+recordDate], recordDate, contentType, contentId',
-    });
-    this.version(2).stores({
-      incomeRecords: '[userId+contentId+recordDate], recordDate, contentType, contentId, userId, [userId+recordDate]',
-    }).upgrade(tx => {
-      return tx.table('incomeRecords').toCollection().modify(record => {
-        if (!record.userId) record.userId = '';
-      });
-    });
-    // v3: add userSettings table
-    this.version(3).stores({
       incomeRecords: '[userId+contentId+recordDate], recordDate, contentType, contentId, userId, [userId+recordDate]',
       userSettings: 'userId',
     });
@@ -26,3 +15,6 @@ class ZhihuAnalysisDB extends Dexie {
 }
 
 export const db = new ZhihuAnalysisDB();
+
+// Clean up old database from previous versions
+Dexie.delete('zhihu-income-analysis').catch(() => {});
