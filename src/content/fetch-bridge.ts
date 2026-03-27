@@ -4,35 +4,11 @@
  * 2. Relays fetch requests between the extension and page JS context
  */
 
-// Inject page-level fetch helper
+// Inject page-level fetch helper via external script (CSP-compliant)
 const script = document.createElement('script');
-script.textContent = `
-(function() {
-  'use strict';
-  window.addEventListener('__zhihu_analyzer_fetch_request', async function(e) {
-    var detail = e.detail;
-    try {
-      var response = await fetch(detail.url, { credentials: 'include' });
-      var data = null;
-      var error = null;
-      if (response.ok) {
-        data = await response.json();
-      } else {
-        error = 'HTTP ' + response.status;
-      }
-      window.dispatchEvent(new CustomEvent('__zhihu_analyzer_fetch_response', {
-        detail: { id: detail.id, data: data, error: error }
-      }));
-    } catch(err) {
-      window.dispatchEvent(new CustomEvent('__zhihu_analyzer_fetch_response', {
-        detail: { id: detail.id, data: null, error: err.message }
-      }));
-    }
-  });
-})();
-`;
+script.src = chrome.runtime.getURL('src/content/page-fetch-helper.js');
 document.documentElement.appendChild(script);
-script.remove();
+script.onload = () => script.remove();
 
 // Listen for fetch requests from background/popup via chrome.runtime
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

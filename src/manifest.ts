@@ -26,4 +26,10 @@ export default defineManifest({
     "48": "icons/icon48.png",
     "128": "icons/icon128.png",
   },
+  web_accessible_resources: [
+    {
+      resources: ["src/content/page-fetch-helper.js"],
+      matches: ["https://www.zhihu.com/*"],
+    },
+  ],
 });
