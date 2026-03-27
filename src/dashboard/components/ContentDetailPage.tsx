@@ -88,7 +88,7 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
       });
       if (response.ok) {
         setFetchMsg(`拉取完成，共 ${response.count} 条数据`);
-        loadDailyData();
+        loadData();
       } else {
         setFetchMsg(`拉取失败: ${response.error}`);
       }
