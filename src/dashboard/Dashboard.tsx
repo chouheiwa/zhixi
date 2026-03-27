@@ -3,6 +3,8 @@ import { formatDate, getDateRange } from '@/shared/date-utils';
 import { useIncomeData } from '@/hooks/use-income-data';
 import { DateRangePicker } from './components/DateRangePicker';
 import { DailyTrendChart } from './components/DailyTrendChart';
+import { ContentTable } from './components/ContentTable';
+import { TypeComparisonChart } from './components/TypeComparisonChart';
 
 export function Dashboard() {
   const { start: defaultStart, end: defaultEnd } = getDateRange(30);
@@ -39,6 +41,8 @@ export function Dashboard() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           <DailyTrendChart summaries={summaries} startDate={startDate} endDate={endDate} />
+          <TypeComparisonChart records={records} />
+          <ContentTable records={records} />
         </div>
       )}
     </div>
