@@ -2,15 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import type { IncomeRecord } from '@/shared/types';
 import { useCollector } from '@/hooks/use-collector';
 
-interface Props {
-  records: IncomeRecord[];
-  onDetailFetched?: () => void;
-}
-
-type SortField = 'currentIncome' | 'currentRead' | 'currentInteraction' | 'publishDate' | 'title';
-type SortDir = 'asc' | 'desc';
-
-interface AggregatedItem {
+export interface ContentTableItem {
   contentId: string;
   contentToken: string;
   title: string;
@@ -21,15 +13,24 @@ interface AggregatedItem {
   currentInteraction: number;
 }
 
-export function ContentTable({ records, onDetailFetched }: Props) {
+interface Props {
+  records: IncomeRecord[];
+  onContentClick: (item: ContentTableItem) => void;
+}
+
+type SortField = 'currentIncome' | 'currentRead' | 'currentInteraction' | 'publishDate' | 'title';
+type SortDir = 'asc' | 'desc';
+
+export function ContentTable({ records, onContentClick }: Props) {
   const [sortField, setSortField] = useState<SortField>('currentIncome');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [fetchMsg, setFetchMsg] = useState('');
   const { status } = useCollector();
 
   const aggregated = useMemo(() => {
-    const map = new Map<string, AggregatedItem>();
+    const map = new Map<string, ContentTableItem>();
     for (const r of records) {
       const existing = map.get(r.contentId);
       if (existing) {
@@ -71,76 +72,67 @@ export function ContentTable({ records, onDetailFetched }: Props) {
   const toggleSelect = (contentId: string) => {
     setSelected(prev => {
       const next = new Set(prev);
-      if (next.has(contentId)) next.delete(contentId);
-      else next.add(contentId);
+      if (next.has(contentId)) next.delete(contentId); else next.add(contentId);
       return next;
     });
   };
 
   const toggleAll = () => {
-    if (selected.size === sorted.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(sorted.map(i => i.contentId)));
-    }
+    if (selected.size === sorted.length) setSelected(new Set());
+    else setSelected(new Set(sorted.map(i => i.contentId)));
   };
 
-  const handleFetchDaily = useCallback(async () => {
+  const handleBatchFetch = useCallback(async () => {
     const items = aggregated.filter(i => selected.has(i.contentId)).map(i => ({
-      contentId: i.contentId,
-      contentToken: i.contentToken,
-      contentType: i.contentType,
-      title: i.title,
-      publishDate: i.publishDate,
+      contentId: i.contentId, contentToken: i.contentToken,
+      contentType: i.contentType, title: i.title, publishDate: i.publishDate,
     }));
-
     if (items.length === 0) return;
-
     setFetchMsg('');
     try {
       const response = await new Promise<{ ok: boolean; count?: number; error?: string }>((resolve, reject) => {
-        chrome.runtime.sendMessage(
-          { action: 'fetchContentDaily', items },
-          (resp) => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-              return;
-            }
-            resolve(resp);
-          }
-        );
+        chrome.runtime.sendMessage({ action: 'fetchContentDaily', items }, (resp) => {
+          if (chrome.runtime.lastError) { reject(new Error(chrome.runtime.lastError.message)); return; }
+          resolve(resp);
+        });
       });
-
       if (response.ok) {
         setFetchMsg(`拉取完成，共 ${response.count} 条每日数据`);
         setSelected(new Set());
-        onDetailFetched?.();
+        setSelectMode(false);
       } else {
         setFetchMsg(`拉取失败: ${response.error}`);
       }
     } catch (err) {
       setFetchMsg(`拉取失败: ${err instanceof Error ? err.message : '未知错误'}`);
     }
-  }, [aggregated, selected, onDetailFetched]);
+  }, [aggregated, selected]);
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <h3 style={{ fontSize: 14, margin: 0 }}>内容明细</h3>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {selected.size > 0 && (
+          {selectMode && selected.size > 0 && (
             <span style={{ fontSize: 12, color: '#666' }}>已选 {selected.size} 篇</span>
           )}
-          <button
-            onClick={handleFetchDaily}
-            disabled={selected.size === 0 || status.isCollecting}
+          {selectMode && (
+            <button onClick={handleBatchFetch}
+              disabled={selected.size === 0 || status.isCollecting}
+              style={{
+                padding: '4px 12px', fontSize: 12, border: 'none', borderRadius: 4, cursor: 'pointer',
+                background: selected.size > 0 ? '#1a73e8' : '#ccc', color: '#fff',
+                opacity: (selected.size === 0 || status.isCollecting) ? 0.6 : 1,
+              }}>
+              {status.isCollecting ? '拉取中...' : '批量拉取详情'}
+            </button>
+          )}
+          <button onClick={() => { setSelectMode(!selectMode); setSelected(new Set()); }}
             style={{
-              padding: '4px 12px', background: selected.size > 0 ? '#1a73e8' : '#ccc',
-              color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12,
-              opacity: (selected.size === 0 || status.isCollecting) ? 0.6 : 1,
-            }}
-          >
-            {status.isCollecting ? '拉取中...' : '拉取每日详情'}
+              padding: '4px 12px', fontSize: 12, border: '1px solid #ddd', borderRadius: 4,
+              background: selectMode ? '#f0f0f0' : '#fff', cursor: 'pointer',
+            }}>
+            {selectMode ? '取消选择' : '批量操作'}
           </button>
         </div>
       </div>
@@ -149,11 +141,8 @@ export function ContentTable({ records, onDetailFetched }: Props) {
         <div style={{ marginBottom: 8, fontSize: 12, color: '#1a73e8' }}>
           {status.currentDate} ({status.progress}/{status.total})
           <div style={{ marginTop: 3, height: 3, background: '#e0e0e0', borderRadius: 2 }}>
-            <div style={{
-              height: '100%', background: '#1a73e8', borderRadius: 2,
-              width: `${status.total > 0 ? (status.progress / status.total) * 100 : 0}%`,
-              transition: 'width 0.3s',
-            }} />
+            <div style={{ height: '100%', background: '#1a73e8', borderRadius: 2,
+              width: `${status.total > 0 ? (status.progress / status.total) * 100 : 0}%`, transition: 'width 0.3s' }} />
           </div>
         </div>
       )}
@@ -168,10 +157,12 @@ export function ContentTable({ records, onDetailFetched }: Props) {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ borderBottom: '2px solid #eee', textAlign: 'left' }}>
-              <th style={{ ...thStyle, width: 30 }}>
-                <input type="checkbox" checked={sorted.length > 0 && selected.size === sorted.length}
-                  onChange={toggleAll} />
-              </th>
+              {selectMode && (
+                <th style={{ ...thStyle, width: 30 }}>
+                  <input type="checkbox" checked={sorted.length > 0 && selected.size === sorted.length}
+                    onChange={toggleAll} />
+                </th>
+              )}
               <th style={thStyle} onClick={() => toggleSort('title')}>标题{sortIcon('title')}</th>
               <th style={thStyle}>类型</th>
               <th style={thStyle} onClick={() => toggleSort('publishDate')}>发布日期{sortIcon('publishDate')}</th>
@@ -183,14 +174,22 @@ export function ContentTable({ records, onDetailFetched }: Props) {
           </thead>
           <tbody>
             {sorted.map((item) => (
-              <tr key={item.contentId} style={{
-                borderBottom: '1px solid #f0f0f0',
-                background: selected.has(item.contentId) ? '#f0f7ff' : undefined,
-              }}>
-                <td style={tdStyle}>
-                  <input type="checkbox" checked={selected.has(item.contentId)}
-                    onChange={() => toggleSelect(item.contentId)} />
-                </td>
+              <tr key={item.contentId}
+                onClick={() => !selectMode && onContentClick(item)}
+                style={{
+                  borderBottom: '1px solid #f0f0f0',
+                  cursor: selectMode ? undefined : 'pointer',
+                  background: selected.has(item.contentId) ? '#f0f7ff' : undefined,
+                }}
+                onMouseEnter={(e) => { if (!selectMode) e.currentTarget.style.background = '#fafafa'; }}
+                onMouseLeave={(e) => { if (!selectMode && !selected.has(item.contentId)) e.currentTarget.style.background = ''; }}
+              >
+                {selectMode && (
+                  <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selected.has(item.contentId)}
+                      onChange={() => toggleSelect(item.contentId)} />
+                  </td>
+                )}
                 <td style={{ ...tdStyle, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</td>
                 <td style={tdStyle}>
                   <span style={{
