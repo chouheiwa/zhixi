@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { formatDate, getDateRange } from '@/shared/date-utils';
 import { useIncomeData } from '@/hooks/use-income-data';
 import { useCurrentUser } from '@/hooks/use-current-user';
@@ -28,12 +28,6 @@ export function Dashboard() {
     setEndDate(formatDate(end));
   };
 
-  // Get income records for the selected content
-  const selectedIncomeRecords = useMemo(() => {
-    if (!selectedContent) return [];
-    return records.filter(r => r.contentId === selectedContent.contentId);
-  }, [records, selectedContent]);
-
   if (userLoading) {
     return (
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: 40, textAlign: 'center', color: '#999' }}>
@@ -52,7 +46,6 @@ export function Dashboard() {
           contentType={selectedContent.contentType}
           title={selectedContent.title}
           publishDate={selectedContent.publishDate}
-          incomeRecords={selectedIncomeRecords}
           onBack={() => setSelectedContent(null)}
         />
       ) : (

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import ReactECharts from 'echarts-for-react';
 import type { ContentDailyRecord, IncomeRecord } from '@/shared/types';
 import { getContentDailyRecords } from '@/db/content-daily-store';
+import { db } from '@/db/database';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { useCollector } from '@/hooks/use-collector';
 
@@ -11,8 +12,6 @@ interface Props {
   contentType: string;
   title: string;
   publishDate: string;
-  /** Income records for this content across all dates */
-  incomeRecords: IncomeRecord[];
   onBack: () => void;
 }
 
@@ -27,23 +26,30 @@ const ALL_METRICS: { key: Metric; label: string; color: string }[] = [
   { key: 'share', label: '分享', color: '#9c27b0' },
 ];
 
-export function ContentDetailPage({ contentId, contentToken, contentType, title, publishDate, incomeRecords, onBack }: Props) {
+export function ContentDetailPage({ contentId, contentToken, contentType, title, publishDate, onBack }: Props) {
   const { user } = useCurrentUser();
   const { status } = useCollector();
   const [dailyRecords, setDailyRecords] = useState<ContentDailyRecord[]>([]);
+  const [incomeRecords, setIncomeRecords] = useState<IncomeRecord[]>([]);
   const [fetchMsg, setFetchMsg] = useState('');
 
-  const loadDailyData = () => {
+  const loadData = () => {
     if (!user) return;
+    // Load daily metrics and income records from DB independently
     getContentDailyRecords(user.id, contentToken).then(setDailyRecords);
+    db.incomeRecords
+      .where('[userId+contentId+recordDate]')
+      .between([user.id, contentId, ''], [user.id, contentId, '\uffff'])
+      .sortBy('recordDate')
+      .then(setIncomeRecords);
   };
 
-  useEffect(() => { loadDailyData(); }, [user, contentToken]);
+  useEffect(() => { loadData(); }, [user, contentToken, contentId]);
 
   // Reload when collection finishes
   const prevCollecting = React.useRef(status.isCollecting);
   useEffect(() => {
-    if (prevCollecting.current && !status.isCollecting) loadDailyData();
+    if (prevCollecting.current && !status.isCollecting) loadData();
     prevCollecting.current = status.isCollecting;
   }, [status.isCollecting]);
 
