@@ -4,6 +4,7 @@ import type { ContentDailyRecord, IncomeRecord } from '@/shared/types';
 import { getContentDailyRecords } from '@/db/content-daily-store';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { useCollector } from '@/hooks/use-collector';
+import { CorrelationAnalysis } from './CorrelationAnalysis';
 
 interface Props {
   contentId: string;
@@ -149,6 +150,11 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
           </>
         )}
       </div>
+
+      {/* Correlation Analysis */}
+      {dailyRecords.length >= 3 && (
+        <CorrelationAnalysis dailyRecords={dailyRecords} incomeRecords={incomeRecords} />
+      )}
 
       {/* Income trend */}
       {incomeTrendOption && (
