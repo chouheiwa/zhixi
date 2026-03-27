@@ -186,9 +186,17 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
 
         {dailyRecords.length > 0 ? (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            {ALL_METRICS.map(({ key, label, color }) => (
-              <MetricChart key={key} label={label} color={color} data={dailyRecords.map(r => r[key])} dates={dailyRecords.map(r => r.date.slice(5))} />
-            ))}
+            {ALL_METRICS.map(({ key, label, color }) => {
+              const dates = dailyRecords.map(r => r.date);
+              const incomeMap = new Map(incomeRecords.map(r => [r.recordDate, r.currentIncome]));
+              const incomeData = dates.map(d => (incomeMap.get(d) ?? 0) / 100);
+              return (
+                <MetricChart key={key} label={label} color={color}
+                  data={dailyRecords.map(r => r[key])}
+                  incomeData={incomeData}
+                  dates={dates.map(d => d.slice(5))} />
+              );
+            })}
           </div>
         ) : (
           <div style={{ padding: 30, textAlign: 'center', color: '#999', fontSize: 13, background: '#f9f9f9', borderRadius: 8 }}>
@@ -200,25 +208,43 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
   );
 }
 
-function MetricChart({ label, color, data, dates }: { label: string; color: string; data: number[]; dates: string[] }) {
+function MetricChart({ label, color, data, incomeData, dates }: {
+  label: string; color: string; data: number[]; incomeData: number[]; dates: string[];
+}) {
   const option = {
     tooltip: { trigger: 'axis' as const },
-    grid: { left: 45, right: 15, top: 25, bottom: 25 },
+    legend: { data: [label, '收益'], textStyle: { fontSize: 11 }, right: 0, top: 0 },
+    grid: { left: 45, right: 50, top: 30, bottom: 25 },
     title: { text: label, textStyle: { fontSize: 13, fontWeight: 600 }, left: 0 },
     xAxis: { type: 'category' as const, data: dates, axisLabel: { fontSize: 10 }, axisTick: { show: false } },
-    yAxis: { type: 'value' as const, axisLabel: { fontSize: 10 }, splitNumber: 3 },
-    series: [{
-      type: 'line',
-      data,
-      smooth: true,
-      itemStyle: { color },
-      lineStyle: { width: 2 },
-      areaStyle: { color: `${color}18` },
-    }],
+    yAxis: [
+      { type: 'value' as const, axisLabel: { fontSize: 10 }, splitNumber: 3, position: 'left' as const },
+      { type: 'value' as const, axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v}` }, splitNumber: 3, position: 'right' as const },
+    ],
+    series: [
+      {
+        name: label,
+        type: 'line',
+        data,
+        smooth: true,
+        yAxisIndex: 0,
+        itemStyle: { color },
+        lineStyle: { width: 2 },
+        areaStyle: { color: `${color}18` },
+      },
+      {
+        name: '收益',
+        type: 'bar',
+        data: incomeData,
+        yAxisIndex: 1,
+        itemStyle: { color: 'rgba(26, 115, 232, 0.25)', borderRadius: [2, 2, 0, 0] },
+        barMaxWidth: 8,
+      },
+    ],
   };
   return (
     <div style={{ background: '#fafafa', borderRadius: 8, padding: '8px 8px 0' }}>
-      <ReactECharts option={option} style={{ height: 200 }} />
+      <ReactECharts option={option} style={{ height: 220 }} />
     </div>
   );
 }
