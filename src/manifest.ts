@@ -5,19 +5,12 @@ export default defineManifest({
   name: "知乎致知计划收益分析",
   description: "知乎致知计划每日收益数据采集与多维度分析",
   version: "1.0.0",
-  permissions: ["activeTab", "storage", "tabs"],
+  permissions: ["storage", "tabs"],
   host_permissions: ["https://www.zhihu.com/*"],
   background: {
     service_worker: "src/background/service-worker.ts",
     type: "module",
   },
-  content_scripts: [
-    {
-      matches: ["https://www.zhihu.com/*"],
-      js: ["src/content/fetch-bridge.ts"],
-      run_at: "document_idle",
-    },
-  ],
   action: {
     default_popup: "src/popup/index.html",
   },
@@ -26,10 +19,4 @@ export default defineManifest({
     "48": "icons/icon48.png",
     "128": "icons/icon128.png",
   },
-  web_accessible_resources: [
-    {
-      resources: ["src/content/page-fetch-helper.js"],
-      matches: ["https://www.zhihu.com/*"],
-    },
-  ],
 });

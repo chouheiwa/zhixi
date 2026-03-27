@@ -39,18 +39,15 @@ async function runSync(startDate?: string): Promise<{ count: number; synced: num
   try {
     const user = await fetchCurrentUser();
 
-    // Save start date if provided (first time setup)
     if (startDate) {
       await saveUserSettings({ userId: user.id, collectStartDate: startDate });
     }
 
-    // Get user's configured start date
     const settings = await getUserSettings(user.id);
     if (!settings?.collectStartDate) {
       throw new Error('请先设置采集起始日期');
     }
 
-    // Find missing dates
     const missingDates = await getMissingDates(user.id, settings.collectStartDate);
 
     if (missingDates.length === 0) {
@@ -97,7 +94,7 @@ async function runSync(startDate?: string): Promise<{ count: number; synced: num
 
 // ============ Message Handling ============
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.action === 'openDashboard') {
     chrome.tabs.create({
       url: chrome.runtime.getURL('src/dashboard/index.html'),
@@ -116,55 +113,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse(collectionStatus);
     return;
   }
-
-  // Forward fetchProxy from popup/dashboard to content script
-  if (message.action === 'fetchProxy' && !sender.tab) {
-    forwardToContentScript(message.url)
-      .then((data) => sendResponse({ data }))
-      .catch((err) => sendResponse({ error: err.message }));
-    return true;
-  }
 });
-
-// ============ Fetch Proxy ============
-
-async function forwardToContentScript(url: string): Promise<unknown> {
-  let tabs = await chrome.tabs.query({ url: 'https://www.zhihu.com/*' });
-
-  if (tabs.length === 0) {
-    const newTab = await chrome.tabs.create({ url: 'https://www.zhihu.com/', active: false });
-    await waitForTabReady(newTab.id!);
-    tabs = await chrome.tabs.query({ url: 'https://www.zhihu.com/*' });
-  }
-
-  for (const tab of tabs) {
-    if (!tab.id) continue;
-    try {
-      const response = await chrome.tabs.sendMessage(tab.id, {
-        action: 'fetchProxy',
-        url,
-      });
-      if (response.error) throw new Error(response.error);
-      return response.data;
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error('无法连接到知乎页面，请刷新后重试');
-}
-
-function waitForTabReady(tabId: number): Promise<void> {
-  return new Promise((resolve) => {
-    const listener = (id: number, changeInfo: chrome.tabs.TabChangeInfo) => {
-      if (id === tabId && changeInfo.status === 'complete') {
-        chrome.tabs.onUpdated.removeListener(listener);
-        setTimeout(resolve, 1500);
-      }
-    };
-    chrome.tabs.onUpdated.addListener(listener);
-  });
-}
 
 // ============ Auto-sync on Zhihu visit ============
 
