@@ -11,6 +11,7 @@ import { TopContentRanking } from './components/TopContentRanking';
 import { CollectorPanel } from './components/CollectorPanel';
 import { ExportImportPanel } from './components/ExportImportPanel';
 import { ContentDetailPage } from './components/ContentDetailPage';
+import { GlobalCorrelationAnalysis } from './components/CorrelationAnalysis';
 
 export function Dashboard() {
   const { start: defaultStart, end: defaultEnd } = getDateRange(30);
@@ -85,6 +86,7 @@ export function Dashboard() {
                 <ConversionAnalysis records={records} />
                 <TopContentRanking records={records} />
               </div>
+              <GlobalCorrelationAnalysis records={records} />
               <ContentTable records={records} onContentClick={setSelectedContent} />
             </div>
           )}

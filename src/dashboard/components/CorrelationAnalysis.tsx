@@ -1,17 +1,17 @@
-import React, { useMemo } from 'react';
-import type { ContentDailyRecord, IncomeRecord } from '@/shared/types';
+import React, { useMemo, useState, useEffect } from 'react';
+import type { IncomeRecord, ContentDailyRecord } from '@/shared/types';
+import { db } from '@/db/database';
+import { useCurrentUser } from '@/hooks/use-current-user';
 import {
   pearsonCorrelation,
   spearmanCorrelation,
   multipleLinearRegression,
   elasticityAnalysis,
   contributionPercentages,
-  laggedCorrelation,
 } from '@/shared/stats';
 
 interface Props {
-  dailyRecords: ContentDailyRecord[];
-  incomeRecords: IncomeRecord[];
+  records: IncomeRecord[];
 }
 
 type Metric = 'pv' | 'show' | 'upvote' | 'comment' | 'collect' | 'share';
@@ -25,39 +25,103 @@ const METRIC_INFO: { key: Metric; label: string; color: string }[] = [
   { key: 'share', label: '分享', color: '#9c27b0' },
 ];
 
-export function CorrelationAnalysis({ dailyRecords, incomeRecords }: Props) {
+interface AggregatedContent {
+  contentToken: string;
+  title: string;
+  totalIncome: number;
+  pv: number;
+  show: number;
+  upvote: number;
+  comment: number;
+  collect: number;
+  share: number;
+}
+
+export function GlobalCorrelationAnalysis({ records }: Props) {
+  const { user } = useCurrentUser();
+  const [dailyData, setDailyData] = useState<ContentDailyRecord[]>([]);
+
+  // Load all content daily records for this user
+  useEffect(() => {
+    if (!user) return;
+    db.contentDaily.where('userId').equals(user.id).toArray().then(setDailyData);
+  }, [user]);
+
+  // Aggregate per content: sum daily metrics + sum income
+  const aggregated = useMemo(() => {
+    if (dailyData.length === 0) return [];
+
+    // Sum daily metrics per contentToken
+    const dailyMap = new Map<string, { pv: number; show: number; upvote: number; comment: number; collect: number; share: number; title: string }>();
+    for (const r of dailyData) {
+      const existing = dailyMap.get(r.contentToken);
+      if (existing) {
+        existing.pv += r.pv;
+        existing.show += r.show;
+        existing.upvote += r.upvote;
+        existing.comment += r.comment;
+        existing.collect += r.collect;
+        existing.share += r.share;
+      } else {
+        dailyMap.set(r.contentToken, {
+          pv: r.pv, show: r.show, upvote: r.upvote,
+          comment: r.comment, collect: r.collect, share: r.share,
+          title: r.title,
+        });
+      }
+    }
+
+    // Sum income per contentToken (from income records, map contentToken)
+    const incomeMap = new Map<string, number>();
+    for (const r of records) {
+      incomeMap.set(r.contentToken, (incomeMap.get(r.contentToken) ?? 0) + r.currentIncome);
+    }
+
+    // Merge: only content that has both daily data and income data
+    const result: AggregatedContent[] = [];
+    for (const [token, metrics] of dailyMap) {
+      const income = incomeMap.get(token);
+      if (income === undefined) continue;
+      result.push({
+        contentToken: token,
+        title: metrics.title,
+        totalIncome: income / 100,
+        ...metrics,
+      });
+    }
+
+    return result;
+  }, [dailyData, records]);
+
   const analysis = useMemo(() => {
-    if (dailyRecords.length < 3) return null;
+    if (aggregated.length < 3) return null;
 
-    const incomeMap = new Map(incomeRecords.map(r => [r.recordDate, r.currentIncome / 100]));
-    const dates = dailyRecords.map(r => r.date);
-    const incomeValues = dates.map(d => incomeMap.get(d) ?? 0);
-
+    const incomeValues = aggregated.map(a => a.totalIncome);
     if (incomeValues.every(v => v === 0)) return null;
 
-    const xs = METRIC_INFO.map(({ key }) => dailyRecords.map(r => r[key]));
+    const xs = METRIC_INFO.map(({ key }) => aggregated.map(a => a[key]));
 
-    // 1. Pearson + Spearman correlations
+    // Correlations
     const correlations = METRIC_INFO.map(({ key, label, color }, i) => ({
       key, label, color,
       pearson: pearsonCorrelation(xs[i], incomeValues),
       spearman: spearmanCorrelation(xs[i], incomeValues),
     })).sort((a, b) => Math.abs(b.pearson) - Math.abs(a.pearson));
 
-    // 2. NNLS regression
+    // NNLS regression
     const regression = multipleLinearRegression(xs, incomeValues);
     const weights = METRIC_INFO.map(({ key, label, color }, i) => ({
       key, label, color,
       weight: regression.coefficients[i + 1],
     })).sort((a, b) => b.weight - a.weight);
 
-    // 3. Contribution percentages
+    // Contribution
     const contribPcts = contributionPercentages(regression.coefficients, xs);
     const contributions = METRIC_INFO.map(({ key, label, color }, i) => ({
       key, label, color, pct: contribPcts[i],
     })).sort((a, b) => b.pct - a.pct);
 
-    // 4. Elasticity
+    // Elasticity
     const elastic = elasticityAnalysis(xs, incomeValues);
     const elasticities = METRIC_INFO.map(({ key, label, color }, i) => ({
       key, label, color,
@@ -65,31 +129,28 @@ export function CorrelationAnalysis({ dailyRecords, incomeRecords }: Props) {
       r2: elastic.r2s[i],
     })).sort((a, b) => Math.abs(b.elasticity) - Math.abs(a.elasticity));
 
-    // 5. Time-lagged correlations
-    const lagged = METRIC_INFO.map(({ key, label, color }, i) => ({
-      key, label, color,
-      lags: laggedCorrelation(xs[i], incomeValues, 3),
-    }));
-    // Find which metric has the strongest lag effect
-    const lagSummary = lagged.map(({ key, label, color, lags }) => {
-      const bestLag = lags.reduce((best, curr) =>
-        Math.abs(curr.r) > Math.abs(best.r) ? curr : best, lags[0]);
-      return { key, label, color, lags, bestLag: bestLag.lag, bestR: bestLag.r };
-    });
+    return { correlations, regression, weights, contributions, elasticities, contentCount: aggregated.length };
+  }, [aggregated]);
 
-    return { correlations, regression, weights, contributions, elasticities, lagSummary };
-  }, [dailyRecords, incomeRecords]);
-
-  if (!analysis) return null;
+  if (!analysis) {
+    return (
+      <div style={{ background: '#fafafa', borderRadius: 8, padding: 20, textAlign: 'center', color: '#999', fontSize: 13 }}>
+        跨内容分析需要至少 3 篇内容的每日详情数据，请在内容明细表中批量拉取详情
+      </div>
+    );
+  }
 
   return (
-    <div style={{ marginBottom: 24 }}>
-      <h3 style={{ fontSize: 14, margin: '0 0 16px' }}>收益相关性分析</h3>
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+        <h3 style={{ fontSize: 14, margin: 0 }}>跨内容收益分析</h3>
+        <span style={{ fontSize: 12, color: '#999' }}>基于 {analysis.contentCount} 篇内容的聚合数据</span>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
-        {/* 1. Pearson + Spearman */}
-        <Card title="相关系数" subtitle="线性(皮尔逊) / 单调(斯皮尔曼)">
+        {/* Correlations */}
+        <Card title="相关系数" subtitle="皮尔逊(线性) / 斯皮尔曼(单调)">
           {analysis.correlations.map(({ key, label, color, pearson, spearman }) => (
             <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
               <div style={{ width: 50, fontSize: 12, color: '#666' }}>{label}</div>
@@ -103,7 +164,7 @@ export function CorrelationAnalysis({ dailyRecords, incomeRecords }: Props) {
           ))}
         </Card>
 
-        {/* 2. Contribution Percentages (pie-like) */}
+        {/* Contribution */}
         <Card title="收益贡献占比" subtitle="各指标对收益的相对贡献">
           {analysis.contributions.map(({ key, label, color, pct }) => (
             <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
@@ -111,7 +172,7 @@ export function CorrelationAnalysis({ dailyRecords, incomeRecords }: Props) {
               <div style={{ flex: 1, height: 16, background: '#eee', borderRadius: 8, overflow: 'hidden' }}>
                 <div style={{
                   width: `${Math.min(pct, 100)}%`, height: '100%',
-                  background: color, borderRadius: 8, transition: 'width 0.3s',
+                  background: color, borderRadius: 8,
                 }} />
               </div>
               <div style={{ width: 45, fontSize: 12, textAlign: 'right', fontWeight: 600, color: pct > 10 ? '#333' : '#999' }}>
@@ -121,7 +182,7 @@ export function CorrelationAnalysis({ dailyRecords, incomeRecords }: Props) {
           ))}
         </Card>
 
-        {/* 3. Regression Weights */}
+        {/* Regression */}
         <Card title="回归权重 (NNLS)"
           subtitle={`R² = ${analysis.regression.r2.toFixed(3)} · ${analysis.regression.r2 > 0.7 ? '拟合度高' : analysis.regression.r2 > 0.4 ? '中等' : '较低'}`}>
           {analysis.weights.map(({ key, label, color, weight }) => (
@@ -143,7 +204,7 @@ export function CorrelationAnalysis({ dailyRecords, incomeRecords }: Props) {
           ))}
         </Card>
 
-        {/* 4. Elasticity */}
+        {/* Elasticity */}
         <Card title="弹性分析" subtitle="指标变化 1% 时收益变化的百分比">
           {analysis.elasticities.map(({ key, label, color, elasticity, r2 }) => (
             <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
@@ -165,63 +226,16 @@ export function CorrelationAnalysis({ dailyRecords, incomeRecords }: Props) {
             </div>
           ))}
         </Card>
-
-        {/* 5. Time Lag */}
-        <Card title="时间滞后分析" subtitle="今天的指标是否影响未来的收益" fullWidth>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #eee' }}>
-                  <th style={thStyle}>指标</th>
-                  <th style={thStyle}>当天 (lag 0)</th>
-                  <th style={thStyle}>+1天</th>
-                  <th style={thStyle}>+2天</th>
-                  <th style={thStyle}>+3天</th>
-                  <th style={thStyle}>最佳滞后</th>
-                </tr>
-              </thead>
-              <tbody>
-                {analysis.lagSummary.map(({ key, label, color, lags, bestLag, bestR }) => (
-                  <tr key={key} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                    <td style={{ ...tdStyle, color: '#666' }}>{label}</td>
-                    {lags.map(({ lag, r }) => (
-                      <td key={lag} style={{
-                        ...tdStyle, textAlign: 'center', fontFamily: 'monospace',
-                        fontWeight: lag === bestLag ? 700 : 400,
-                        color: lag === bestLag ? color : corrColor(r),
-                        background: lag === bestLag ? `${color}10` : undefined,
-                      }}>
-                        {fmtR(r)}
-                      </td>
-                    ))}
-                    <td style={{ ...tdStyle, textAlign: 'center', fontSize: 11 }}>
-                      {bestLag === 0 ? '即时' : `+${bestLag}天`}
-                      {bestLag > 0 && Math.abs(bestR) > Math.abs(lags[0].r) + 0.05 && (
-                        <span style={{ color, marginLeft: 4 }}>*</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div style={{ fontSize: 11, color: '#bbb', marginTop: 6 }}>
-            * 标记表示滞后相关显著强于即时相关
-          </div>
-        </Card>
       </div>
     </div>
   );
 }
 
-function Card({ title, subtitle, fullWidth, children }: {
-  title: string; subtitle?: string; fullWidth?: boolean; children: React.ReactNode;
+function Card({ title, subtitle, children }: {
+  title: string; subtitle?: string; children: React.ReactNode;
 }) {
   return (
-    <div style={{
-      background: '#fafafa', borderRadius: 8, padding: 16,
-      gridColumn: fullWidth ? '1 / -1' : undefined,
-    }}>
+    <div style={{ background: '#fafafa', borderRadius: 8, padding: 16 }}>
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: subtitle ? 2 : 12 }}>{title}</div>
       {subtitle && <div style={{ fontSize: 11, color: '#999', marginBottom: 12 }}>{subtitle}</div>}
       {children}
@@ -253,6 +267,3 @@ function corrColor(r: number): string {
   const abs = Math.abs(r);
   return abs > 0.7 ? '#333' : abs > 0.4 ? '#666' : '#999';
 }
-
-const thStyle: React.CSSProperties = { padding: '6px 8px', textAlign: 'center', color: '#999', fontWeight: 400 };
-const tdStyle: React.CSSProperties = { padding: '6px 8px' };
