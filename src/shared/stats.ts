@@ -26,8 +26,11 @@ export function pearsonCorrelation(x: number[], y: number[]): number {
 }
 
 /**
- * Multiple linear regression using ordinary least squares (OLS).
+ * Non-negative multiple linear regression (NNLS).
  * Fits: y = b0 + b1*x1 + b2*x2 + ... + bn*xn
+ * where b1..bn >= 0 (intercept b0 is unconstrained).
+ *
+ * Uses iterative elimination: OLS → remove features with negative coefficients → re-fit.
  *
  * @param xs - Array of feature arrays, each feature is a number[]
  * @param y - Target array
@@ -38,19 +41,90 @@ export function multipleLinearRegression(
   y: number[]
 ): { coefficients: number[]; r2: number } {
   const n = y.length;
-  const p = xs.length; // number of features
+  const p = xs.length;
 
-  if (n < p + 1) {
+  if (n < 2) {
     return { coefficients: new Array(p + 1).fill(0), r2: 0 };
   }
 
-  // Build matrix X with intercept column [1, x1, x2, ..., xp]
-  // Using normal equation: (X^T X)^-1 X^T y
+  // Track which features are active (not eliminated)
+  let activeIndices = xs.map((_, i) => i);
+  let finalCoeffs = new Array(p + 1).fill(0);
+
+  for (let iter = 0; iter < p + 1; iter++) {
+    if (activeIndices.length === 0) break;
+
+    const activeXs = activeIndices.map(i => xs[i]);
+    const result = olsFit(activeXs, y);
+    if (!result) break;
+
+    // Check for negative feature coefficients (skip intercept at index 0)
+    const negatives = [];
+    for (let i = 0; i < activeIndices.length; i++) {
+      if (result[i + 1] < 0) negatives.push(i);
+    }
+
+    if (negatives.length === 0) {
+      // All non-negative — we're done
+      finalCoeffs[0] = result[0]; // intercept
+      for (let i = 0; i < activeIndices.length; i++) {
+        finalCoeffs[activeIndices[i] + 1] = result[i + 1];
+      }
+      break;
+    }
+
+    // Remove features with negative coefficients
+    const toRemove = new Set(negatives.map(i => activeIndices[i]));
+    activeIndices = activeIndices.filter(i => !toRemove.has(i));
+
+    // If this was the last iteration or no active features left, use what we have
+    if (activeIndices.length === 0) {
+      // Just intercept
+      let yMean = 0;
+      for (let i = 0; i < n; i++) yMean += y[i];
+      finalCoeffs[0] = yMean / n;
+    }
+  }
+
+  // If we still have active features, do a final fit
+  if (activeIndices.length > 0 && finalCoeffs.every(c => c === 0)) {
+    const activeXs = activeIndices.map(i => xs[i]);
+    const result = olsFit(activeXs, y);
+    if (result) {
+      finalCoeffs[0] = result[0];
+      for (let i = 0; i < activeIndices.length; i++) {
+        finalCoeffs[activeIndices[i] + 1] = Math.max(0, result[i + 1]);
+      }
+    }
+  }
+
+  // Calculate R²
+  let yMean = 0;
+  for (let i = 0; i < n; i++) yMean += y[i];
+  yMean /= n;
+
+  let ssTot = 0, ssRes = 0;
+  for (let i = 0; i < n; i++) {
+    let predicted = finalCoeffs[0];
+    for (let j = 0; j < p; j++) {
+      predicted += finalCoeffs[j + 1] * xs[j][i];
+    }
+    ssRes += (y[i] - predicted) ** 2;
+    ssTot += (y[i] - yMean) ** 2;
+  }
+
+  const r2 = ssTot === 0 ? 0 : Math.max(0, 1 - ssRes / ssTot);
+
+  return { coefficients: finalCoeffs, r2 };
+}
+
+/** OLS fit with intercept. Returns [b0, b1, ...] or null if singular. */
+function olsFit(xs: number[][], y: number[]): number[] | null {
+  const n = y.length;
+  const p = xs.length;
   const cols = p + 1;
 
-  // X^T X (cols x cols matrix)
   const XtX: number[][] = Array.from({ length: cols }, () => new Array(cols).fill(0));
-  // X^T y (cols vector)
   const Xty: number[] = new Array(cols).fill(0);
 
   for (let i = 0; i < n; i++) {
@@ -63,30 +137,7 @@ export function multipleLinearRegression(
     }
   }
 
-  // Solve using Gaussian elimination
-  const coefficients = solveLinearSystem(XtX, Xty);
-  if (!coefficients) {
-    return { coefficients: new Array(cols).fill(0), r2: 0 };
-  }
-
-  // Calculate R²
-  let yMean = 0;
-  for (let i = 0; i < n; i++) yMean += y[i];
-  yMean /= n;
-
-  let ssTot = 0, ssRes = 0;
-  for (let i = 0; i < n; i++) {
-    let predicted = coefficients[0];
-    for (let j = 0; j < p; j++) {
-      predicted += coefficients[j + 1] * xs[j][i];
-    }
-    ssRes += (y[i] - predicted) ** 2;
-    ssTot += (y[i] - yMean) ** 2;
-  }
-
-  const r2 = ssTot === 0 ? 0 : 1 - ssRes / ssTot;
-
-  return { coefficients, r2 };
+  return solveLinearSystem(XtX, Xty);
 }
 
 /**
