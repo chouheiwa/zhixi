@@ -18,21 +18,19 @@ interface Props {
 
 type Metric = 'pv' | 'show' | 'upvote' | 'comment' | 'collect' | 'share';
 
-const METRIC_LABELS: Record<Metric, string> = {
-  pv: '阅读量', show: '曝光量', upvote: '点赞',
-  comment: '评论', collect: '收藏', share: '分享',
-};
-
-const METRIC_COLORS: Record<Metric, string> = {
-  pv: '#1a73e8', show: '#999', upvote: '#ea4335',
-  comment: '#34a853', collect: '#fbbc04', share: '#9c27b0',
-};
+const ALL_METRICS: { key: Metric; label: string; color: string }[] = [
+  { key: 'pv', label: '阅读量', color: '#1a73e8' },
+  { key: 'show', label: '曝光量', color: '#999' },
+  { key: 'upvote', label: '点赞', color: '#ea4335' },
+  { key: 'comment', label: '评论', color: '#34a853' },
+  { key: 'collect', label: '收藏', color: '#fbbc04' },
+  { key: 'share', label: '分享', color: '#9c27b0' },
+];
 
 export function ContentDetailPage({ contentId, contentToken, contentType, title, publishDate, incomeRecords, onBack }: Props) {
   const { user } = useCurrentUser();
   const { status } = useCollector();
   const [dailyRecords, setDailyRecords] = useState<ContentDailyRecord[]>([]);
-  const [metrics, setMetrics] = useState<Set<Metric>>(new Set(['pv', 'upvote', 'collect']));
   const [fetchMsg, setFetchMsg] = useState('');
 
   const loadDailyData = () => {
@@ -92,36 +90,6 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
       setFetchMsg(`拉取失败: ${err instanceof Error ? err.message : '未知错误'}`);
     }
   };
-
-  const toggleMetric = (m: Metric) => {
-    setMetrics(prev => {
-      const next = new Set(prev);
-      if (next.has(m)) { if (next.size > 1) next.delete(m); } else next.add(m);
-      return next;
-    });
-  };
-
-  // Trend chart
-  const trendOption = useMemo(() => {
-    if (dailyRecords.length === 0) return null;
-    const dates = dailyRecords.map(r => r.date.slice(5));
-    const series = Array.from(metrics).map(m => ({
-      name: METRIC_LABELS[m],
-      type: 'line' as const,
-      data: dailyRecords.map(r => r[m]),
-      smooth: true,
-      itemStyle: { color: METRIC_COLORS[m] },
-      lineStyle: { width: 2 },
-    }));
-    return {
-      tooltip: { trigger: 'axis' as const },
-      legend: { data: series.map(s => s.name) },
-      grid: { left: 50, right: 30, top: 40, bottom: 30 },
-      xAxis: { type: 'category' as const, data: dates, axisLabel: { fontSize: 11 } },
-      yAxis: { type: 'value' as const },
-      series,
-    };
-  }, [dailyRecords, metrics]);
 
   // Income trend (from income records)
   const incomeTrendOption = useMemo(() => {
@@ -217,28 +185,40 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
         )}
 
         {dailyRecords.length > 0 ? (
-          <>
-            {/* Metric toggles */}
-            <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
-              {(Object.entries(METRIC_LABELS) as [Metric, string][]).map(([key, label]) => (
-                <button key={key} onClick={() => toggleMetric(key)} style={{
-                  padding: '3px 10px', borderRadius: 12, fontSize: 11, cursor: 'pointer',
-                  border: `1px solid ${METRIC_COLORS[key]}`,
-                  background: metrics.has(key) ? METRIC_COLORS[key] : '#fff',
-                  color: metrics.has(key) ? '#fff' : METRIC_COLORS[key],
-                }}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            {trendOption && <ReactECharts option={trendOption} style={{ height: 350 }} />}
-          </>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            {ALL_METRICS.map(({ key, label, color }) => (
+              <MetricChart key={key} label={label} color={color} data={dailyRecords.map(r => r[key])} dates={dailyRecords.map(r => r.date.slice(5))} />
+            ))}
+          </div>
         ) : (
           <div style={{ padding: 30, textAlign: 'center', color: '#999', fontSize: 13, background: '#f9f9f9', borderRadius: 8 }}>
             暂无每日详细数据，点击上方"拉取数据"按钮获取
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function MetricChart({ label, color, data, dates }: { label: string; color: string; data: number[]; dates: string[] }) {
+  const option = {
+    tooltip: { trigger: 'axis' as const },
+    grid: { left: 45, right: 15, top: 25, bottom: 25 },
+    title: { text: label, textStyle: { fontSize: 13, fontWeight: 600 }, left: 0 },
+    xAxis: { type: 'category' as const, data: dates, axisLabel: { fontSize: 10 }, axisTick: { show: false } },
+    yAxis: { type: 'value' as const, axisLabel: { fontSize: 10 }, splitNumber: 3 },
+    series: [{
+      type: 'line',
+      data,
+      smooth: true,
+      itemStyle: { color },
+      lineStyle: { width: 2 },
+      areaStyle: { color: `${color}18` },
+    }],
+  };
+  return (
+    <div style={{ background: '#fafafa', borderRadius: 8, padding: '8px 8px 0' }}>
+      <ReactECharts option={option} style={{ height: 200 }} />
     </div>
   );
 }
