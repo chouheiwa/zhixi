@@ -7,6 +7,8 @@ import { ContentTable } from './components/ContentTable';
 import { TypeComparisonChart } from './components/TypeComparisonChart';
 import { ConversionAnalysis } from './components/ConversionAnalysis';
 import { TopContentRanking } from './components/TopContentRanking';
+import { CollectorPanel } from './components/CollectorPanel';
+import { ExportImportPanel } from './components/ExportImportPanel';
 
 export function Dashboard() {
   const { start: defaultStart, end: defaultEnd } = getDateRange(30);
@@ -49,6 +51,10 @@ export function Dashboard() {
             <TopContentRanking records={records} />
           </div>
           <ContentTable records={records} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+            <CollectorPanel onCollected={refresh} />
+            <ExportImportPanel onImported={refresh} />
+          </div>
         </div>
       )}
     </div>
