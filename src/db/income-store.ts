@@ -1,0 +1,37 @@
+import { db } from './database';
+import type { IncomeRecord, DailySummary } from '@/shared/types';
+
+export async function upsertIncomeRecords(records: IncomeRecord[]): Promise<void> {
+  await db.incomeRecords.bulkPut(records);
+}
+
+export async function getRecordsByDateRange(startDate: string, endDate: string): Promise<IncomeRecord[]> {
+  return db.incomeRecords.where('recordDate').between(startDate, endDate, true, true).toArray();
+}
+
+export async function getDailySummaries(startDate: string, endDate: string): Promise<DailySummary[]> {
+  const records = await getRecordsByDateRange(startDate, endDate);
+  const byDate = new Map<string, { income: number; read: number; interaction: number; count: number }>();
+  for (const r of records) {
+    const existing = byDate.get(r.recordDate) ?? { income: 0, read: 0, interaction: 0, count: 0 };
+    existing.income += r.currentIncome;
+    existing.read += r.currentRead;
+    existing.interaction += r.currentInteraction;
+    existing.count += 1;
+    byDate.set(r.recordDate, existing);
+  }
+  return Array.from(byDate.entries())
+    .map(([date, agg]) => ({
+      date,
+      totalIncome: agg.income,
+      totalRead: agg.read,
+      totalInteraction: agg.interaction,
+      contentCount: agg.count,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export async function getAllContentIds(): Promise<string[]> {
+  const records = await db.incomeRecords.orderBy('contentId').uniqueKeys();
+  return records as string[];
+}
