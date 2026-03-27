@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatDate, getDateRange } from '@/shared/date-utils';
 import { useIncomeData } from '@/hooks/use-income-data';
 import { useCollector } from '@/hooks/use-collector';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { TodaySummary } from './components/TodaySummary';
 import { WeekSparkline } from './components/WeekSparkline';
-import { STORAGE_KEYS } from '@/shared/constants';
 
 function getYesterday(): string {
   const d = new Date();
@@ -30,19 +29,14 @@ export function Popup() {
   const [collectEnd, setCollectEnd] = useState(yesterday);
   const [resultMsg, setResultMsg] = useState('');
 
-  // Auto-collect yesterday on first open
+  // Refresh data when collection finishes
+  const prevCollecting = React.useRef(status.isCollecting);
   useEffect(() => {
-    if (!user) return;
-    chrome.storage.local.get(STORAGE_KEYS.LAST_COLLECT_DATE).then(async (result) => {
-      if (result[STORAGE_KEYS.LAST_COLLECT_DATE] !== yesterday) {
-        try {
-          await collect(yesterday, yesterday);
-          await chrome.storage.local.set({ [STORAGE_KEYS.LAST_COLLECT_DATE]: yesterday });
-          refresh();
-        } catch { /* user can manually retry */ }
-      }
-    });
-  }, [yesterday, user, collect, refresh]);
+    if (prevCollecting.current && !status.isCollecting && !status.error) {
+      refresh();
+    }
+    prevCollecting.current = status.isCollecting;
+  }, [status.isCollecting, status.error, refresh]);
 
   const handleCollect = async () => {
     setResultMsg('');

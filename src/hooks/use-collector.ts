@@ -1,7 +1,5 @@
-import { useState, useCallback } from 'react';
-import { fetchDateRangeIncome, fetchCurrentUser } from '@/api/zhihu-income';
-import { upsertIncomeRecords, hasRecordsForDate } from '@/db/income-store';
-import type { CollectionStatus, ZhihuUser } from '@/shared/types';
+import { useState, useEffect, useCallback } from 'react';
+import type { CollectionStatus } from '@/shared/types';
 
 export function useCollector() {
   const [status, setStatus] = useState<CollectionStatus>({
@@ -10,38 +8,42 @@ export function useCollector() {
     total: 0,
   });
 
-  const collect = useCallback(async (startDate: string, endDate: string) => {
-    setStatus({ isCollecting: true, progress: 0, total: 0 });
+  // Listen for status broadcasts from service worker
+  useEffect(() => {
+    const listener = (message: { action: string; status: CollectionStatus }) => {
+      if (message.action === 'collectStatus') {
+        setStatus(message.status);
+      }
+    };
+    chrome.runtime.onMessage.addListener(listener);
 
-    try {
-      // Get current user first
-      const user: ZhihuUser = await fetchCurrentUser();
+    // Get initial status
+    chrome.runtime.sendMessage({ action: 'getCollectStatus' }, (response) => {
+      if (response && !chrome.runtime.lastError) {
+        setStatus(response);
+      }
+    });
 
-      const records = await fetchDateRangeIncome(
-        startDate,
-        endDate,
-        user.id,
-        {
-          shouldSkipDate: (date) => hasRecordsForDate(user.id, date),
-          onProgress: (currentDate, current, total, skipped) => {
-            setStatus({
-              isCollecting: true,
-              progress: current,
-              total,
-              currentDate: skipped ? `${currentDate} (已跳过)` : currentDate,
-            });
-          },
+    return () => chrome.runtime.onMessage.removeListener(listener);
+  }, []);
+
+  const collect = useCallback((startDate: string, endDate: string): Promise<{ count: number }> => {
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(
+        { action: 'startCollect', startDate, endDate },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
+          if (response?.ok) {
+            resolve({ count: response.count });
+          } else {
+            reject(new Error(response?.error ?? '采集失败'));
+          }
         }
       );
-
-      await upsertIncomeRecords(records);
-      setStatus({ isCollecting: false, progress: 0, total: 0 });
-      return { count: records.length, user };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '采集失败';
-      setStatus({ isCollecting: false, progress: 0, total: 0, error: message });
-      throw err;
-    }
+    });
   }, []);
 
   return { status, collect };
