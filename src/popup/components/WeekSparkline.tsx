@@ -1,0 +1,40 @@
+import React from 'react';
+import ReactECharts from 'echarts-for-react';
+import type { DailySummary } from '@/shared/types';
+import { eachDayInRange, formatDate, getDateRange } from '@/shared/date-utils';
+
+interface Props {
+  summaries: DailySummary[];
+}
+
+export function WeekSparkline({ summaries }: Props) {
+  const { start, end } = getDateRange(7);
+  const days = eachDayInRange(formatDate(start), formatDate(end));
+
+  const summaryMap = new Map(summaries.map((s) => [s.date, s]));
+  const incomeData = days.map((d) => (summaryMap.get(d)?.totalIncome ?? 0) / 100);
+
+  const option = {
+    grid: { left: 0, right: 0, top: 4, bottom: 20 },
+    xAxis: {
+      type: 'category' as const,
+      data: days.map((d) => d.slice(5)),
+      axisLabel: { fontSize: 9, color: '#999' },
+      axisLine: { show: false },
+      axisTick: { show: false },
+    },
+    yAxis: { type: 'value' as const, show: false },
+    series: [{
+      type: 'bar',
+      data: incomeData,
+      itemStyle: { borderRadius: [3, 3, 0, 0], color: '#1a73e8' },
+      barWidth: '60%',
+    }],
+    tooltip: {
+      trigger: 'axis' as const,
+      formatter: (params: any[]) => `${params[0].name}<br/>¥${params[0].value.toFixed(2)}`,
+    },
+  };
+
+  return <ReactECharts option={option} style={{ height: 100, width: '100%' }} />;
+}
