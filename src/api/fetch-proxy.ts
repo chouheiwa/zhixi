@@ -1,12 +1,15 @@
 /**
  * Proxy fetch through content script for authenticated API access.
- * Used by popup/dashboard/service-worker to call Zhihu API.
+ * If no Zhihu tab is open, automatically opens one and waits for it to load.
  */
 export async function proxyFetch<T = unknown>(url: string): Promise<T> {
-  const tabs = await chrome.tabs.query({ url: 'https://www.zhihu.com/*' });
+  let tabs = await chrome.tabs.query({ url: 'https://www.zhihu.com/*' });
 
   if (tabs.length === 0) {
-    throw new Error('请打开一个知乎页面以启用数据采集');
+    // Auto-open a Zhihu page and wait for content script to be ready
+    const newTab = await chrome.tabs.create({ url: 'https://www.zhihu.com/', active: false });
+    await waitForTabReady(newTab.id!);
+    tabs = await chrome.tabs.query({ url: 'https://www.zhihu.com/*' });
   }
 
   for (const tab of tabs) {
@@ -26,4 +29,17 @@ export async function proxyFetch<T = unknown>(url: string): Promise<T> {
   }
 
   throw new Error('无法连接到知乎页面，请刷新知乎页面后重试');
+}
+
+function waitForTabReady(tabId: number): Promise<void> {
+  return new Promise((resolve) => {
+    const listener = (id: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+      if (id === tabId && changeInfo.status === 'complete') {
+        chrome.tabs.onUpdated.removeListener(listener);
+        // Extra delay for content script injection
+        setTimeout(resolve, 1500);
+      }
+    };
+    chrome.tabs.onUpdated.addListener(listener);
+  });
 }
