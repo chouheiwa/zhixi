@@ -1,6 +1,5 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { Dashboard } from './Dashboard';
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <div>Dashboard</div>
-);
+createRoot(document.getElementById('root')!).render(<Dashboard />);
