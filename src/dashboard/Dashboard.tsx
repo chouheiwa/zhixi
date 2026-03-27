@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { formatDate, getDateRange } from '@/shared/date-utils';
 import { useIncomeData } from '@/hooks/use-income-data';
 import { DateRangePicker } from './components/DateRangePicker';
+import { DailyTrendChart } from './components/DailyTrendChart';
 
 export function Dashboard() {
   const { start: defaultStart, end: defaultEnd } = getDateRange(30);
@@ -37,10 +38,7 @@ export function Dashboard() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {/* Charts will be added in subsequent tasks */}
-          <div style={{ color: '#999' }}>
-            已加载 {records.length} 条记录，{summaries.length} 天数据
-          </div>
+          <DailyTrendChart summaries={summaries} startDate={startDate} endDate={endDate} />
         </div>
       )}
     </div>
