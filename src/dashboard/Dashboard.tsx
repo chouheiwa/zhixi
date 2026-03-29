@@ -23,6 +23,7 @@ import { UnmonetizedContentPanel } from './components/UnmonetizedContentPanel';
 import { ContentTypeComparisonPanel } from './components/ContentTypeComparisonPanel';
 import { PublishTimeAnalysis } from './components/PublishTimeAnalysis';
 import { MultiDimensionRanking } from './components/MultiDimensionRanking';
+import { IncomeGoalPanel } from './components/IncomeGoalPanel';
 
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
@@ -215,11 +216,15 @@ export function Dashboard() {
       }
     }
 
+      const monthDaysElapsed = now.getDate();
+      const monthDaysTotal = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
     return {
       totalIncome: totalIncome / 100, totalRead, totalInteraction, rpm,
       days: allSummaries.length,
       yesterdayIncome, yesterdayRead, yesterdayContentCount,
       monthIncome: monthIncome / 100, monthRead, monthContentCount: monthContentIds.size,
+      monthDaysElapsed, monthDaysTotal,
     };
   }, [allSummaries, allIncomeRecords]);
 
@@ -453,6 +458,14 @@ export function Dashboard() {
                     <Empty description="暂无数据" />
                   ) : (
                     <Flex vertical gap={24}>
+                      {user && (
+                        <IncomeGoalPanel
+                          userId={user.id}
+                          monthIncome={stats.monthIncome}
+                          monthDaysElapsed={stats.monthDaysElapsed}
+                          monthDaysTotal={stats.monthDaysTotal}
+                        />
+                      )}
                       <DailyTrendChart summaries={allSummaries} startDate={allDateRange.start} endDate={allDateRange.end} />
                       <ContentTypeComparisonPanel records={allIncomeRecords} />
                       <Row gutter={16}>
