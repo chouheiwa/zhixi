@@ -140,6 +140,9 @@ export function PublishTimeAnalysis({ records }: Props) {
           style={{ marginTop: 8 }}
         />
       )}
+      <div style={{ fontSize: 11, color: '#999', textAlign: 'center', marginTop: 8 }}>
+        * 预估结果仅供参考，不代表实际收益
+      </div>
     </Card>
   );
 }
