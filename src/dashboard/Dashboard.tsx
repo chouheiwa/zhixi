@@ -12,21 +12,14 @@ import type { DailySummary, IncomeRecord } from '@/shared/types';
 import { useUserSettings } from '@/hooks/use-user-settings';
 import { useCollector } from '@/hooks/use-collector';
 import { exportToJSON, importFromJSON } from '@/db/export-import';
-import { DailyTrendChart } from './components/DailyTrendChart';
 import { ContentTable, type ContentTableItem } from './components/ContentTable';
 import { ContentDetailPage } from './components/ContentDetailPage';
-import { RPMForecastPanel } from './components/RPMForecastPanel';
-import { WeeklySeasonalityChart } from './components/WeeklySeasonalityChart';
-import { MLPredictionPanel } from './components/MLPredictionPanel';
-import { AnomalyDetectionPanel } from './components/AnomalyDetectionPanel';
-import { UnmonetizedContentPanel } from './components/UnmonetizedContentPanel';
-import { ContentTypeComparisonPanel } from './components/ContentTypeComparisonPanel';
-import { PublishTimeAnalysis } from './components/PublishTimeAnalysis';
-import { MultiDimensionRanking } from './components/MultiDimensionRanking';
-import { IncomeGoalPanel } from './components/IncomeGoalPanel';
 import { ContentComparePage } from './components/ContentComparePage';
 import { generateExcelReport } from './components/ExcelExportButton';
 import { MilestonesPage } from './components/MilestonesPage';
+import { usePanelLayout } from '@/hooks/use-panel-layout';
+import { getPanelMeta, type DashboardContext } from './panel-registry';
+import { LayoutCustomizer } from './components/LayoutCustomizer';
 
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
@@ -51,6 +44,8 @@ export function Dashboard() {
   const { records, summaries, loading, refresh } = useIncomeData(user?.id ?? '', startDate, endDate);
   const { status, logs, sync } = useCollector();
   const { token } = useToken();
+  const { layout, updateLayout, resetLayout } = usePanelLayout(user?.id ?? '');
+  const [customizerOpen, setCustomizerOpen] = useState(false);
 
   // Full summaries (not filtered by date) for overview charts
   const [allSummaries, setAllSummaries] = useState<DailySummary[]>([]);
@@ -246,6 +241,22 @@ export function Dashboard() {
     };
   }, [allSummaries, allIncomeRecords]);
 
+  const dashboardContext: DashboardContext | null = useMemo(() => {
+    if (!user) return null;
+    return {
+      userId: user.id,
+      allSummaries,
+      allDateRange,
+      allIncomeRecords,
+      records,
+      monetizedContentIds,
+      monthIncome: stats.monthIncome,
+      monthDaysElapsed: stats.monthDaysElapsed,
+      monthDaysTotal: stats.monthDaysTotal,
+      onContentClick: (item) => setSelectedContent(item),
+    };
+  }, [user, allSummaries, allDateRange, allIncomeRecords, records, monetizedContentIds, stats]);
+
   if (userLoading) {
     return (
       <Flex justify="center" align="center" style={{ minHeight: 300 }}>
@@ -345,6 +356,12 @@ export function Dashboard() {
                   },
                   { key: 'import', icon: <UploadOutlined />, label: '导入数据', onClick: () => fileInputRef.current?.click() },
                   { type: 'divider' },
+                  {
+                    key: 'layout',
+                    icon: <SettingOutlined />,
+                    label: '自定义布局',
+                    onClick: () => setCustomizerOpen(true),
+                  },
                   {
                     key: 'milestones',
                     icon: <TrophyOutlined />,
@@ -510,79 +527,63 @@ export function Dashboard() {
             <Tabs
               defaultActiveKey="overview"
               type="card"
-              items={[
-                {
-                  key: 'overview',
-                  label: '总览',
-                  children: allSummaries.length === 0 ? (
-                    <Empty description="暂无数据" />
-                  ) : (
-                    <Flex vertical gap={24}>
-                      {user && (
-                        <IncomeGoalPanel
-                          userId={user.id}
-                          monthIncome={stats.monthIncome}
-                          monthDaysElapsed={stats.monthDaysElapsed}
-                          monthDaysTotal={stats.monthDaysTotal}
-                        />
-                      )}
-                      <DailyTrendChart summaries={allSummaries} startDate={allDateRange.start} endDate={allDateRange.end} />
-                      <ContentTypeComparisonPanel records={allIncomeRecords} />
-                      <Row gutter={16}>
-                        <Col span={16}>
-                          <RPMForecastPanel summaries={allSummaries} startDate={allDateRange.start} endDate={allDateRange.end} />
-                        </Col>
-                        <Col span={8}>
-                          <WeeklySeasonalityChart summaries={allSummaries} />
-                        </Col>
-                      </Row>
-                      <PublishTimeAnalysis records={allIncomeRecords} />
-                      <AnomalyDetectionPanel summaries={allSummaries} startDate={allDateRange.start} endDate={allDateRange.end} />
-                      <MultiDimensionRanking
-                        records={allIncomeRecords}
-                        onContentClick={(item) => setSelectedContent({
-                          ...item,
-                          currentIncome: 0,
-                          currentRead: 0,
-                          currentInteraction: 0,
-                        })}
-                      />
-                    </Flex>
-                  ),
-                },
-                {
-                  key: 'ml',
-                  label: '智能分析',
-                  children: <MLPredictionPanel records={records} />,
-                },
-                {
-                  key: 'unmonetized',
-                  label: '未产生收益',
-                  children: <UnmonetizedContentPanel monetizedContentIds={monetizedContentIds} />,
-                },
-                {
-                  key: 'content',
-                  label: `内容明细 (${totalContentCount})`,
-                  children: (
-                    <Flex vertical gap={12}>
-                      <Flex justify="flex-end">
-                        <RangePicker
-                          value={[dayjs(startDate), dayjs(endDate)]}
-                          onChange={handleRangeChange}
-                          presets={Object.entries(quickRanges).map(([label, value]) => ({ label, value }))}
-                          allowClear={false}
-                          size="small"
-                        />
-                      </Flex>
-                      <ContentTable
-                        records={records}
-                        onContentClick={setSelectedContent}
-                        onCompare={(items) => setCompareItems(items)}
-                      />
-                    </Flex>
-                  ),
-                },
-              ]}
+              items={
+                layout
+                  ? [...layout.tabs]
+                      .filter(t => t.visible)
+                      .sort((a, b) => a.order - b.order)
+                      .map(tab => {
+                        if (tab.key === 'content') {
+                          return {
+                            key: 'content',
+                            label: `${tab.label} (${totalContentCount})`,
+                            children: (
+                              <Flex vertical gap={12}>
+                                <Flex justify="flex-end">
+                                  <RangePicker
+                                    value={[dayjs(startDate), dayjs(endDate)]}
+                                    onChange={handleRangeChange}
+                                    presets={Object.entries(quickRanges).map(([label, value]) => ({ label, value }))}
+                                    allowClear={false}
+                                    size="small"
+                                  />
+                                </Flex>
+                                <ContentTable
+                                  records={records}
+                                  onContentClick={setSelectedContent}
+                                  onCompare={(items) => setCompareItems(items)}
+                                />
+                              </Flex>
+                            ),
+                          };
+                        }
+
+                        const visiblePanels = [...tab.panels]
+                          .filter(p => p.visible)
+                          .sort((a, b) => a.order - b.order);
+
+                        return {
+                          key: tab.key,
+                          label: tab.label,
+                          children: allSummaries.length === 0 && tab.key === 'overview' ? (
+                            <Empty description="暂无数据" />
+                          ) : dashboardContext ? (
+                            <Flex vertical gap={24}>
+                              {visiblePanels.map(panelConfig => {
+                                const meta = getPanelMeta(panelConfig.key);
+                                if (!meta) return null;
+                                return (
+                                  <React.Fragment key={panelConfig.key}>
+                                    {meta.render(dashboardContext)}
+                                  </React.Fragment>
+                                );
+                              })}
+                            </Flex>
+                          ) : null,
+                        };
+                      })
+                  : []
+              }
             />
           </>
         )}
@@ -594,6 +595,15 @@ export function Dashboard() {
         >
           <MilestonesPage allSummaries={allSummaries} allRecords={allIncomeRecords} />
         </Drawer>
+        {layout && (
+          <LayoutCustomizer
+            open={customizerOpen}
+            onClose={() => setCustomizerOpen(false)}
+            tabs={layout.tabs}
+            onUpdate={updateLayout}
+            onReset={() => { resetLayout(); setCustomizerOpen(false); }}
+          />
+        )}
       </Content>
     </Layout>
   );
