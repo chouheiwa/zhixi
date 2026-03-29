@@ -25,6 +25,7 @@ import { PublishTimeAnalysis } from './components/PublishTimeAnalysis';
 import { MultiDimensionRanking } from './components/MultiDimensionRanking';
 import { IncomeGoalPanel } from './components/IncomeGoalPanel';
 import { ContentComparePage } from './components/ContentComparePage';
+import { generateExcelReport } from './components/ExcelExportButton';
 
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
@@ -326,6 +327,20 @@ export function Dashboard() {
                   { key: 'fetchAll', icon: <CloudDownloadOutlined />, label: '拉取全部内容详情', onClick: handleFetchAllDaily, disabled: status.isCollecting },
                   { type: 'divider' },
                   { key: 'export', icon: <DownloadOutlined />, label: '导出数据', onClick: handleExport },
+                  {
+                    key: 'exportExcel',
+                    icon: <DownloadOutlined />,
+                    label: '导出 Excel 报告',
+                    onClick: () => {
+                      if (user && allSummaries.length > 0) {
+                        generateExcelReport({
+                          userName: user.name,
+                          allSummaries,
+                          allRecords: allIncomeRecords,
+                        });
+                      }
+                    },
+                  },
                   { key: 'import', icon: <UploadOutlined />, label: '导入数据', onClick: () => fileInputRef.current?.click() },
                   { type: 'divider' },
                   {
