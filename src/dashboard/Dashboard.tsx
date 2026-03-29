@@ -24,6 +24,7 @@ import { ContentTypeComparisonPanel } from './components/ContentTypeComparisonPa
 import { PublishTimeAnalysis } from './components/PublishTimeAnalysis';
 import { MultiDimensionRanking } from './components/MultiDimensionRanking';
 import { IncomeGoalPanel } from './components/IncomeGoalPanel';
+import { ContentComparePage } from './components/ContentComparePage';
 
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
@@ -41,6 +42,7 @@ export function Dashboard() {
   const [startDate, setStartDate] = useState(formatDate(defaultStart));
   const [endDate, setEndDate] = useState(formatDate(defaultEnd));
   const [selectedContent, setSelectedContent] = useState<ContentTableItem | null>(null);
+  const [compareItems, setCompareItems] = useState<ContentTableItem[] | null>(null);
 
   const { user, loading: userLoading } = useCurrentUser();
   const { settings, refresh: refreshSettings } = useUserSettings(user?.id ?? '');
@@ -52,6 +54,19 @@ export function Dashboard() {
   const [allSummaries, setAllSummaries] = useState<DailySummary[]>([]);
   const [allIncomeRecords, setAllIncomeRecords] = useState<IncomeRecord[]>([]);
   const monetizedContentIds = useMemo(() => new Set(allIncomeRecords.map(r => r.contentId)), [allIncomeRecords]);
+
+  const allContentOptions = useMemo(() => {
+    const map = new Map<string, { contentId: string; contentToken: string; contentType: string; title: string; publishDate: string }>();
+    for (const r of allIncomeRecords) {
+      if (!map.has(r.contentId)) {
+        map.set(r.contentId, {
+          contentId: r.contentId, contentToken: r.contentToken,
+          contentType: r.contentType, title: r.title, publishDate: r.publishDate,
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [allIncomeRecords]);
   const totalContentCount = monetizedContentIds.size;
   const refreshAllSummaries = useCallback(() => {
     if (!user) return;
@@ -236,6 +251,23 @@ export function Dashboard() {
     );
   }
 
+  if (compareItems) {
+    return (
+      <Layout style={{ maxWidth: 1200, margin: '0 auto', padding: 24, background: 'transparent' }}>
+        <Content>
+          <Button icon={<ArrowLeftOutlined />} onClick={() => setCompareItems(null)} style={{ marginBottom: 16 }}>
+            返回
+          </Button>
+          <ContentComparePage
+            initialItems={compareItems}
+            allContentOptions={allContentOptions}
+            onBack={() => setCompareItems(null)}
+          />
+        </Content>
+      </Layout>
+    );
+  }
+
   if (selectedContent) {
     return (
       <Layout style={{ maxWidth: 1200, margin: '0 auto', padding: 24, background: 'transparent' }}>
@@ -250,6 +282,10 @@ export function Dashboard() {
             title={selectedContent.title}
             publishDate={selectedContent.publishDate}
             onBack={() => setSelectedContent(null)}
+            onCompare={(item) => {
+              setSelectedContent(null);
+              setCompareItems([item as any]);
+            }}
           />
         </Content>
       </Layout>
@@ -514,7 +550,11 @@ export function Dashboard() {
                           size="small"
                         />
                       </Flex>
-                      <ContentTable records={records} onContentClick={setSelectedContent} />
+                      <ContentTable
+                        records={records}
+                        onContentClick={setSelectedContent}
+                        onCompare={(items) => setCompareItems(items)}
+                      />
                     </Flex>
                   ),
                 },

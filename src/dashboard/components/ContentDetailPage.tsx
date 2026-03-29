@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Card, Row, Col, Statistic, Tag, Button, Tabs, Alert, Flex } from 'antd';
+import { ReloadOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
+import { timeSeriesZoom, withZoomGrid } from './chartConfig';
 import type { ContentDailyRecord, IncomeRecord } from '@/shared/types';
 import { getContentDailyRecords } from '@/db/content-daily-store';
 import { db } from '@/db/database';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { useCollector } from '@/hooks/use-collector';
+import { LifecycleAnalysis } from './LifecycleAnalysis';
+import { ResidualChart } from './ResidualChart';
+import { computeRPM, percentileRanks } from '@/shared/stats';
 
 interface Props {
   contentId: string;
@@ -13,6 +19,7 @@ interface Props {
   title: string;
   publishDate: string;
   onBack: () => void;
+  onCompare?: (item: { contentId: string; contentToken: string; contentType: string; title: string; publishDate: string }) => void;
 }
 
 type Metric = 'pv' | 'show' | 'upvote' | 'comment' | 'collect' | 'share';
@@ -26,7 +33,7 @@ const ALL_METRICS: { key: Metric; label: string; color: string }[] = [
   { key: 'share', label: '分享', color: '#9c27b0' },
 ];
 
-export function ContentDetailPage({ contentId, contentToken, contentType, title, publishDate, onBack }: Props) {
+export function ContentDetailPage({ contentId, contentToken, contentType, title, publishDate, onBack, onCompare }: Props) {
   const { user } = useCurrentUser();
   const { status } = useCollector();
   const [dailyRecords, setDailyRecords] = useState<ContentDailyRecord[]>([]);
@@ -61,7 +68,8 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
       totalRead += r.currentRead;
       totalInteraction += r.currentInteraction;
     }
-    return { totalIncome, totalRead, totalInteraction, days: incomeRecords.length };
+    const rpm = computeRPM(totalIncome / 100, totalRead);
+    return { totalIncome, totalRead, totalInteraction, days: incomeRecords.length, rpm };
   }, [incomeRecords]);
 
   // Daily summary from daily records
@@ -103,7 +111,7 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
     const sorted = [...incomeRecords].sort((a, b) => a.recordDate.localeCompare(b.recordDate));
     return {
       tooltip: { trigger: 'axis' as const, formatter: (params: any[]) => `${params[0].name}<br/>¥${(params[0].value / 100).toFixed(2)}` },
-      grid: { left: 50, right: 30, top: 20, bottom: 30 },
+      grid: withZoomGrid({ left: 50, right: 30, top: 20, bottom: 30 }),
       xAxis: { type: 'category' as const, data: sorted.map(r => r.recordDate.slice(5)), axisLabel: { fontSize: 11 } },
       yAxis: { type: 'value' as const, axisLabel: { formatter: (v: number) => `¥${(v / 100).toFixed(0)}` } },
       series: [{
@@ -112,104 +120,124 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
         itemStyle: { color: '#1a73e8', borderRadius: [3, 3, 0, 0] },
         barMaxWidth: 20,
       }],
+    ...timeSeriesZoom,
     };
   }, [incomeRecords]);
 
   return (
     <div>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <button onClick={onBack} style={{
-          padding: '6px 14px', border: '1px solid #ddd', borderRadius: 4,
-          background: '#fff', cursor: 'pointer', fontSize: 13,
-        }}>
-          ← 返回
-        </button>
+      <Flex align="center" gap={12} style={{ marginBottom: 16 }}>
         <div style={{ flex: 1 }}>
           <h2 style={{ fontSize: 16, margin: 0 }}>{title}</h2>
-          <div style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
-            <span style={{
-              padding: '1px 6px', borderRadius: 3, fontSize: 11, marginRight: 8,
-              background: contentType === 'article' ? '#e8f0fe' : '#fef7e0',
-              color: contentType === 'article' ? '#1a73e8' : '#f9a825',
-            }}>
+          <Flex align="center" gap={8} style={{ marginTop: 4 }}>
+            <Tag color={contentType === 'article' ? 'blue' : 'gold'}>
               {contentType === 'article' ? '文章' : '回答'}
-            </span>
-            发布于 {publishDate}
-          </div>
+            </Tag>
+            <span style={{ fontSize: 12, color: '#999' }}>发布于 {publishDate}</span>
+          </Flex>
         </div>
-      </div>
+        {onCompare && (
+          <Button
+            size="small"
+            onClick={() => onCompare({ contentId, contentToken, contentType, title, publishDate })}
+            style={{ marginLeft: 8 }}
+          >
+            添加到对比
+          </Button>
+        )}
+      </Flex>
 
-      {/* Summary cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginBottom: 24 }}>
-        <SummaryCard label="总收益" value={`¥${(incomeSummary.totalIncome / 100).toFixed(2)}`} highlight />
-        <SummaryCard label="总阅读" value={incomeSummary.totalRead.toLocaleString()} />
-        <SummaryCard label="总互动" value={incomeSummary.totalInteraction.toLocaleString()} />
+      {/* Summary stats */}
+      <Row gutter={[10, 10]} style={{ marginBottom: 20 }}>
+        <Col span={4}><Card size="small"><Statistic title="总收益" value={(incomeSummary.totalIncome / 100)} precision={2} prefix="¥" valueStyle={{ color: '#1a73e8', fontWeight: 700 }} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="千次阅读收益" value={incomeSummary.rpm} precision={2} prefix="¥" /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="总阅读" value={incomeSummary.totalRead} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="总互动" value={incomeSummary.totalInteraction} /></Card></Col>
         {dailyRecords.length > 0 && (
           <>
-            <SummaryCard label="总曝光" value={dailySummary.totalShow.toLocaleString()} />
-            <SummaryCard label="总点赞" value={dailySummary.totalUpvote.toLocaleString()} />
-            <SummaryCard label="总评论" value={dailySummary.totalComment.toLocaleString()} />
-            <SummaryCard label="总收藏" value={dailySummary.totalCollect.toLocaleString()} />
-            <SummaryCard label="总分享" value={dailySummary.totalShare.toLocaleString()} />
+            <Col span={4}><Card size="small"><Statistic title="总点赞" value={dailySummary.totalUpvote} /></Card></Col>
+            <Col span={4}><Card size="small"><Statistic title="总评论" value={dailySummary.totalComment} /></Card></Col>
           </>
         )}
-      </div>
+      </Row>
 
-      {/* Income trend */}
-      {incomeTrendOption && (
-        <div style={{ marginBottom: 24 }}>
-          <h3 style={{ fontSize: 14, margin: '0 0 12px' }}>每日收益</h3>
-          <ReactECharts option={incomeTrendOption} style={{ height: 250 }} />
-        </div>
-      )}
+      {/* Tabs */}
+      <Tabs
+        defaultActiveKey="income"
+        type="card"
+        items={[
+          {
+            key: 'income',
+            label: '收益趋势',
+            children: (
+              <Flex vertical gap={16}>
+                {incomeTrendOption && (
+                  <Card title="每日收益" size="small">
+                    <ReactECharts option={incomeTrendOption} style={{ height: 250 }} />
+                  </Card>
+                )}
+                {incomeRecords.length >= 5 && <LifecycleAnalysis incomeRecords={incomeRecords} />}
+                {dailyRecords.length >= 5 && incomeRecords.length >= 5 && (
+                  <ResidualChart incomeRecords={incomeRecords} dailyRecords={dailyRecords} />
+                )}
+              </Flex>
+            ),
+          },
+          {
+            key: 'daily',
+            label: '每日数据详情',
+            children: (
+              <div>
+                <Flex justify="space-between" align="center" style={{ marginBottom: 12 }}>
+                  <div>
+                    {status.isCollecting && (
+                      <span style={{ fontSize: 12, color: '#1a73e8' }}>
+                        {status.currentDate} ({status.progress}/{status.total})
+                      </span>
+                    )}
+                  </div>
+                  <Button type="primary" size="small" icon={<ReloadOutlined />} onClick={handleFetchDaily} loading={status.isCollecting}>
+                    {status.isCollecting ? '拉取中...' : dailyRecords.length > 0 ? '更新数据' : '拉取数据'}
+                  </Button>
+                </Flex>
 
-      {/* Daily detail section */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ fontSize: 14, margin: 0 }}>每日数据详情</h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {status.isCollecting && (
-              <span style={{ fontSize: 12, color: '#1a73e8' }}>
-                {status.currentDate} ({status.progress}/{status.total})
-              </span>
-            )}
-            <button onClick={handleFetchDaily} disabled={status.isCollecting} style={{
-              padding: '4px 12px', background: '#1a73e8', color: '#fff', border: 'none',
-              borderRadius: 4, cursor: 'pointer', fontSize: 12,
-              opacity: status.isCollecting ? 0.6 : 1,
-            }}>
-              {status.isCollecting ? '拉取中...' : dailyRecords.length > 0 ? '更新数据' : '拉取数据'}
-            </button>
-          </div>
-        </div>
+                {fetchMsg && (
+                  <Alert
+                    message={fetchMsg}
+                    type={fetchMsg.includes('失败') ? 'error' : 'success'}
+                    showIcon closable
+                    style={{ marginBottom: 12 }}
+                    onClose={() => setFetchMsg('')}
+                  />
+                )}
 
-        {fetchMsg && (
-          <div style={{ marginBottom: 8, fontSize: 12, color: fetchMsg.includes('失败') ? '#d32f2f' : '#34a853' }}>
-            {fetchMsg}
-          </div>
-        )}
-
-        {dailyRecords.length > 0 ? (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            {ALL_METRICS.map(({ key, label, color }) => {
-              const dates = dailyRecords.map(r => r.date);
-              const incomeMap = new Map(incomeRecords.map(r => [r.recordDate, r.currentIncome]));
-              const incomeData = dates.map(d => (incomeMap.get(d) ?? 0) / 100);
-              return (
-                <MetricChart key={key} label={label} color={color}
-                  data={dailyRecords.map(r => r[key])}
-                  incomeData={incomeData}
-                  dates={dates.map(d => d.slice(5))} />
-              );
-            })}
-          </div>
-        ) : (
-          <div style={{ padding: 30, textAlign: 'center', color: '#999', fontSize: 13, background: '#f9f9f9', borderRadius: 8 }}>
-            暂无每日详细数据，点击上方"拉取数据"按钮获取
-          </div>
-        )}
-      </div>
+                {dailyRecords.length > 0 ? (
+                  <Row gutter={[16, 16]}>
+                    {ALL_METRICS.map(({ key, label, color }) => {
+                      const dates = dailyRecords.map(r => r.date);
+                      const incomeMap = new Map(incomeRecords.map(r => [r.recordDate, r.currentIncome]));
+                      const incomeData = dates.map(d => (incomeMap.get(d) ?? 0) / 100);
+                      return (
+                        <Col span={12} key={key}>
+                          <MetricChart label={label} color={color}
+                            data={dailyRecords.map(r => r[key])}
+                            incomeData={incomeData}
+                            dates={dates.map(d => d.slice(5))} />
+                        </Col>
+                      );
+                    })}
+                  </Row>
+                ) : (
+                  <Card style={{ textAlign: 'center', color: '#999' }}>
+                    暂无每日详细数据，点击上方"拉取数据"按钮获取
+                  </Card>
+                )}
+              </div>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }
@@ -220,7 +248,7 @@ function MetricChart({ label, color, data, incomeData, dates }: {
   const option = {
     tooltip: { trigger: 'axis' as const },
     legend: { data: [label, '收益'], textStyle: { fontSize: 11 }, right: 0, top: 0 },
-    grid: { left: 45, right: 50, top: 30, bottom: 25 },
+    grid: withZoomGrid({ left: 45, right: 50, top: 30, bottom: 25 }),
     title: { text: label, textStyle: { fontSize: 13, fontWeight: 600 }, left: 0 },
     xAxis: { type: 'category' as const, data: dates, axisLabel: { fontSize: 10 }, axisTick: { show: false } },
     yAxis: [
@@ -247,6 +275,7 @@ function MetricChart({ label, color, data, incomeData, dates }: {
         barMaxWidth: 8,
       },
     ],
+  ...timeSeriesZoom,
   };
   return (
     <div style={{ background: '#fafafa', borderRadius: 8, padding: '8px 8px 0' }}>
@@ -255,15 +284,3 @@ function MetricChart({ label, color, data, incomeData, dates }: {
   );
 }
 
-function SummaryCard({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <div style={{
-      background: highlight ? '#1a73e8' : '#f5f5f5',
-      color: highlight ? '#fff' : '#333',
-      borderRadius: 8, padding: '10px 12px', textAlign: 'center',
-    }}>
-      <div style={{ fontSize: 11, opacity: 0.8 }}>{label}</div>
-      <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>{value}</div>
-    </div>
-  );
-}
