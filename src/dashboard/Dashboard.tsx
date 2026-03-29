@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Layout, Tabs, Spin, Empty, Row, Col, Statistic, Card, Flex, DatePicker, Space, Button, theme, Dropdown, Progress, Alert, Modal } from 'antd';
-import { ArrowLeftOutlined, SyncOutlined, DownloadOutlined, UploadOutlined, SettingOutlined, DatabaseOutlined, CloudDownloadOutlined } from '@ant-design/icons';
+import { Layout, Tabs, Spin, Empty, Row, Col, Statistic, Card, Flex, DatePicker, Space, Button, theme, Dropdown, Progress, Alert, Modal, Drawer } from 'antd';
+import { ArrowLeftOutlined, SyncOutlined, DownloadOutlined, UploadOutlined, SettingOutlined, DatabaseOutlined, CloudDownloadOutlined, TrophyOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import { formatDate, getDateRange } from '@/shared/date-utils';
@@ -26,6 +26,7 @@ import { MultiDimensionRanking } from './components/MultiDimensionRanking';
 import { IncomeGoalPanel } from './components/IncomeGoalPanel';
 import { ContentComparePage } from './components/ContentComparePage';
 import { generateExcelReport } from './components/ExcelExportButton';
+import { MilestonesPage } from './components/MilestonesPage';
 
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
@@ -86,6 +87,7 @@ export function Dashboard() {
   const [syncMsg, setSyncMsg] = useState('');
   const [setupDate, setSetupDate] = useState('');
   const [setupOpen, setSetupOpen] = useState(false);
+  const [milestonesOpen, setMilestonesOpen] = useState(false);
 
   // Import state
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -344,6 +346,13 @@ export function Dashboard() {
                   { key: 'import', icon: <UploadOutlined />, label: '导入数据', onClick: () => fileInputRef.current?.click() },
                   { type: 'divider' },
                   {
+                    key: 'milestones',
+                    icon: <TrophyOutlined />,
+                    label: '成就记录',
+                    onClick: () => setMilestonesOpen(true),
+                  },
+                  { type: 'divider' },
+                  {
                     key: 'autoSync',
                     label: (
                       <Flex justify="space-between" align="center" style={{ minWidth: 160 }}>
@@ -577,6 +586,14 @@ export function Dashboard() {
             />
           </>
         )}
+        <Drawer
+          title="成就记录"
+          open={milestonesOpen}
+          onClose={() => setMilestonesOpen(false)}
+          width={480}
+        >
+          <MilestonesPage allSummaries={allSummaries} allRecords={allIncomeRecords} />
+        </Drawer>
       </Content>
     </Layout>
   );
