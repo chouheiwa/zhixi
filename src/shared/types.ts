@@ -112,3 +112,25 @@ export type MessageAction =
   | { action: 'startCollect'; startDate: string; endDate: string }
   | { action: 'getCollectStatus' }
   | { action: 'openDashboard' };
+
+/** Panel visibility and order within a tab */
+export interface PanelConfig {
+  key: string;
+  visible: boolean;
+  order: number;
+}
+
+/** Tab visibility, order, and child panel configuration */
+export interface TabConfig {
+  key: string;
+  label: string;
+  visible: boolean;
+  order: number;
+  panels: PanelConfig[];
+}
+
+/** User's customized dashboard layout */
+export interface PanelLayout {
+  userId: string;
+  tabs: TabConfig[];
+}

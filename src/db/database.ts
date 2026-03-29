@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { IncomeRecord, UserSettings, ContentDailyRecord, RealtimeAggrRecord } from '@/shared/types';
+import type { IncomeRecord, UserSettings, ContentDailyRecord, RealtimeAggrRecord, PanelLayout } from '@/shared/types';
 
 export interface SyncedDate {
   userId: string;
@@ -35,6 +35,7 @@ class ZhihuAnalysisDB extends Dexie {
   realtimeAggr!: Table<RealtimeAggrRecord>;
   contentDailyCache!: Table<ContentDailyRecord>;
   incomeGoals!: Table<IncomeGoal>;
+  panelLayout!: Table<PanelLayout>;
 
   constructor() {
     super('zhihu-income-analysis-v2');
@@ -86,6 +87,17 @@ class ZhihuAnalysisDB extends Dexie {
       realtimeAggr: '[userId+date], userId, date',
       contentDailyCache: '[userId+contentToken], userId',
       incomeGoals: '[userId+period], userId',
+    });
+    this.version(8).stores({
+      incomeRecords: '[userId+contentId+recordDate], recordDate, contentType, contentId, userId, [userId+recordDate]',
+      userSettings: 'userId',
+      contentDaily: '[userId+contentToken+date], [userId+contentToken], contentToken, date, userId',
+      syncedDates: '[userId+date], userId',
+      mlModels: 'userId',
+      realtimeAggr: '[userId+date], userId, date',
+      contentDailyCache: '[userId+contentToken], userId',
+      incomeGoals: '[userId+period], userId',
+      panelLayout: 'userId',
     });
   }
 }
