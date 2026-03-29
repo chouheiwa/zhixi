@@ -8,7 +8,7 @@ import { useIncomeData } from '@/hooks/use-income-data';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { getAllDailySummaries } from '@/db/income-store';
 import { db } from '@/db/database';
-import type { DailySummary } from '@/shared/types';
+import type { DailySummary, IncomeRecord } from '@/shared/types';
 import { useUserSettings } from '@/hooks/use-user-settings';
 import { useCollector } from '@/hooks/use-collector';
 import { exportToJSON, importFromJSON } from '@/db/export-import';
@@ -20,6 +20,7 @@ import { WeeklySeasonalityChart } from './components/WeeklySeasonalityChart';
 import { MLPredictionPanel } from './components/MLPredictionPanel';
 import { AnomalyDetectionPanel } from './components/AnomalyDetectionPanel';
 import { UnmonetizedContentPanel } from './components/UnmonetizedContentPanel';
+import { ContentTypeComparisonPanel } from './components/ContentTypeComparisonPanel';
 
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
@@ -46,15 +47,13 @@ export function Dashboard() {
 
   // Full summaries (not filtered by date) for overview charts
   const [allSummaries, setAllSummaries] = useState<DailySummary[]>([]);
-  const [allIncomeRecords, setAllIncomeRecords] = useState<{ contentId: string; recordDate: string }[]>([]);
+  const [allIncomeRecords, setAllIncomeRecords] = useState<IncomeRecord[]>([]);
   const monetizedContentIds = useMemo(() => new Set(allIncomeRecords.map(r => r.contentId)), [allIncomeRecords]);
   const totalContentCount = monetizedContentIds.size;
   const refreshAllSummaries = useCallback(() => {
     if (!user) return;
     getAllDailySummaries(user.id).then(setAllSummaries);
-    db.incomeRecords.where('userId').equals(user.id).toArray().then(all => {
-      setAllIncomeRecords(all.map(r => ({ contentId: r.contentId, recordDate: r.recordDate })));
-    });
+    db.incomeRecords.where('userId').equals(user.id).toArray().then(setAllIncomeRecords);
   }, [user]);
   useEffect(() => { refreshAllSummaries(); }, [refreshAllSummaries]);
 
@@ -453,6 +452,7 @@ export function Dashboard() {
                   ) : (
                     <Flex vertical gap={24}>
                       <DailyTrendChart summaries={allSummaries} startDate={allDateRange.start} endDate={allDateRange.end} />
+                      <ContentTypeComparisonPanel records={allIncomeRecords} />
                       <Row gutter={16}>
                         <Col span={16}>
                           <RPMForecastPanel summaries={allSummaries} startDate={allDateRange.start} endDate={allDateRange.end} />
