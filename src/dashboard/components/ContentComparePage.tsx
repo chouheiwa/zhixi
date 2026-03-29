@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, Select, Tag, Row, Col, Table, Flex, Empty } from 'antd';
+import { Card, Tag, Row, Col, Table, Flex, Empty, Input } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import ReactECharts from 'echarts-for-react';
 import { timeSeriesZoom, withZoomGrid } from './chartConfig';
 import type { ContentDailyRecord, IncomeRecord } from '@/shared/types';
@@ -159,46 +160,101 @@ export function ContentComparePage({ initialItems, allContentOptions, onBack }: 
     });
   }, [selected, incomeMap]);
 
-  const selectOptions = allContentOptions
-    .filter(o => !selected.find(s => s.contentId === o.contentId))
-    .map(o => ({
-      value: o.contentId,
-      label: `${o.contentType === 'article' ? '[文章]' : '[回答]'} ${o.title}`,
-    }));
+  const [searchText, setSearchText] = useState('');
+
+  const filteredOptions = useMemo(() => {
+    if (!searchText) return allContentOptions;
+    const lower = searchText.toLowerCase();
+    return allContentOptions.filter(o => o.title.toLowerCase().includes(lower));
+  }, [allContentOptions, searchText]);
+
+  const selectedKeys = useMemo(() => selected.map(s => s.contentId), [selected]);
+
+  const listColumns: ColumnsType<ContentOption> = [
+    {
+      title: '内容', dataIndex: 'title', key: 'title', ellipsis: true,
+      render: (title: string, row) => (
+        <span>
+          <Tag color={row.contentType === 'article' ? 'blue' : 'gold'} style={{ marginRight: 4 }}>
+            {row.contentType === 'article' ? '文章' : '回答'}
+          </Tag>
+          {title}
+        </span>
+      ),
+    },
+    { title: '发布日期', dataIndex: 'publishDate', key: 'publishDate', width: 100 },
+  ];
 
   return (
     <div>
-      <Card size="small" style={{ marginBottom: 16 }}>
-        <Flex gap={8} wrap="wrap" align="center">
-          {selected.map((item, idx) => (
-            <Tag
-              key={item.contentId}
-              color={COLORS[idx]}
-              closable
-              onClose={() => handleRemove(item.contentId)}
-            >
-              {item.title.length > 20 ? item.title.slice(0, 20) + '...' : item.title}
-            </Tag>
-          ))}
-          {selected.length < 3 && (
-            <Select
-              showSearch
-              placeholder="搜索添加内容（最多3篇）"
-              options={selectOptions}
-              onSelect={handleAdd}
-              value={null}
-              filterOption={(input, option) =>
-                (option?.label as string)?.toLowerCase().includes(input.toLowerCase()) ?? false
+      {/* Selected items */}
+      {selected.length > 0 && (
+        <Card size="small" style={{ marginBottom: 12 }}>
+          <Flex gap={8} wrap="wrap" align="center">
+            <span style={{ fontSize: 12, color: '#999' }}>已选：</span>
+            {selected.map((item, idx) => (
+              <Tag
+                key={item.contentId}
+                color={COLORS[idx]}
+                closable
+                onClose={() => handleRemove(item.contentId)}
+              >
+                {item.title.length > 20 ? item.title.slice(0, 20) + '...' : item.title}
+              </Tag>
+            ))}
+          </Flex>
+        </Card>
+      )}
+
+      {/* Content selection list */}
+      <Card
+        size="small"
+        title={`选择要对比的内容（最多3篇，已选 ${selected.length}/3）`}
+        style={{ marginBottom: 16 }}
+        extra={
+          <Input.Search
+            placeholder="搜索内容"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            allowClear
+            size="small"
+            style={{ width: 200 }}
+          />
+        }
+      >
+        <Table<ContentOption>
+          columns={listColumns}
+          dataSource={filteredOptions}
+          rowKey="contentId"
+          size="small"
+          pagination={filteredOptions.length > 8 ? { pageSize: 8, size: 'small' } : false}
+          rowSelection={{
+            selectedRowKeys: selectedKeys,
+            onChange: (newKeys) => {
+              const newSelected = allContentOptions.filter(o =>
+                (newKeys as string[]).includes(o.contentId)
+              );
+              setSelected(newSelected.slice(0, 3));
+            },
+            getCheckboxProps: (record) => ({
+              disabled: selected.length >= 3 && !selected.find(s => s.contentId === record.contentId),
+            }),
+          }}
+          onRow={(record) => ({
+            onClick: () => {
+              if (selected.find(s => s.contentId === record.contentId)) {
+                handleRemove(record.contentId);
+              } else if (selected.length < 3) {
+                setSelected([...selected, record]);
               }
-              style={{ width: 280 }}
-              size="small"
-            />
-          )}
-        </Flex>
+            },
+            style: { cursor: selected.length >= 3 && !selected.find(s => s.contentId === record.contentId) ? undefined : 'pointer' },
+          })}
+        />
       </Card>
 
       {selected.length < 2 ? (
-        <Empty description="请选择至少 2 篇内容进行对比" />
+        <Empty description="请选择至少 2 篇内容进行对比" style={{ padding: 24 }} />
       ) : (
         <>
           <Row gutter={16}>
