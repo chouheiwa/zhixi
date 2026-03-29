@@ -7,6 +7,7 @@ import type { ContentDailyRecord, IncomeRecord } from '@/shared/types';
 import { getContentDailyRecords } from '@/db/content-daily-store';
 import { db } from '@/db/database';
 import { useCurrentUser } from '@/hooks/use-current-user';
+import { themeColors } from '../theme';
 
 interface ContentOption {
   contentId: string;
@@ -22,7 +23,7 @@ interface Props {
   onBack: () => void;
 }
 
-const COLORS = ['#1a73e8', '#ea4335', '#34a853'];
+const COLORS = [themeColors.warmBlue, themeColors.warmRed, themeColors.sage];
 
 export function ContentComparePage({ initialItems, allContentOptions, onBack }: Props) {
   const { user } = useCurrentUser();

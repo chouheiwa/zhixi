@@ -4,6 +4,7 @@ import { timeSeriesZoom, withZoomGrid } from './chartConfig';
 import type { IncomeRecord, ContentDailyRecord } from '@/shared/types';
 import { ridgeRegression, residualAnalysis, detectAnomalies } from '@/shared/stats';
 import { FormulaBlock } from './FormulaHelp';
+import { themeColors } from '../theme';
 
 interface Props {
   incomeRecords: IncomeRecord[];
@@ -71,7 +72,7 @@ export function ResidualChart({ incomeRecords, dailyRecords }: Props) {
         name: '实际收益',
         type: 'line',
         data: analysis.incomes,
-        itemStyle: { color: '#1a73e8' },
+        itemStyle: { color: themeColors.warmBlue },
         lineStyle: { width: 2 },
         symbol: 'circle',
         symbolSize: 4,
@@ -80,7 +81,7 @@ export function ResidualChart({ incomeRecords, dailyRecords }: Props) {
         name: '根据指标预测',
         type: 'line',
         data: analysis.predicted,
-        itemStyle: { color: '#ea4335' },
+        itemStyle: { color: themeColors.warmRed },
         lineStyle: { width: 2, type: 'dashed' },
         symbol: 'none',
       },
@@ -115,7 +116,7 @@ export function ResidualChart({ incomeRecords, dailyRecords }: Props) {
             itemStyle: {
               color: isAnomaly
                 ? (v > 0 ? 'rgba(52, 168, 83, 0.8)' : 'rgba(211, 47, 47, 0.8)')
-                : (v > 0 ? 'rgba(26, 115, 232, 0.3)' : 'rgba(251, 188, 4, 0.3)'),
+                : (v > 0 ? 'rgba(91, 122, 157, 0.3)' : 'rgba(184, 134, 78, 0.3)'),
               borderRadius: v > 0 ? [3, 3, 0, 0] : [0, 0, 3, 3],
             },
           };

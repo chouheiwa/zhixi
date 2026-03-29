@@ -3,6 +3,7 @@ import { Card, Alert } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import type { IncomeRecord } from '@/shared/types';
 import { parseDateString } from '@/shared/date-utils';
+import { themeColors } from '../theme';
 
 interface Props {
   records: IncomeRecord[];
@@ -108,7 +109,7 @@ export function PublishTimeAnalysis({ records }: Props) {
         type: 'bar',
         data: analysis.result.map(r => r.avgIncome),
         yAxisIndex: 0,
-        itemStyle: { color: '#1a73e8', borderRadius: [4, 4, 0, 0] },
+        itemStyle: { color: themeColors.warmBlue, borderRadius: [4, 4, 0, 0] },
         barMaxWidth: 30,
       },
       {
@@ -117,7 +118,7 @@ export function PublishTimeAnalysis({ records }: Props) {
         data: analysis.result.map(r => r.avgRead),
         yAxisIndex: 1,
         smooth: true,
-        itemStyle: { color: '#34a853' },
+        itemStyle: { color: themeColors.sage },
         lineStyle: { width: 2 },
         symbol: 'circle',
         symbolSize: 6,

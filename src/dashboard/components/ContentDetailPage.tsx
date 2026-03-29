@@ -11,6 +11,7 @@ import { useCollector } from '@/hooks/use-collector';
 import { LifecycleAnalysis } from './LifecycleAnalysis';
 import { ResidualChart } from './ResidualChart';
 import { computeRPM, percentileRanks } from '@/shared/stats';
+import { themeColors } from '../theme';
 
 interface Props {
   contentId: string;
@@ -25,12 +26,12 @@ interface Props {
 type Metric = 'pv' | 'show' | 'upvote' | 'comment' | 'collect' | 'share';
 
 const ALL_METRICS: { key: Metric; label: string; color: string }[] = [
-  { key: 'pv', label: '阅读量', color: '#1a73e8' },
+  { key: 'pv', label: '阅读量', color: themeColors.warmBlue },
   { key: 'show', label: '曝光量', color: '#999' },
-  { key: 'upvote', label: '点赞', color: '#ea4335' },
-  { key: 'comment', label: '评论', color: '#34a853' },
-  { key: 'collect', label: '收藏', color: '#fbbc04' },
-  { key: 'share', label: '分享', color: '#9c27b0' },
+  { key: 'upvote', label: '点赞', color: themeColors.warmRed },
+  { key: 'comment', label: '评论', color: themeColors.sage },
+  { key: 'collect', label: '收藏', color: themeColors.amberLight },
+  { key: 'share', label: '分享', color: '#8b7bb5' },
 ];
 
 export function ContentDetailPage({ contentId, contentToken, contentType, title, publishDate, onBack, onCompare }: Props) {
@@ -117,7 +118,7 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
       series: [{
         type: 'bar',
         data: sorted.map(r => r.currentIncome),
-        itemStyle: { color: '#1a73e8', borderRadius: [3, 3, 0, 0] },
+        itemStyle: { color: themeColors.warmBlue, borderRadius: [3, 3, 0, 0] },
         barMaxWidth: 20,
       }],
     ...timeSeriesZoom,
@@ -150,7 +151,7 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
 
       {/* Summary stats */}
       <Row gutter={[10, 10]} style={{ marginBottom: 20 }}>
-        <Col span={4}><Card size="small"><Statistic title="总收益" value={(incomeSummary.totalIncome / 100)} precision={2} prefix="¥" valueStyle={{ color: '#1a73e8', fontWeight: 700 }} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="总收益" value={(incomeSummary.totalIncome / 100)} precision={2} prefix="¥" valueStyle={{ color: themeColors.warmBlue, fontWeight: 700 }} /></Card></Col>
         <Col span={4}><Card size="small"><Statistic title="千次阅读收益" value={incomeSummary.rpm} precision={2} prefix="¥" /></Card></Col>
         <Col span={4}><Card size="small"><Statistic title="总阅读" value={incomeSummary.totalRead} /></Card></Col>
         <Col span={4}><Card size="small"><Statistic title="总互动" value={incomeSummary.totalInteraction} /></Card></Col>
@@ -192,7 +193,7 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
                 <Flex justify="space-between" align="center" style={{ marginBottom: 12 }}>
                   <div>
                     {status.isCollecting && (
-                      <span style={{ fontSize: 12, color: '#1a73e8' }}>
+                      <span style={{ fontSize: 12, color: themeColors.warmBlue }}>
                         {status.currentDate} ({status.progress}/{status.total})
                       </span>
                     )}
@@ -271,7 +272,7 @@ function MetricChart({ label, color, data, incomeData, dates }: {
         type: 'bar',
         data: incomeData,
         yAxisIndex: 1,
-        itemStyle: { color: 'rgba(26, 115, 232, 0.25)', borderRadius: [2, 2, 0, 0] },
+        itemStyle: { color: 'rgba(91, 122, 157, 0.25)', borderRadius: [2, 2, 0, 0] },
         barMaxWidth: 8,
       },
     ],

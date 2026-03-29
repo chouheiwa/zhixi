@@ -16,6 +16,7 @@ import {
   computeRPM,
 } from '@/shared/stats';
 import { FormulaBlock } from './FormulaHelp';
+import { themeColors } from '../theme';
 
 interface Props {
   records: IncomeRecord[];
@@ -24,12 +25,12 @@ interface Props {
 type Metric = 'pv' | 'show' | 'upvote' | 'comment' | 'collect' | 'share';
 
 const METRIC_INFO: { key: Metric; label: string; color: string }[] = [
-  { key: 'pv', label: '阅读量', color: '#1a73e8' },
+  { key: 'pv', label: '阅读量', color: themeColors.warmBlue },
   { key: 'show', label: '曝光量', color: '#999' },
-  { key: 'upvote', label: '点赞', color: '#ea4335' },
-  { key: 'comment', label: '评论', color: '#34a853' },
-  { key: 'collect', label: '收藏', color: '#fbbc04' },
-  { key: 'share', label: '分享', color: '#9c27b0' },
+  { key: 'upvote', label: '点赞', color: themeColors.warmRed },
+  { key: 'comment', label: '评论', color: themeColors.sage },
+  { key: 'collect', label: '收藏', color: themeColors.amberLight },
+  { key: 'share', label: '分享', color: '#8b7bb5' },
 ];
 
 interface AggregatedContent {
@@ -314,7 +315,7 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
                 <span style={{
                   padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600,
                   background: weight > 0 ? `${color}20` : weight < 0 ? '#ffebee' : '#f5f5f5',
-                  color: weight > 0 ? color : weight < 0 ? '#d32f2f' : '#999',
+                  color: weight > 0 ? color : weight < 0 ? themeColors.warmRed : '#999',
                 }}>
                   {Math.abs(weight) < 0.0001 ? '影响极小' : `${weight > 0 ? '+' : ''}¥${weight.toFixed(4)}`}
                 </span>
@@ -374,7 +375,7 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
               <thead>
                 <tr style={{ borderBottom: '1px solid #ddd' }}>
                   <th style={{ textAlign: 'left', padding: '4px 6px', color: '#999', fontSize: 11 }}>指标</th>
-                  <th style={{ textAlign: 'right', padding: '4px 6px', color: '#d32f2f', fontSize: 11 }}>最差</th>
+                  <th style={{ textAlign: 'right', padding: '4px 6px', color: themeColors.warmRed, fontSize: 11 }}>最差</th>
                   <th style={{ textAlign: 'right', padding: '4px 6px', color: '#333', fontSize: 11 }}>一般</th>
                   <th style={{ textAlign: 'right', padding: '4px 6px', color: '#2e7d32', fontSize: 11 }}>最好</th>
                 </tr>
@@ -387,7 +388,7 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
                   return (
                     <tr key={key} style={{ borderBottom: '1px solid #f0f0f0' }}>
                       <td style={{ padding: '5px 6px', color: '#666' }}>{label}</td>
-                      <td style={{ textAlign: 'right', padding: '5px 6px', color: '#d32f2f' }}>
+                      <td style={{ textAlign: 'right', padding: '5px 6px', color: themeColors.warmRed }}>
                         {Math.abs(q10) < 0.0001 ? '-' : `¥${q10.toFixed(4)}`}
                       </td>
                       <td style={{ textAlign: 'right', padding: '5px 6px', fontWeight: 600 }}>
@@ -449,7 +450,7 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
                   <div style={{
                     width: `${Math.min((q.income / Math.max(...readInterAnalysis.quadrants.map(x => x.income), 1)) * 100, 100)}%`,
                     height: '100%', borderRadius: 8,
-                    background: ['#1a73e8', '#64b5f6', '#ffa726', '#e0e0e0'][i],
+                    background: [themeColors.warmBlue, '#8badc4', themeColors.amberLight, themeColors.border][i],
                   }} />
                 </div>
                 <div style={{ width: 65, fontSize: 12, textAlign: 'right', fontWeight: 600 }}>
@@ -479,7 +480,7 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
                       <div style={{
                         width: `${Math.min((t.income / Math.max(...readInterAnalysis.tiers.map(x => x.income), 1)) * 100, 100)}%`,
                         height: '100%', borderRadius: 4,
-                        background: ['#e0e0e0', '#64b5f6', '#1a73e8'][i],
+                        background: [themeColors.border, '#8badc4', themeColors.warmBlue][i],
                       }} />
                     </div>
                     <div style={{ fontSize: 12, fontWeight: 600, marginTop: 2 }}>¥{t.income.toFixed(2)}</div>
@@ -490,7 +491,7 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
                       <div style={{
                         width: `${Math.min((t.rpm / Math.max(...readInterAnalysis.tiers.map(x => x.rpm), 1)) * 100, 100)}%`,
                         height: '100%', borderRadius: 4,
-                        background: ['#ffcdd2', '#ef9a9a', '#ea4335'][i],
+                        background: ['#f0d5d1', '#d9a09a', themeColors.warmRed][i],
                       }} />
                     </div>
                     <div style={{ fontSize: 12, fontWeight: 600, marginTop: 2 }}>¥{t.rpm.toFixed(2)}</div>
@@ -506,7 +507,7 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
             <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
               <div style={{ flex: 1, background: '#f0f7ff', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
                 <div style={{ fontSize: 10, color: '#666' }}>平均延迟</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: '#1a73e8' }}>{inclusionDelay.avg.toFixed(1)}天</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: themeColors.warmBlue }}>{inclusionDelay.avg.toFixed(1)}天</div>
               </div>
               <div style={{ flex: 1, background: '#f5f5f5', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
                 <div style={{ fontSize: 10, color: '#666' }}>中位数</div>
@@ -525,7 +526,7 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
                   <div style={{
                     width: `${(b.items.length / inclusionDelay.total) * 100}%`,
                     height: '100%', borderRadius: 8,
-                    background: i === 0 ? '#34a853' : i <= 1 ? '#1a73e8' : i <= 2 ? '#ffa726' : '#ea4335',
+                    background: i === 0 ? themeColors.sage : i <= 1 ? themeColors.warmBlue : i <= 2 ? themeColors.amberLight : themeColors.warmRed,
                   }} />
                 </div>
                 <div style={{ width: 55, fontSize: 12, textAlign: 'right', color: '#666' }}>
@@ -584,7 +585,7 @@ function CorrelationBar({ value, color }: { value: number; color: string }) {
         left: value >= 0 ? '50%' : `${50 + value * 50}%`,
         width: `${Math.abs(value) * 50}%`,
         height: '100%',
-        background: value >= 0 ? color : '#d32f2f',
+        background: value >= 0 ? color : themeColors.warmRed,
         borderRadius: 7,
       }} />
       <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, background: '#ccc' }} />

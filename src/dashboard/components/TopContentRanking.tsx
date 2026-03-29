@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
+import { Card } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import type { IncomeRecord } from '@/shared/types';
+import { themeColors } from '../theme';
 
 interface Props {
   records: IncomeRecord[];
@@ -35,7 +37,7 @@ export function TopContentRanking({ records }: Props) {
       type: 'bar',
       data: top10.map((item) => ({
         value: item.income / 100,
-        itemStyle: { color: item.type === 'article' ? '#1a73e8' : '#fbbc04' },
+        itemStyle: { color: item.type === 'article' ? themeColors.warmBlue : themeColors.amberLight },
       })).reverse(),
       barMaxWidth: 20,
       label: {
@@ -47,9 +49,8 @@ export function TopContentRanking({ records }: Props) {
   };
 
   return (
-    <div>
-      <h3 style={{ fontSize: 14, margin: '0 0 12px' }}>收益 Top 10</h3>
+    <Card title="收益 Top 10" size="small">
       <ReactECharts option={option} style={{ height: Math.max(200, top10.length * 35) }} />
-    </div>
+    </Card>
   );
 }

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Card, Segmented, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { IncomeRecord } from '@/shared/types';
+import { themeColors } from '../theme';
 
 interface Props {
   records: IncomeRecord[];
@@ -142,7 +143,7 @@ export function MultiDimensionRanking({ records, onContentClick }: Props) {
     {
       title: '#', dataIndex: 'rank', key: 'rank', width: 40,
       render: (rank: number) => (
-        <span style={{ fontWeight: rank <= 3 ? 700 : 400, color: rank <= 3 ? '#ea4335' : undefined }}>
+        <span style={{ fontWeight: rank <= 3 ? 700 : 400, color: rank <= 3 ? themeColors.warmRed : undefined }}>
           {rank}
         </span>
       ),

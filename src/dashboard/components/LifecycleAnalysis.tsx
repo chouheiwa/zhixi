@@ -4,6 +4,7 @@ import { timeSeriesZoom, withZoomGrid } from './chartConfig';
 import type { IncomeRecord } from '@/shared/types';
 import { exponentialDecayFit, powerLawDecayFit, computeRPM } from '@/shared/stats';
 import { FormulaBlock } from './FormulaHelp';
+import { themeColors } from '../theme';
 
 interface Props {
   incomeRecords: IncomeRecord[];
@@ -59,7 +60,7 @@ export function LifecycleAnalysis({ incomeRecords }: Props) {
         name: '实际收益',
         type: 'bar',
         data: analysis.incomes,
-        itemStyle: { color: 'rgba(26, 115, 232, 0.3)', borderRadius: [2, 2, 0, 0] },
+        itemStyle: { color: 'rgba(91, 122, 157, 0.3)', borderRadius: [2, 2, 0, 0] },
         barMaxWidth: 12,
       },
       ...(analysis.expFit ? [{
@@ -67,8 +68,8 @@ export function LifecycleAnalysis({ incomeRecords }: Props) {
         type: 'line',
         data: analysis.expCurve,
         smooth: true,
-        lineStyle: { color: '#ea4335', width: 2 },
-        itemStyle: { color: '#ea4335' },
+        lineStyle: { color: themeColors.warmRed, width: 2 },
+        itemStyle: { color: themeColors.warmRed },
         symbol: 'none',
       }] : []),
       ...(analysis.powFit ? [{
@@ -76,8 +77,8 @@ export function LifecycleAnalysis({ incomeRecords }: Props) {
         type: 'line',
         data: analysis.powCurve,
         smooth: true,
-        lineStyle: { color: '#9c27b0', width: 2, type: 'dashed' as const },
-        itemStyle: { color: '#9c27b0' },
+        lineStyle: { color: '#8b7bb5', width: 2, type: 'dashed' as const },
+        itemStyle: { color: '#8b7bb5' },
         symbol: 'none',
       }] : []),
     ],
@@ -101,9 +102,9 @@ export function LifecycleAnalysis({ incomeRecords }: Props) {
         data: analysis.cumulative,
         smooth: true,
         yAxisIndex: 0,
-        itemStyle: { color: '#1a73e8' },
+        itemStyle: { color: themeColors.warmBlue },
         lineStyle: { width: 2 },
-        areaStyle: { color: 'rgba(26, 115, 232, 0.1)' },
+        areaStyle: { color: 'rgba(91, 122, 157, 0.1)' },
         symbol: 'none',
       },
       {
@@ -112,7 +113,7 @@ export function LifecycleAnalysis({ incomeRecords }: Props) {
         data: analysis.rpms,
         smooth: true,
         yAxisIndex: 1,
-        itemStyle: { color: '#fbbc04' },
+        itemStyle: { color: themeColors.amberLight },
         lineStyle: { width: 2 },
         symbol: 'none',
       },
@@ -196,7 +197,7 @@ function MiniCard({ label, value, sub, highlight }: {
 }) {
   return (
     <div style={{
-      background: highlight ? '#1a73e8' : '#f5f5f5',
+      background: highlight ? themeColors.warmBlue : themeColors.paper,
       color: highlight ? '#fff' : '#333',
       borderRadius: 8, padding: '10px 12px',
     }}>

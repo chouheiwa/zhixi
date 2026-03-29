@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
+import { Card, Button, DatePicker, Space, Progress, Alert, Flex } from 'antd';
+import { SyncOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { useCollector } from '@/hooks/use-collector';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { useUserSettings } from '@/hooks/use-user-settings';
+import { themeColors } from '../theme';
 
 interface Props {
   onCollected: () => void;
@@ -33,60 +37,53 @@ export function CollectorPanel({ onCollected }: Props) {
   };
 
   return (
-    <div style={{ padding: 16, background: '#f9f9f9', borderRadius: 8 }}>
-      <h3 style={{ fontSize: 14, margin: '0 0 12px' }}>数据采集</h3>
-
+    <Card title="数据采集" size="small">
       {hasSetup ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontSize: 13, color: '#666' }}>
-            数据范围：{settings!.collectStartDate} 起
-          </div>
-          <button onClick={handleSync} disabled={status.isCollecting} style={btnStyle(status.isCollecting)}>
+        <Flex justify="space-between" align="center">
+          <span style={{ color: '#666' }}>数据范围：{settings!.collectStartDate} 起</span>
+          <Button type="primary" icon={<SyncOutlined />} onClick={handleSync} loading={status.isCollecting}>
             {status.isCollecting ? '同步中...' : '同步数据'}
-          </button>
-        </div>
+          </Button>
+        </Flex>
       ) : (
         <div>
-          <div style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>
+          <div style={{ color: '#666', marginBottom: 8 }}>
             请设置致知计划开通日期，插件将从该日期开始采集
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-              style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13 }} />
-            <button onClick={handleSync} disabled={status.isCollecting || !startDate}
-              style={btnStyle(status.isCollecting || !startDate)}>
+          <Space>
+            <DatePicker
+              onChange={(date) => setStartDate(date ? date.format('YYYY-MM-DD') : '')}
+              placeholder="选择开始日期"
+            />
+            <Button type="primary" onClick={handleSync} disabled={status.isCollecting || !startDate} loading={status.isCollecting}>
               {status.isCollecting ? '同步中...' : '开始同步'}
-            </button>
-          </div>
+            </Button>
+          </Space>
         </div>
       )}
 
       {status.isCollecting && (
-        <div style={{ marginTop: 8, fontSize: 12, color: '#1a73e8' }}>
-          {status.currentDate} ({status.progress}/{status.total})
-          <div style={{ marginTop: 4, height: 4, background: '#e0e0e0', borderRadius: 2 }}>
-            <div style={{
-              height: '100%', background: '#1a73e8', borderRadius: 2,
-              width: `${status.total > 0 ? (status.progress / status.total) * 100 : 0}%`,
-              transition: 'width 0.3s',
-            }} />
-          </div>
+        <div style={{ marginTop: 8 }}>
+          <span style={{ fontSize: 12, color: themeColors.warmBlue }}>
+            {status.currentDate} ({status.progress}/{status.total})
+          </span>
+          <Progress
+            percent={status.total > 0 ? Math.round((status.progress / status.total) * 100) : 0}
+            size="small"
+            showInfo={false}
+          />
         </div>
       )}
 
       {resultMsg && (
-        <div style={{ marginTop: 8, fontSize: 12, color: resultMsg.includes('失败') ? '#d32f2f' : '#34a853' }}>
-          {resultMsg}
-        </div>
+        <Alert
+          message={resultMsg}
+          type={resultMsg.includes('失败') ? 'error' : 'success'}
+          showIcon closable
+          style={{ marginTop: 8 }}
+          onClose={() => setResultMsg('')}
+        />
       )}
-    </div>
+    </Card>
   );
-}
-
-function btnStyle(disabled: boolean): React.CSSProperties {
-  return {
-    padding: '6px 16px', background: '#1a73e8', color: '#fff',
-    border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13,
-    opacity: disabled ? 0.6 : 1,
-  };
 }

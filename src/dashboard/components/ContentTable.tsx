@@ -3,6 +3,7 @@ import { Table, Tag, Button, Space, Alert, Progress } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { IncomeRecord } from '@/shared/types';
 import { useCollector } from '@/hooks/use-collector';
+import { themeColors } from '../theme';
 
 export interface ContentTableItem {
   contentId: string;
@@ -157,7 +158,7 @@ export function ContentTable({ records, onContentClick, onCompare }: Props) {
 
       {status.isCollecting && status.currentDate && (
         <div style={{ marginBottom: 8 }}>
-          <span style={{ fontSize: 12, color: '#1a73e8' }}>
+          <span style={{ fontSize: 12, color: themeColors.warmBlue }}>
             {status.currentDate} ({status.progress}/{status.total})
           </span>
           <Progress

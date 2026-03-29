@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Card, Row, Col, Statistic, Tag } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import type { IncomeRecord } from '@/shared/types';
+import { themeColors } from '../theme';
 
 interface Props {
   records: IncomeRecord[];
@@ -81,14 +82,14 @@ export function ContentTypeComparisonPanel({ records }: Props) {
         name: '文章',
         type: 'bar',
         data: monthlyData.map(d => d.articleIncome),
-        itemStyle: { color: '#1a73e8', borderRadius: [2, 2, 0, 0] },
+        itemStyle: { color: themeColors.warmBlue, borderRadius: [2, 2, 0, 0] },
         barMaxWidth: 20,
       },
       {
         name: '回答',
         type: 'bar',
         data: monthlyData.map(d => d.answerIncome),
-        itemStyle: { color: '#fbbc04', borderRadius: [2, 2, 0, 0] },
+        itemStyle: { color: themeColors.amberLight, borderRadius: [2, 2, 0, 0] },
         barMaxWidth: 20,
       },
     ],
