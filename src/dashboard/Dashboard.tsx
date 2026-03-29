@@ -21,6 +21,7 @@ import { MLPredictionPanel } from './components/MLPredictionPanel';
 import { AnomalyDetectionPanel } from './components/AnomalyDetectionPanel';
 import { UnmonetizedContentPanel } from './components/UnmonetizedContentPanel';
 import { ContentTypeComparisonPanel } from './components/ContentTypeComparisonPanel';
+import { PublishTimeAnalysis } from './components/PublishTimeAnalysis';
 
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
@@ -461,6 +462,7 @@ export function Dashboard() {
                           <WeeklySeasonalityChart summaries={allSummaries} />
                         </Col>
                       </Row>
+                      <PublishTimeAnalysis records={allIncomeRecords} />
                       <AnomalyDetectionPanel summaries={allSummaries} startDate={allDateRange.start} endDate={allDateRange.end} />
                     </Flex>
                   ),
