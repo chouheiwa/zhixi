@@ -2,10 +2,10 @@ import { defineManifest } from "@crxjs/vite-plugin";
 
 export default defineManifest({
   manifest_version: 3,
-  name: "知乎致知计划收益分析",
-  description: "知乎致知计划每日收益数据采集与多维度分析",
+  name: "知析 - 知乎致知计划收益分析",
+  description: "知乎致知计划收益智能分析工具，支持数据采集、趋势预测、ML模型训练",
   version: "1.0.0",
-  permissions: ["storage", "tabs"],
+  permissions: ["storage", "tabs", "alarms", "notifications"],
   host_permissions: ["https://www.zhihu.com/*"],
   background: {
     service_worker: "src/background/service-worker.ts",

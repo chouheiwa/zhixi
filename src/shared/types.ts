@@ -41,6 +41,10 @@ export interface CollectionStatus {
   total: number;
   currentDate?: string;
   error?: string;
+  /** What type of collection is running */
+  task?: '收益同步' | '内容详情';
+  /** Recent log entries */
+  logs?: string[];
 }
 
 /** Per-content daily detailed metrics */
@@ -63,11 +67,42 @@ export interface ContentDailyRecord {
   collectedAt: number;
 }
 
+/** Daily aggregated realtime metrics (all content combined) */
+export interface RealtimeAggrRecord {
+  userId: string;
+  date: string;
+  updatedAt: string;
+  pv: number;
+  play: number;
+  show: number;
+  upvote: number;
+  comment: number;
+  like: number;
+  collect: number;
+  share: number;
+  reaction: number;
+  rePin: number;
+  likeAndReaction: number;
+  newUpvote: number;
+  newLike: number;
+  newIncrUpvoteNum: number;
+  newDescUpvoteNum: number;
+  newIncrLikeNum: number;
+  newDescLikeNum: number;
+  collectedAt: number;
+}
+
 /** Per-user settings stored in DB */
 export interface UserSettings {
   userId: string;
   /** The start date from which to collect data (user-chosen) */
   collectStartDate: string;
+  /** Whether auto-sync is enabled (default: true) */
+  autoSyncEnabled?: boolean;
+  /** Auto-sync interval in hours (default: 6) */
+  autoSyncIntervalHours?: number;
+  /** Timestamp of last auto-sync */
+  lastAutoSyncAt?: number;
 }
 
 /** Message types for chrome.runtime messaging */

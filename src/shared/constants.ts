@@ -6,4 +6,7 @@ export const REQUEST_INTERVAL_MIN = 1000;
 export const REQUEST_INTERVAL_MAX = 3000;
 export const STORAGE_KEYS = {
   LAST_COLLECT_DATE: 'lastCollectDate',
+  LAST_AUTO_SYNC_DATE: 'lastAutoSyncDate',
 } as const;
+
+export const AUTO_SYNC_INTERVAL_MINUTES = 360; // 6 hours
