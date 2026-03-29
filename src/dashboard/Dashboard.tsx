@@ -22,6 +22,7 @@ import { AnomalyDetectionPanel } from './components/AnomalyDetectionPanel';
 import { UnmonetizedContentPanel } from './components/UnmonetizedContentPanel';
 import { ContentTypeComparisonPanel } from './components/ContentTypeComparisonPanel';
 import { PublishTimeAnalysis } from './components/PublishTimeAnalysis';
+import { MultiDimensionRanking } from './components/MultiDimensionRanking';
 
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
@@ -464,6 +465,15 @@ export function Dashboard() {
                       </Row>
                       <PublishTimeAnalysis records={allIncomeRecords} />
                       <AnomalyDetectionPanel summaries={allSummaries} startDate={allDateRange.start} endDate={allDateRange.end} />
+                      <MultiDimensionRanking
+                        records={allIncomeRecords}
+                        onContentClick={(item) => setSelectedContent({
+                          ...item,
+                          currentIncome: 0,
+                          currentRead: 0,
+                          currentInteraction: 0,
+                        })}
+                      />
                     </Flex>
                   ),
                 },
