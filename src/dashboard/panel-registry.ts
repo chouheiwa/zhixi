@@ -20,6 +20,7 @@ export interface DashboardContext {
   allIncomeRecords: IncomeRecord[];
   records: IncomeRecord[];
   monetizedContentIds: Set<string>;
+  monetizedContentTokens: Set<string>;
   monthIncome: number;
   monthDaysElapsed: number;
   monthDaysTotal: number;
@@ -155,7 +156,7 @@ const panelRegistry: PanelMeta[] = [
     defaultOrder: 0,
     defaultVisible: true,
     render: (ctx) => React.createElement(React.Suspense, { fallback: null },
-      React.createElement(UnmonetizedContentPanel, { monetizedContentIds: ctx.monetizedContentIds }),
+      React.createElement(UnmonetizedContentPanel, { monetizedContentTokens: ctx.monetizedContentTokens }),
     ),
   },
 ];

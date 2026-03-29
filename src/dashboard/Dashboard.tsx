@@ -51,6 +51,8 @@ export function Dashboard() {
   const [allSummaries, setAllSummaries] = useState<DailySummary[]>([]);
   const [allIncomeRecords, setAllIncomeRecords] = useState<IncomeRecord[]>([]);
   const monetizedContentIds = useMemo(() => new Set(allIncomeRecords.map(r => r.contentId)), [allIncomeRecords]);
+  /** contentToken-based set for matching with creations API (which uses url_token as id) */
+  const monetizedContentTokens = useMemo(() => new Set(allIncomeRecords.map(r => r.contentToken)), [allIncomeRecords]);
 
   const allContentOptions = useMemo(() => {
     const map = new Map<string, { contentId: string; contentToken: string; contentType: string; title: string; publishDate: string }>();
@@ -250,12 +252,13 @@ export function Dashboard() {
       allIncomeRecords,
       records,
       monetizedContentIds,
+      monetizedContentTokens,
       monthIncome: stats.monthIncome,
       monthDaysElapsed: stats.monthDaysElapsed,
       monthDaysTotal: stats.monthDaysTotal,
       onContentClick: (item) => setSelectedContent(item),
     };
-  }, [user, allSummaries, allDateRange, allIncomeRecords, records, monetizedContentIds, stats]);
+  }, [user, allSummaries, allDateRange, allIncomeRecords, records, monetizedContentIds, monetizedContentTokens, stats]);
 
   if (userLoading) {
     return (
