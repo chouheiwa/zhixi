@@ -1,1 +1,72 @@
-/* driver.js theme overrides — populated in Task 4 */
+/* driver.js popover — editorial theme overrides */
+
+.driver-popover {
+  font-family: "Source Han Sans SC", -apple-system, "PingFang SC", sans-serif;
+  background: #fff;
+  border: 1px solid #e0dcd6;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  max-width: 320px;
+}
+
+.driver-popover-title {
+  font-family: "Noto Serif SC", serif;
+  color: #333;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.driver-popover-description {
+  color: #666;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.driver-popover-progress-text {
+  color: #999;
+  font-size: 11px;
+}
+
+.driver-popover-navigation-btns .driver-popover-next-btn,
+.driver-popover-navigation-btns .driver-popover-done-btn {
+  background: #5b7a9d;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  padding: 4px 14px;
+  text-shadow: none;
+}
+
+.driver-popover-navigation-btns .driver-popover-next-btn:hover,
+.driver-popover-navigation-btns .driver-popover-done-btn:hover {
+  background: #4a6a8d;
+}
+
+.driver-popover-navigation-btns .driver-popover-prev-btn {
+  color: #5b7a9d;
+  border: 1px solid #e0dcd6;
+  border-radius: 6px;
+  font-size: 13px;
+  padding: 4px 14px;
+  background: transparent;
+}
+
+.driver-popover-navigation-btns .driver-popover-prev-btn:hover {
+  background: #f5f2ed;
+}
+
+.driver-popover-close-btn {
+  color: #999;
+}
+
+.driver-popover-close-btn:hover {
+  color: #333;
+}
+
+.driver-popover-arrow-side-left .driver-popover-arrow,
+.driver-popover-arrow-side-right .driver-popover-arrow,
+.driver-popover-arrow-side-top .driver-popover-arrow,
+.driver-popover-arrow-side-bottom .driver-popover-arrow {
+  border-color: #e0dcd6;
+}
