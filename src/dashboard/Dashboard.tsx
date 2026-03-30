@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Layout, Tabs, Spin, Empty, Row, Col, Statistic, Card, Flex, DatePicker, Space, Button, theme, Dropdown, Progress, Alert, Modal, Drawer } from 'antd';
-import { ArrowLeftOutlined, SyncOutlined, DownloadOutlined, UploadOutlined, SettingOutlined, DatabaseOutlined, CloudDownloadOutlined, TrophyOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, SyncOutlined, DownloadOutlined, UploadOutlined, SettingOutlined, DatabaseOutlined, CloudDownloadOutlined, TrophyOutlined, ReadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import { formatDate, getDateRange } from '@/shared/date-utils';
@@ -20,6 +20,12 @@ import { MilestonesPage } from './components/MilestonesPage';
 import { usePanelLayout } from '@/hooks/use-panel-layout';
 import { getPanelMeta, type DashboardContext } from './panel-registry';
 import { LayoutCustomizer } from './components/LayoutCustomizer';
+import { themeColors } from './theme';
+import { getTourState, saveTourState, markCoreCompleted, markExtendedCompleted, markFeaturesRead, updateCompletedVersion, resetTourState } from '@/db/tour-store';
+import { shouldShowTour, getNewFeatures, startCoreTour, startExtendedTour, startNewFeatureTour } from './tour/tour-manager';
+import { TOUR_VERSION } from './tour/tour-config';
+import { NewFeatureBanner } from './tour/NewFeatureBanner';
+import type { TourState } from '@/shared/types';
 
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
@@ -47,6 +53,12 @@ export function Dashboard() {
   const { layout, updateLayout, resetLayout } = usePanelLayout(user?.id ?? '');
   const [customizerOpen, setCustomizerOpen] = useState(false);
 
+  // Tour state
+  const [tourState, setTourState] = useState<TourState | undefined>(undefined);
+  const [tourLoaded, setTourLoaded] = useState(false);
+  const [showNewFeatureBanner, setShowNewFeatureBanner] = useState(false);
+  const [newFeatureCount, setNewFeatureCount] = useState(0);
+
   // Full summaries (not filtered by date) for overview charts
   const [allSummaries, setAllSummaries] = useState<DailySummary[]>([]);
   const [allIncomeRecords, setAllIncomeRecords] = useState<IncomeRecord[]>([]);
@@ -73,6 +85,59 @@ export function Dashboard() {
     db.incomeRecords.where('userId').equals(user.id).toArray().then(setAllIncomeRecords);
   }, [user]);
   useEffect(() => { refreshAllSummaries(); }, [refreshAllSummaries]);
+
+  // Load tour state
+  useEffect(() => {
+    if (!user) return;
+    getTourState(user.id).then(state => {
+      setTourState(state);
+      setTourLoaded(true);
+      if (state) {
+        const features = getNewFeatures(state);
+        if (features.length > 0) {
+          setNewFeatureCount(features.length);
+          setShowNewFeatureBanner(true);
+        }
+      }
+    });
+  }, [user]);
+
+  // Auto-trigger first-time tour
+  useEffect(() => {
+    if (!user || !tourLoaded) return;
+    if (!tourState && allSummaries.length > 0) {
+      const timer = setTimeout(() => {
+        const initialState: TourState = {
+          userId: user.id,
+          completedVersion: TOUR_VERSION,
+          seenFeatures: [],
+          coreCompleted: false,
+          extendedCompleted: false,
+        };
+        saveTourState(initialState).then(() => {
+          setTourState(initialState);
+          startCoreTour(() => {
+            markCoreCompleted(user.id).then(() => {
+              setTourState(prev => prev ? { ...prev, coreCompleted: true } : prev);
+              Modal.confirm({
+                title: '还有更多功能可以探索',
+                content: '要继续了解更多高级功能吗？也可以稍后在设置菜单中查看。',
+                okText: '继续探索',
+                cancelText: '稍后再看',
+                onOk: () => {
+                  startExtendedTour(() => {
+                    markExtendedCompleted(user.id);
+                    setTourState(prev => prev ? { ...prev, extendedCompleted: true } : prev);
+                  });
+                },
+              });
+            });
+          });
+        });
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [user, tourLoaded, tourState, allSummaries.length]);
 
   // Derived: date range of all data
   const allDateRange = useMemo(() => {
@@ -196,6 +261,42 @@ export function Dashboard() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handleViewNewFeatures = () => {
+    if (!user || !tourState) return;
+    const features = getNewFeatures(tourState);
+    setShowNewFeatureBanner(false);
+    startNewFeatureTour(features, () => {
+      const featureKeys = features.map(f => f.key);
+      markFeaturesRead(user.id, featureKeys);
+      updateCompletedVersion(user.id, TOUR_VERSION);
+      setTourState(prev => prev ? {
+        ...prev,
+        seenFeatures: [...prev.seenFeatures, ...featureKeys],
+        completedVersion: TOUR_VERSION,
+      } : prev);
+    });
+  };
+
+  const handleDismissNewFeatures = () => {
+    if (!user || !tourState) return;
+    setShowNewFeatureBanner(false);
+    const features = getNewFeatures(tourState);
+    const featureKeys = features.map(f => f.key);
+    markFeaturesRead(user.id, featureKeys);
+    updateCompletedVersion(user.id, TOUR_VERSION);
+  };
+
+  const handleStartTour = () => {
+    if (!user) return;
+    resetTourState(user.id).then(() => {
+      setTourState(prev => prev ? { ...prev, coreCompleted: false, extendedCompleted: false } : prev);
+      startCoreTour(() => {
+        markCoreCompleted(user.id);
+        setTourState(prev => prev ? { ...prev, coreCompleted: true } : prev);
+      });
+    });
+  };
+
   const stats = useMemo(() => {
     let totalIncome = 0, totalRead = 0, totalInteraction = 0;
     for (const s of allSummaries) {
@@ -270,7 +371,7 @@ export function Dashboard() {
 
   if (compareItems) {
     return (
-      <Layout style={{ maxWidth: 1200, margin: '0 auto', padding: 24, background: 'transparent' }}>
+      <Layout style={{ maxWidth: 1200, margin: '0 auto', padding: '28px 24px', background: 'transparent' }}>
         <Content>
           <Button icon={<ArrowLeftOutlined />} onClick={() => setCompareItems(null)} style={{ marginBottom: 16 }}>
             返回
@@ -287,7 +388,7 @@ export function Dashboard() {
 
   if (selectedContent) {
     return (
-      <Layout style={{ maxWidth: 1200, margin: '0 auto', padding: 24, background: 'transparent' }}>
+      <Layout style={{ maxWidth: 1200, margin: '0 auto', padding: '28px 24px', background: 'transparent' }}>
         <Content>
           <Button icon={<ArrowLeftOutlined />} onClick={() => setSelectedContent(null)} style={{ marginBottom: 16 }}>
             返回总览
@@ -310,18 +411,19 @@ export function Dashboard() {
   }
 
   return (
-    <Layout style={{ maxWidth: 1200, margin: '0 auto', padding: 24, background: 'transparent' }}>
+    <Layout style={{ maxWidth: 1200, margin: '0 auto', padding: '28px 24px', background: 'transparent' }}>
       <Content>
         {/* Header */}
-        <Flex justify="space-between" align="center" style={{ marginBottom: 24 }}>
+        <Flex justify="space-between" align="center" style={{ marginBottom: 28 }}>
           <div>
-            <h1 style={{ fontSize: 22, margin: 0, fontWeight: 700 }}>知析</h1>
-            {user && <div style={{ fontSize: 13, color: token.colorTextSecondary, marginTop: 4 }}>{user.name}</div>}
+            <h1 style={{ fontSize: 24, margin: 0, fontWeight: 700, fontFamily: '"Noto Serif SC", serif', letterSpacing: '0.04em', color: themeColors.ink }}>知析</h1>
+            {user && <div style={{ fontSize: 12, color: themeColors.muted, marginTop: 4, letterSpacing: '0.02em' }}>{user.name} 的创作数据</div>}
           </div>
           <Space>
             {/* Sync button */}
             {hasSetup ? (
               <Button
+                id="tour-sync-button"
                 type="primary"
                 icon={<SyncOutlined spin={status.isCollecting} />}
                 onClick={() => handleSync()}
@@ -331,7 +433,7 @@ export function Dashboard() {
                 {status.isCollecting ? `${status.progress}/${status.total}` : '同步'}
               </Button>
             ) : (
-              <Button type="primary" icon={<DatabaseOutlined />} onClick={() => setSetupOpen(true)} size="small">
+              <Button id="tour-sync-button" type="primary" icon={<DatabaseOutlined />} onClick={() => setSetupOpen(true)} size="small">
                 首次设置
               </Button>
             )}
@@ -371,6 +473,12 @@ export function Dashboard() {
                     label: '成就记录',
                     onClick: () => setMilestonesOpen(true),
                   },
+                  {
+                    key: 'tour',
+                    icon: <ReadOutlined />,
+                    label: '功能介绍',
+                    onClick: handleStartTour,
+                  },
                   { type: 'divider' },
                   {
                     key: 'autoSync',
@@ -403,7 +511,7 @@ export function Dashboard() {
               }}
               trigger={['click']}
             >
-              <Button icon={<SettingOutlined />} size="small" />
+              <Button id="tour-settings-menu" icon={<SettingOutlined />} size="small" />
             </Dropdown>
             <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} style={{ display: 'none' }} />
           </Space>
@@ -468,6 +576,14 @@ export function Dashboard() {
             style={{ marginBottom: 16 }} onClose={() => setImportMsg('')} />
         )}
 
+        {showNewFeatureBanner && (
+          <NewFeatureBanner
+            featureCount={newFeatureCount}
+            onViewFeatures={handleViewNewFeatures}
+            onDismiss={handleDismissNewFeatures}
+          />
+        )}
+
         {/* First-time setup modal */}
         <Modal
           title="首次设置"
@@ -496,31 +612,31 @@ export function Dashboard() {
         ) : (
           <>
             {/* Summary Stats */}
-            <Row gutter={[12, 12]} style={{ marginBottom: 24 }}>
+            <Row id="tour-summary-cards" gutter={[16, 16]} style={{ marginBottom: 28 }}>
               <Col span={8}>
-                <Card size="small" title="昨日" styles={{ header: { minHeight: 0, padding: '8px 12px', fontSize: 13 }, body: { padding: '8px 12px' } }}>
+                <Card size="small" styles={{ header: { minHeight: 0, padding: '10px 16px', fontSize: 12, color: themeColors.muted, fontWeight: 500, letterSpacing: '0.05em', borderBottom: `1px solid ${themeColors.border}` }, body: { padding: '12px 16px' } }} title="昨日">
                   <Flex justify="space-between">
-                    <Statistic title="收益" value={stats.yesterdayIncome} precision={2} prefix="¥" valueStyle={{ color: '#ea4335', fontWeight: 700, fontSize: 20 }} />
-                    <Statistic title="阅读" value={stats.yesterdayRead} valueStyle={{ fontSize: 20 }} />
-                    <Statistic title="内容" value={stats.yesterdayContentCount} suffix="篇" valueStyle={{ fontSize: 20 }} />
+                    <Statistic title="收益" value={stats.yesterdayIncome} precision={2} prefix="¥" valueStyle={{ color: themeColors.amber, fontWeight: 700, fontSize: 22, fontFamily: '"Noto Serif SC", serif' }} />
+                    <Statistic title="阅读" value={stats.yesterdayRead} valueStyle={{ fontSize: 20, color: themeColors.ink }} />
+                    <Statistic title="内容" value={stats.yesterdayContentCount} suffix="篇" valueStyle={{ fontSize: 20, color: themeColors.ink }} />
                   </Flex>
                 </Card>
               </Col>
               <Col span={8}>
-                <Card size="small" title="本月" styles={{ header: { minHeight: 0, padding: '8px 12px', fontSize: 13 }, body: { padding: '8px 12px' } }}>
+                <Card size="small" styles={{ header: { minHeight: 0, padding: '10px 16px', fontSize: 12, color: themeColors.muted, fontWeight: 500, letterSpacing: '0.05em', borderBottom: `1px solid ${themeColors.border}` }, body: { padding: '12px 16px' } }} title="本月">
                   <Flex justify="space-between">
-                    <Statistic title="收益" value={stats.monthIncome} precision={2} prefix="¥" valueStyle={{ color: '#f9a825', fontWeight: 700, fontSize: 20 }} />
-                    <Statistic title="阅读" value={stats.monthRead} valueStyle={{ fontSize: 20 }} />
-                    <Statistic title="内容" value={stats.monthContentCount} suffix="篇" valueStyle={{ fontSize: 20 }} />
+                    <Statistic title="收益" value={stats.monthIncome} precision={2} prefix="¥" valueStyle={{ color: themeColors.amber, fontWeight: 700, fontSize: 22, fontFamily: '"Noto Serif SC", serif' }} />
+                    <Statistic title="阅读" value={stats.monthRead} valueStyle={{ fontSize: 20, color: themeColors.ink }} />
+                    <Statistic title="内容" value={stats.monthContentCount} suffix="篇" valueStyle={{ fontSize: 20, color: themeColors.ink }} />
                   </Flex>
                 </Card>
               </Col>
               <Col span={8}>
-                <Card size="small" title="总览" styles={{ header: { minHeight: 0, padding: '8px 12px', fontSize: 13 }, body: { padding: '8px 12px' } }}>
+                <Card size="small" styles={{ header: { minHeight: 0, padding: '10px 16px', fontSize: 12, color: themeColors.muted, fontWeight: 500, letterSpacing: '0.05em', borderBottom: `1px solid ${themeColors.border}` }, body: { padding: '12px 16px' } }} title="总览">
                   <Flex justify="space-between">
-                    <Statistic title="收益" value={stats.totalIncome} precision={2} prefix="¥" valueStyle={{ color: token.colorPrimary, fontWeight: 700, fontSize: 20 }} />
-                    <Statistic title="RPM" value={stats.rpm} precision={2} prefix="¥" valueStyle={{ fontSize: 20 }} />
-                    <Statistic title="内容" value={totalContentCount} suffix="篇" valueStyle={{ fontSize: 20 }} />
+                    <Statistic title="收益" value={stats.totalIncome} precision={2} prefix="¥" valueStyle={{ color: themeColors.warmBlue, fontWeight: 700, fontSize: 22, fontFamily: '"Noto Serif SC", serif' }} />
+                    <Statistic title="RPM" value={stats.rpm} precision={2} prefix="¥" valueStyle={{ fontSize: 20, color: themeColors.ink }} />
+                    <Statistic title="内容" value={totalContentCount} suffix="篇" valueStyle={{ fontSize: 20, color: themeColors.ink }} />
                   </Flex>
                 </Card>
               </Col>
@@ -528,6 +644,7 @@ export function Dashboard() {
 
             {/* Tabs */}
             <Tabs
+              id="tour-tab-bar"
               defaultActiveKey="overview"
               type="card"
               items={
@@ -576,9 +693,9 @@ export function Dashboard() {
                                 const meta = getPanelMeta(panelConfig.key);
                                 if (!meta) return null;
                                 return (
-                                  <React.Fragment key={panelConfig.key}>
+                                  <div key={panelConfig.key} id={`tour-${panelConfig.key}`}>
                                     {meta.render(dashboardContext)}
-                                  </React.Fragment>
+                                  </div>
                                 );
                               })}
                             </Flex>
