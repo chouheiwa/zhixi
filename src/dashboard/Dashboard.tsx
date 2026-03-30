@@ -22,7 +22,7 @@ import { getPanelMeta, type DashboardContext } from './panel-registry';
 import { LayoutCustomizer } from './components/LayoutCustomizer';
 import { themeColors } from './theme';
 import { getTourState, saveTourState, markCoreCompleted, markExtendedCompleted, markFeaturesRead, updateCompletedVersion, resetTourState } from '@/db/tour-store';
-import { shouldShowTour, getNewFeatures, startCoreTour, startExtendedTour, startNewFeatureTour } from './tour/tour-manager';
+import { getNewFeatures, startCoreTour, startExtendedTour, startNewFeatureTour } from './tour/tour-manager';
 import { TOUR_VERSION } from './tour/tour-config';
 import { NewFeatureBanner } from './tour/NewFeatureBanner';
 import type { TourState } from '@/shared/types';
@@ -58,6 +58,7 @@ export function Dashboard() {
   const [tourLoaded, setTourLoaded] = useState(false);
   const [showNewFeatureBanner, setShowNewFeatureBanner] = useState(false);
   const [newFeatureCount, setNewFeatureCount] = useState(0);
+  const tourLaunchingRef = useRef(false);
 
   // Full summaries (not filtered by date) for overview charts
   const [allSummaries, setAllSummaries] = useState<DailySummary[]>([]);
@@ -105,7 +106,8 @@ export function Dashboard() {
   // Auto-trigger first-time tour
   useEffect(() => {
     if (!user || !tourLoaded) return;
-    if (!tourState && allSummaries.length > 0) {
+    if (!tourState && !tourLaunchingRef.current && allSummaries.length > 0) {
+      tourLaunchingRef.current = true;
       const timer = setTimeout(() => {
         const initialState: TourState = {
           userId: user.id,
@@ -135,7 +137,7 @@ export function Dashboard() {
           });
         });
       }, 800);
-      return () => clearTimeout(timer);
+      return () => { clearTimeout(timer); tourLaunchingRef.current = false; };
     }
   }, [user, tourLoaded, tourState, allSummaries.length]);
 
@@ -284,6 +286,11 @@ export function Dashboard() {
     const featureKeys = features.map(f => f.key);
     markFeaturesRead(user.id, featureKeys);
     updateCompletedVersion(user.id, TOUR_VERSION);
+    setTourState(prev => prev ? {
+      ...prev,
+      seenFeatures: [...prev.seenFeatures, ...featureKeys],
+      completedVersion: TOUR_VERSION,
+    } : prev);
   };
 
   const handleStartTour = () => {
@@ -293,6 +300,18 @@ export function Dashboard() {
       startCoreTour(() => {
         markCoreCompleted(user.id);
         setTourState(prev => prev ? { ...prev, coreCompleted: true } : prev);
+        Modal.confirm({
+          title: '还有更多功能可以探索',
+          content: '要继续了解更多高级功能吗？也可以稍后在设置菜单中查看。',
+          okText: '继续探索',
+          cancelText: '稍后再看',
+          onOk: () => {
+            startExtendedTour(() => {
+              markExtendedCompleted(user.id);
+              setTourState(prev => prev ? { ...prev, extendedCompleted: true } : prev);
+            });
+          },
+        });
       });
     });
   };

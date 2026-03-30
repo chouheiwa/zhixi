@@ -9,6 +9,14 @@ import {
 } from './tour-config';
 import type { TourState } from '@/shared/types';
 
+const DRIVER_BASE_CONFIG = {
+  showProgress: true,
+  progressText: '第 {{current}} 步 / 共 {{total}} 步',
+  nextBtnText: '下一步',
+  prevBtnText: '上一步',
+  doneBtnText: '完成',
+} as const;
+
 export function shouldShowTour(
   tourState: TourState | undefined,
 ): 'core' | 'extended' | 'new-features' | null {
@@ -22,10 +30,19 @@ export function shouldShowTour(
   return null;
 }
 
+function isNewerVersion(candidate: string, current: string): boolean {
+  const parse = (v: string) => v.split('.').map(Number);
+  const [a1, a2 = 0, a3 = 0] = parse(candidate);
+  const [b1, b2 = 0, b3 = 0] = parse(current);
+  if (a1 !== b1) return a1 > b1;
+  if (a2 !== b2) return a2 > b2;
+  return a3 > b3;
+}
+
 export function getNewFeatures(tourState: TourState): FeatureEntry[] {
   const unseen: FeatureEntry[] = [];
   for (const [version, features] of Object.entries(FEATURE_CHANGELOG)) {
-    if (version > tourState.completedVersion) {
+    if (isNewerVersion(version, tourState.completedVersion)) {
       for (const feat of features) {
         if (!tourState.seenFeatures.includes(feat.key)) {
           unseen.push(feat);
@@ -38,11 +55,7 @@ export function getNewFeatures(tourState: TourState): FeatureEntry[] {
 
 export function startCoreTour(onComplete: () => void): void {
   const d = driver({
-    showProgress: true,
-    progressText: '第 {{current}} 步 / 共 {{total}} 步',
-    nextBtnText: '下一步',
-    prevBtnText: '上一步',
-    doneBtnText: '完成',
+    ...DRIVER_BASE_CONFIG,
     steps: CORE_STEPS,
     onDestroyed: onComplete,
   });
@@ -51,11 +64,7 @@ export function startCoreTour(onComplete: () => void): void {
 
 export function startExtendedTour(onComplete: () => void): void {
   const d = driver({
-    showProgress: true,
-    progressText: '第 {{current}} 步 / 共 {{total}} 步',
-    nextBtnText: '下一步',
-    prevBtnText: '上一步',
-    doneBtnText: '完成',
+    ...DRIVER_BASE_CONFIG,
     steps: EXTENDED_STEPS,
     onDestroyed: onComplete,
   });
@@ -67,11 +76,7 @@ export function startNewFeatureTour(
   onComplete: () => void,
 ): void {
   const d = driver({
-    showProgress: true,
-    progressText: '第 {{current}} 步 / 共 {{total}} 步',
-    nextBtnText: '下一步',
-    prevBtnText: '上一步',
-    doneBtnText: '完成',
+    ...DRIVER_BASE_CONFIG,
     steps: features.map(f => f.step),
     onDestroyed: onComplete,
   });
