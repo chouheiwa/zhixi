@@ -134,3 +134,12 @@ export interface PanelLayout {
   userId: string;
   tabs: TabConfig[];
 }
+
+/** Onboarding tour state per user */
+export interface TourState {
+  userId: string;
+  completedVersion: string;
+  seenFeatures: string[];
+  coreCompleted: boolean;
+  extendedCompleted: boolean;
+}

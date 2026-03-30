@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { IncomeRecord, UserSettings, ContentDailyRecord, RealtimeAggrRecord, PanelLayout } from '@/shared/types';
+import type { IncomeRecord, UserSettings, ContentDailyRecord, RealtimeAggrRecord, PanelLayout, TourState } from '@/shared/types';
 
 export interface SyncedDate {
   userId: string;
@@ -36,6 +36,7 @@ class ZhihuAnalysisDB extends Dexie {
   contentDailyCache!: Table<ContentDailyRecord>;
   incomeGoals!: Table<IncomeGoal>;
   panelLayout!: Table<PanelLayout>;
+  tourState!: Dexie.Table<TourState, string>;
 
   constructor() {
     super('zhihu-income-analysis-v2');
@@ -98,6 +99,9 @@ class ZhihuAnalysisDB extends Dexie {
       contentDailyCache: '[userId+contentToken], userId',
       incomeGoals: '[userId+period], userId',
       panelLayout: 'userId',
+    });
+    this.version(9).stores({
+      tourState: 'userId',
     });
   }
 }
