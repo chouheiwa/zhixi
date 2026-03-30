@@ -36,7 +36,7 @@ class ZhihuAnalysisDB extends Dexie {
   contentDailyCache!: Table<ContentDailyRecord>;
   incomeGoals!: Table<IncomeGoal>;
   panelLayout!: Table<PanelLayout>;
-  tourState!: Dexie.Table<TourState, string>;
+  tourState!: Table<TourState>;
 
   constructor() {
     super('zhihu-income-analysis-v2');
@@ -101,6 +101,15 @@ class ZhihuAnalysisDB extends Dexie {
       panelLayout: 'userId',
     });
     this.version(9).stores({
+      incomeRecords: '[userId+contentId+recordDate], recordDate, contentType, contentId, userId, [userId+recordDate]',
+      userSettings: 'userId',
+      contentDaily: '[userId+contentToken+date], [userId+contentToken], contentToken, date, userId',
+      syncedDates: '[userId+date], userId',
+      mlModels: 'userId',
+      realtimeAggr: '[userId+date], userId, date',
+      contentDailyCache: '[userId+contentToken], userId',
+      incomeGoals: '[userId+period], userId',
+      panelLayout: 'userId',
       tourState: 'userId',
     });
   }
