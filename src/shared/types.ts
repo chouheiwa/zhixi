@@ -42,7 +42,7 @@ export interface CollectionStatus {
   currentDate?: string;
   error?: string;
   /** What type of collection is running */
-  task?: '收益同步' | '内容详情';
+  task?: '收益同步' | '内容详情' | '每日汇总' | '今日数据';
   /** Recent log entries */
   logs?: string[];
 }

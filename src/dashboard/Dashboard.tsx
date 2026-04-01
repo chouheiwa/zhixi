@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Layout, Tabs, Spin, Empty, Row, Col, Statistic, Card, Flex, DatePicker, Space, Button, theme, Dropdown, Progress, Alert, Modal, Drawer } from 'antd';
-import { ArrowLeftOutlined, SyncOutlined, DownloadOutlined, UploadOutlined, SettingOutlined, DatabaseOutlined, CloudDownloadOutlined, TrophyOutlined, ReadOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, SyncOutlined, DownloadOutlined, UploadOutlined, SettingOutlined, DatabaseOutlined, CloudDownloadOutlined, TrophyOutlined, ReadOutlined, DollarOutlined, BarChartOutlined, FileTextOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import { formatDate, getDateRange } from '@/shared/date-utils';
@@ -25,6 +25,7 @@ import { getTourState, saveTourState, markCoreCompleted, markExtendedCompleted, 
 import { getNewFeatures, startCoreTour, startExtendedTour, startNewFeatureTour } from './tour/tour-manager';
 import { TOUR_VERSION } from './tour/tour-config';
 import { NewFeatureBanner } from './tour/NewFeatureBanner';
+import { getDemoSummaries, getDemoRecords } from './tour/demo-data';
 import type { TourState } from '@/shared/types';
 
 const { Content } = Layout;
@@ -48,7 +49,11 @@ export function Dashboard() {
   const { user, loading: userLoading } = useCurrentUser();
   const { settings, refresh: refreshSettings } = useUserSettings(user?.id ?? '');
   const { records, summaries, loading, refresh } = useIncomeData(user?.id ?? '', startDate, endDate);
-  const { status, logs, sync } = useCollector();
+  const {
+    status, logs, syncIncome, syncRealtimeAggr,
+    fetchContentDaily: fetchContentDailyTask, fetchAllCreations,
+    fetchTodayContentDaily, fetchTodayRealtime,
+  } = useCollector();
   const { token } = useToken();
   const { layout, updateLayout, resetLayout } = usePanelLayout(user?.id ?? '');
   const [customizerOpen, setCustomizerOpen] = useState(false);
@@ -58,6 +63,7 @@ export function Dashboard() {
   const [tourLoaded, setTourLoaded] = useState(false);
   const [showNewFeatureBanner, setShowNewFeatureBanner] = useState(false);
   const [newFeatureCount, setNewFeatureCount] = useState(0);
+  const [tourActive, setTourActive] = useState(false);
   const tourLaunchingRef = useRef(false);
 
   // Full summaries (not filtered by date) for overview charts
@@ -79,7 +85,7 @@ export function Dashboard() {
     }
     return Array.from(map.values());
   }, [allIncomeRecords]);
-  const totalContentCount = monetizedContentIds.size;
+  const realContentCount = monetizedContentIds.size;
   const refreshAllSummaries = useCallback(() => {
     if (!user) return;
     getAllDailySummaries(user.id).then(setAllSummaries);
@@ -103,11 +109,14 @@ export function Dashboard() {
     });
   }, [user]);
 
-  // Auto-trigger first-time tour
+  // Auto-trigger first-time tour (works even without real data — uses demo data)
   useEffect(() => {
     if (!user || !tourLoaded) return;
-    if (!tourState && !tourLaunchingRef.current && allSummaries.length > 0) {
+    if (!tourState && !tourLaunchingRef.current) {
       tourLaunchingRef.current = true;
+      const onTourEnd = () => {
+        setTourActive(false);
+      };
       const timer = setTimeout(() => {
         const initialState: TourState = {
           userId: user.id,
@@ -118,6 +127,7 @@ export function Dashboard() {
         };
         saveTourState(initialState).then(() => {
           setTourState(initialState);
+          setTourActive(true);
           startCoreTour(() => {
             markCoreCompleted(user.id).then(() => {
               setTourState(prev => prev ? { ...prev, coreCompleted: true } : prev);
@@ -130,8 +140,10 @@ export function Dashboard() {
                   startExtendedTour(() => {
                     markExtendedCompleted(user.id);
                     setTourState(prev => prev ? { ...prev, extendedCompleted: true } : prev);
+                    onTourEnd();
                   });
                 },
+                onCancel: onTourEnd,
               });
             });
           });
@@ -139,7 +151,7 @@ export function Dashboard() {
       }, 800);
       return () => { clearTimeout(timer); tourLaunchingRef.current = false; };
     }
-  }, [user, tourLoaded, tourState, allSummaries.length]);
+  }, [user, tourLoaded, tourState]);
 
   // Derived: date range of all data
   const allDateRange = useMemo(() => {
@@ -166,75 +178,105 @@ export function Dashboard() {
 
   const hasSetup = !!settings?.collectStartDate;
 
-  const handleSync = async (initDate?: string) => {
+  const handleSyncIncome = async (initDate?: string) => {
     setSyncMsg('');
     try {
-      const result = await sync(initDate);
+      const result = await syncIncome(initDate);
       if (!hasSetup) refreshSettings();
-      setSyncMsg(result.synced === 0 ? '数据已是最新' : `同步完成，补全 ${result.synced} 天`);
+      setSyncMsg(result.synced === 0 ? '收益数据已是最新' : `收益同步完成，补全 ${result.synced} 天`);
       refresh(); refreshAllSummaries();
       if (initDate) setSetupOpen(false);
     } catch (err) {
-      setSyncMsg(`同步失败: ${err instanceof Error ? err.message : '未知错误'}`);
+      setSyncMsg(`收益同步失败: ${err instanceof Error ? err.message : '未知错误'}`);
     }
   };
 
-  const handleFetchAllDaily = async () => {
+  const handleSyncRealtimeAggr = async () => {
     setSyncMsg('');
     try {
-      // Step 1: Fetch all creations from API to get the full content list
-      setSyncMsg('正在获取全部已发表内容列表...');
-      const creationsResp = await new Promise<{ ok: boolean; items?: any[]; error?: string }>((resolve, reject) => {
-        chrome.runtime.sendMessage({ action: 'fetchAllCreations' }, (resp) => {
-          if (chrome.runtime.lastError) { reject(new Error(chrome.runtime.lastError.message)); return; }
-          resolve(resp);
-        });
-      });
-
-      // Build content map: start with creations API, supplement with income records
-      const contentMap = new Map<string, { contentId: string; contentToken: string; contentType: string; title: string; publishDate: string }>();
-
-      if (creationsResp.ok && creationsResp.items) {
-        for (const item of creationsResp.items) {
-          contentMap.set(item.contentId, {
-            contentId: item.contentId,
-            contentToken: item.contentToken,
-            contentType: item.contentType,
-            title: item.title,
-            publishDate: item.publishDate,
-          });
-        }
-      }
-
-      // Also include content from income records (in case some are missing from creations API)
-      const incomeAll = await db.incomeRecords.where('userId').equals(user!.id).toArray();
-      for (const r of incomeAll) {
-        if (!contentMap.has(r.contentId)) {
-          contentMap.set(r.contentId, {
-            contentId: r.contentId, contentToken: r.contentToken,
-            contentType: r.contentType, title: r.title, publishDate: r.publishDate,
-          });
-        }
-      }
-
-      const items = Array.from(contentMap.values());
-      if (items.length === 0) { setSyncMsg('没有找到内容数据'); return; }
-
-      // Step 2: Fetch daily data for all content
-      setSyncMsg(`找到 ${items.length} 篇内容，开始拉取每日详情...`);
-      const response = await new Promise<{ ok: boolean; count?: number; error?: string }>((resolve, reject) => {
-        chrome.runtime.sendMessage({ action: 'fetchContentDaily', items }, (resp) => {
-          if (chrome.runtime.lastError) { reject(new Error(chrome.runtime.lastError.message)); return; }
-          resolve(resp);
-        });
-      });
-      if (response.ok) {
-        setSyncMsg(`拉取完成，共 ${items.length} 篇内容，获取 ${response.count} 条每日详情数据`);
-      } else {
-        setSyncMsg(`拉取失败: ${response.error}`);
-      }
+      const result = await syncRealtimeAggr();
+      setSyncMsg(result.count === 0 ? '每日汇总已是最新' : `每日汇总完成，同步 ${result.count} 天`);
+      refresh(); refreshAllSummaries();
     } catch (err) {
-      setSyncMsg(`拉取失败: ${err instanceof Error ? err.message : '未知错误'}`);
+      setSyncMsg(`每日汇总失败: ${err instanceof Error ? err.message : '未知错误'}`);
+    }
+  };
+
+  const getContentItems = async () => {
+    const contentMap = new Map<string, { contentId: string; contentToken: string; contentType: string; title: string; publishDate: string }>();
+    // Fetch from creations API
+    try {
+      const creations = await fetchAllCreations();
+      for (const item of creations) {
+        contentMap.set(item.contentId, item);
+      }
+    } catch { /* ignore */ }
+    // Supplement with income records
+    const incomeAll = await db.incomeRecords.where('userId').equals(user!.id).toArray();
+    for (const r of incomeAll) {
+      if (!contentMap.has(r.contentId)) {
+        contentMap.set(r.contentId, {
+          contentId: r.contentId, contentToken: r.contentToken,
+          contentType: r.contentType, title: r.title, publishDate: r.publishDate,
+        });
+      }
+    }
+    return Array.from(contentMap.values());
+  };
+
+  const handleFetchContentDaily = async () => {
+    setSyncMsg('');
+    try {
+      setSyncMsg('正在获取内容列表...');
+      const items = await getContentItems();
+      if (items.length === 0) { setSyncMsg('没有找到内容数据'); return; }
+      setSyncMsg(`找到 ${items.length} 篇内容，开始拉取每日详情...`);
+      const result = await fetchContentDailyTask(items);
+      setSyncMsg(`内容详情拉取完成，共 ${items.length} 篇，获取 ${result.count} 条数据`);
+    } catch (err) {
+      setSyncMsg(`内容详情拉取失败: ${err instanceof Error ? err.message : '未知错误'}`);
+    }
+  };
+
+  const handleFetchTodayData = async () => {
+    setSyncMsg('');
+    try {
+      await fetchTodayRealtime();
+      const result = await fetchTodayContentDaily();
+      if (result.cached > 0) {
+        setSyncMsg(`今日数据缓存有效（${result.cached} 篇）`);
+      } else {
+        setSyncMsg(`今日数据拉取完成，${result.count} 篇有数据`);
+      }
+      refresh(); refreshAllSummaries();
+    } catch (err) {
+      setSyncMsg(`今日数据拉取失败: ${err instanceof Error ? err.message : '未知错误'}`);
+    }
+  };
+
+  const handleSyncAll = async () => {
+    setSyncMsg('');
+    try {
+      // 1. 收益同步
+      setSyncMsg('正在同步收益数据...');
+      await syncIncome();
+      // 2. 每日汇总
+      setSyncMsg('正在同步每日汇总...');
+      await syncRealtimeAggr();
+      // 3. 内容详情
+      setSyncMsg('正在拉取内容详情...');
+      const items = await getContentItems();
+      if (items.length > 0) {
+        await fetchContentDailyTask(items);
+      }
+      // 4. 今日数据
+      setSyncMsg('正在拉取今日数据...');
+      await fetchTodayRealtime();
+      await fetchTodayContentDaily();
+      setSyncMsg('全部同步完成');
+      refresh(); refreshAllSummaries();
+    } catch (err) {
+      setSyncMsg(`同步失败: ${err instanceof Error ? err.message : '未知错误'}`);
     }
   };
 
@@ -297,6 +339,8 @@ export function Dashboard() {
     if (!user) return;
     resetTourState(user.id).then(() => {
       setTourState(prev => prev ? { ...prev, coreCompleted: false, extendedCompleted: false } : prev);
+      setTourActive(true);
+      const onTourEnd = () => setTourActive(false);
       startCoreTour(() => {
         markCoreCompleted(user.id);
         setTourState(prev => prev ? { ...prev, coreCompleted: true } : prev);
@@ -309,16 +353,28 @@ export function Dashboard() {
             startExtendedTour(() => {
               markExtendedCompleted(user.id);
               setTourState(prev => prev ? { ...prev, extendedCompleted: true } : prev);
+              onTourEnd();
             });
           },
+          onCancel: onTourEnd,
         });
       });
     });
   };
 
+  // Use demo data when tour is active and no real data exists
+  const useDemo = tourActive && allSummaries.length === 0;
+  const effectiveSummaries = useDemo ? getDemoSummaries() : allSummaries;
+  const effectiveRecords = useDemo ? getDemoRecords() : allIncomeRecords;
+  const totalContentCount = useDemo ? new Set(effectiveRecords.map(r => r.contentId)).size : realContentCount;
+  const effectiveDateRange = useMemo(() => {
+    if (effectiveSummaries.length === 0) return { start: '', end: '' };
+    return { start: effectiveSummaries[0].date, end: effectiveSummaries[effectiveSummaries.length - 1].date };
+  }, [effectiveSummaries]);
+
   const stats = useMemo(() => {
     let totalIncome = 0, totalRead = 0, totalInteraction = 0;
-    for (const s of allSummaries) {
+    for (const s of effectiveSummaries) {
       totalIncome += s.totalIncome;
       totalRead += s.totalRead;
       totalInteraction += s.totalInteraction;
@@ -329,7 +385,7 @@ export function Dashboard() {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yStr = formatDate(yesterday);
-    const ySummary = allSummaries.find(s => s.date === yStr);
+    const ySummary = effectiveSummaries.find(s => s.date === yStr);
     const yesterdayIncome = ySummary ? ySummary.totalIncome / 100 : 0;
     const yesterdayRead = ySummary ? ySummary.totalRead : 0;
     const yesterdayContentCount = ySummary ? ySummary.contentCount : 0;
@@ -338,14 +394,14 @@ export function Dashboard() {
     const now = new Date();
     const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     let monthIncome = 0, monthRead = 0;
-    for (const s of allSummaries) {
+    for (const s of effectiveSummaries) {
       if (s.date.startsWith(monthPrefix)) {
         monthIncome += s.totalIncome;
         monthRead += s.totalRead;
       }
     }
     const monthContentIds = new Set<string>();
-    for (const r of allIncomeRecords) {
+    for (const r of effectiveRecords) {
       if (r.recordDate.startsWith(monthPrefix)) {
         monthContentIds.add(r.contentId);
       }
@@ -356,21 +412,21 @@ export function Dashboard() {
 
     return {
       totalIncome: totalIncome / 100, totalRead, totalInteraction, rpm,
-      days: allSummaries.length,
+      days: effectiveSummaries.length,
       yesterdayIncome, yesterdayRead, yesterdayContentCount,
       monthIncome: monthIncome / 100, monthRead, monthContentCount: monthContentIds.size,
       monthDaysElapsed, monthDaysTotal,
     };
-  }, [allSummaries, allIncomeRecords]);
+  }, [effectiveSummaries, effectiveRecords]);
 
   const dashboardContext: DashboardContext | null = useMemo(() => {
     if (!user) return null;
     return {
       userId: user.id,
-      allSummaries,
-      allDateRange,
-      allIncomeRecords,
-      records,
+      allSummaries: effectiveSummaries,
+      allDateRange: effectiveDateRange,
+      allIncomeRecords: effectiveRecords,
+      records: useDemo ? effectiveRecords : records,
       monetizedContentIds,
       monetizedContentTokens,
       monthIncome: stats.monthIncome,
@@ -378,7 +434,7 @@ export function Dashboard() {
       monthDaysTotal: stats.monthDaysTotal,
       onContentClick: (item) => setSelectedContent(item),
     };
-  }, [user, allSummaries, allDateRange, allIncomeRecords, records, monetizedContentIds, monetizedContentTokens, stats]);
+  }, [user, effectiveSummaries, effectiveDateRange, effectiveRecords, useDemo, records, monetizedContentIds, monetizedContentTokens, stats]);
 
   if (userLoading) {
     return (
@@ -439,29 +495,53 @@ export function Dashboard() {
             {user && <div style={{ fontSize: 12, color: themeColors.muted, marginTop: 4, letterSpacing: '0.02em' }}>{user.name} 的创作数据</div>}
           </div>
           <Space>
-            {/* Sync button */}
-            {hasSetup ? (
-              <Button
-                id="tour-sync-button"
-                type="primary"
-                icon={<SyncOutlined spin={status.isCollecting} />}
-                onClick={() => handleSync()}
-                loading={status.isCollecting}
-                size="small"
-              >
-                {status.isCollecting ? `${status.progress}/${status.total}` : '同步'}
-              </Button>
-            ) : (
-              <Button id="tour-sync-button" type="primary" icon={<DatabaseOutlined />} onClick={() => setSetupOpen(true)} size="small">
-                首次设置
-              </Button>
-            )}
-
             {/* Data management dropdown */}
             <Dropdown
               menu={{
                 items: [
-                  { key: 'fetchAll', icon: <CloudDownloadOutlined />, label: '拉取全部内容详情', onClick: handleFetchAllDaily, disabled: status.isCollecting },
+                  hasSetup
+                    ? {
+                        key: 'syncAll',
+                        icon: <SyncOutlined spin={status.isCollecting} />,
+                        label: status.isCollecting ? `同步中 ${status.progress}/${status.total}` : '全部同步',
+                        onClick: handleSyncAll,
+                        disabled: status.isCollecting,
+                      }
+                    : {
+                        key: 'setup',
+                        icon: <DatabaseOutlined />,
+                        label: '首次设置',
+                        onClick: () => setSetupOpen(true),
+                      },
+                  { type: 'divider' },
+                  {
+                    key: 'syncIncome',
+                    icon: <DollarOutlined />,
+                    label: '收益同步',
+                    onClick: () => handleSyncIncome(),
+                    disabled: status.isCollecting || !hasSetup,
+                  },
+                  {
+                    key: 'syncAggr',
+                    icon: <BarChartOutlined />,
+                    label: '每日汇总',
+                    onClick: handleSyncRealtimeAggr,
+                    disabled: status.isCollecting || !hasSetup,
+                  },
+                  {
+                    key: 'fetchContentDaily',
+                    icon: <FileTextOutlined />,
+                    label: '内容详情',
+                    onClick: handleFetchContentDaily,
+                    disabled: status.isCollecting || !hasSetup,
+                  },
+                  {
+                    key: 'fetchToday',
+                    icon: <ThunderboltOutlined />,
+                    label: '今日数据',
+                    onClick: handleFetchTodayData,
+                    disabled: status.isCollecting || !hasSetup,
+                  },
                   { type: 'divider' },
                   { key: 'export', icon: <DownloadOutlined />, label: '导出数据', onClick: handleExport },
                   {
@@ -530,7 +610,7 @@ export function Dashboard() {
               }}
               trigger={['click']}
             >
-              <Button id="tour-settings-menu" icon={<SettingOutlined />} size="small" />
+              <Button id="tour-settings-menu" icon={<SettingOutlined />} size="small">设置</Button>
             </Dropdown>
             <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} style={{ display: 'none' }} />
           </Space>
@@ -608,7 +688,7 @@ export function Dashboard() {
           title="首次设置"
           open={setupOpen}
           onCancel={() => setSetupOpen(false)}
-          onOk={() => handleSync(setupDate)}
+          onOk={() => handleSyncIncome(setupDate)}
           okText="开始同步"
           okButtonProps={{ disabled: !setupDate || status.isCollecting, loading: status.isCollecting }}
         >
@@ -626,10 +706,18 @@ export function Dashboard() {
           <Flex justify="center" style={{ padding: 80 }}>
             <Spin size="large" tip="加载中..." />
           </Flex>
-        ) : allSummaries.length === 0 ? (
-          <Empty description="暂无数据，请先点击右上角同步按钮采集收益数据" style={{ padding: 80 }} />
+        ) : effectiveSummaries.length === 0 ? (
+          <Empty description="暂无数据，请先点击右上角设置按钮同步收益数据" style={{ padding: 80 }} />
         ) : (
           <>
+            {useDemo && (
+              <Alert
+                message="当前展示的是演示数据，帮助你了解各功能区域。同步真实数据后将自动替换。"
+                type="info"
+                showIcon
+                style={{ marginBottom: 12 }}
+              />
+            )}
             {/* Summary Stats */}
             <Row id="tour-summary-cards" gutter={[16, 16]} style={{ marginBottom: 28 }}>
               <Col span={8}>
@@ -704,7 +792,7 @@ export function Dashboard() {
                         return {
                           key: tab.key,
                           label: tab.label,
-                          children: allSummaries.length === 0 && tab.key === 'overview' ? (
+                          children: effectiveSummaries.length === 0 && tab.key === 'overview' ? (
                             <Empty description="暂无数据" />
                           ) : dashboardContext ? (
                             <Flex vertical gap={24}>

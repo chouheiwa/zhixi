@@ -7,6 +7,7 @@ import type { DailySummary } from '@/shared/types';
 import { eachDayInRange } from '@/shared/date-utils';
 import { computeRPM, ema, holtForecast } from '@/shared/stats';
 import { FormulaBlock } from './FormulaHelp';
+import { themeColors } from '../theme';
 
 interface Props {
   summaries: DailySummary[];
@@ -61,7 +62,7 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
         name: '每日',
         type: 'bar',
         data: analysis.rpms,
-        itemStyle: { color: 'rgba(26, 115, 232, 0.3)', borderRadius: [2, 2, 0, 0] },
+        itemStyle: { color: 'rgba(184, 134, 78, 0.3)', borderRadius: [2, 2, 0, 0] },
         barMaxWidth: 12,
       },
       {
@@ -69,7 +70,7 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
         type: 'line',
         data: analysis.rpmEma,
         smooth: true,
-        itemStyle: { color: '#ea4335' },
+        itemStyle: { color: themeColors.warmRed },
         lineStyle: { width: 2 },
         symbol: 'none',
       },
@@ -94,7 +95,7 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
         name: '实际收益',
         type: 'bar',
         data: [...analysis.incomes, ...new Array(analysis.forecast.length).fill(null)],
-        itemStyle: { color: 'rgba(26, 115, 232, 0.25)', borderRadius: [2, 2, 0, 0] },
+        itemStyle: { color: 'rgba(184, 134, 78, 0.25)', borderRadius: [2, 2, 0, 0] },
         barMaxWidth: 10,
       },
       {
@@ -102,7 +103,7 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
         type: 'line',
         data: [...analysis.holtSmoothed, ...new Array(analysis.forecast.length).fill(null)],
         smooth: true,
-        itemStyle: { color: '#34a853' },
+        itemStyle: { color: themeColors.sage },
         lineStyle: { width: 2 },
         symbol: 'none',
       },
@@ -111,10 +112,10 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
         type: 'line',
         data: [...new Array(analysis.incomes.length - 1).fill(null), analysis.holtSmoothed[analysis.holtSmoothed.length - 1], ...analysis.forecast],
         smooth: true,
-        itemStyle: { color: '#ea4335' },
+        itemStyle: { color: themeColors.warmRed },
         lineStyle: { width: 2, type: 'dashed' },
         symbol: 'none',
-        areaStyle: { color: 'rgba(234, 67, 53, 0.08)' },
+        areaStyle: { color: 'rgba(196, 89, 74, 0.08)' },
       },
     ],
   ...timeSeriesZoom,
@@ -122,15 +123,15 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
 
   return (
     <Card title="赚钱效率趋势" size="small">
-      <Card size="small" style={{ background: '#f0f7ff', border: 'none', marginBottom: 12 }}>
+      <Card size="small" style={{ background: themeColors.amberBg, border: 'none', marginBottom: 12 }}>
         <Statistic
           title="当前每千次阅读收益"
           value={analysis.latestRpm}
           precision={2}
           prefix="¥"
-          valueStyle={{ color: '#1a73e8' }}
+          valueStyle={{ color: themeColors.amber, fontFamily: '"Noto Serif SC", serif' }}
           suffix={
-            <span style={{ fontSize: 12, color: analysis.rpmTrend >= 0 ? '#34a853' : '#d32f2f' }}>
+            <span style={{ fontSize: 12, color: analysis.rpmTrend >= 0 ? themeColors.sage : themeColors.warmRed }}>
               {analysis.rpmTrend >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
               {Math.abs(analysis.rpmTrend).toFixed(1)}%
             </span>

@@ -214,7 +214,7 @@ async function runSyncRealtimeAggr(): Promise<{ count: number }> {
     throw new Error('正在采集中，请等待完成');
   }
 
-  collectionStatus = { isCollecting: true, progress: 0, total: 0, task: '收益同步' };
+  collectionStatus = { isCollecting: true, progress: 0, total: 0, task: '每日汇总' };
   addLog('开始同步每日汇总数据...');
   broadcastStatus();
 
@@ -255,7 +255,7 @@ async function runSyncRealtimeAggr(): Promise<{ count: number }> {
     }
 
     addLog(`需要同步 ${dates.length} 天的汇总数据`);
-    collectionStatus = { isCollecting: true, progress: 0, total: dates.length, task: '收益同步' };
+    collectionStatus = { isCollecting: true, progress: 0, total: dates.length, task: '每日汇总' };
     broadcastStatus();
 
     let totalRecords = 0;
@@ -269,7 +269,7 @@ async function runSyncRealtimeAggr(): Promise<{ count: number }> {
         progress: i + 1,
         total: dates.length,
         currentDate: date,
-        task: '收益同步',
+        task: '每日汇总',
       };
       broadcastStatus();
 
@@ -362,7 +362,7 @@ async function runFetchTodayContentDaily(): Promise<{ count: number; cached: num
     throw new Error('没有内容数据，请先同步收益');
   }
 
-  collectionStatus = { isCollecting: true, progress: 0, total: items.length, task: '内容详情' };
+  collectionStatus = { isCollecting: true, progress: 0, total: items.length, task: '今日数据' };
   addLog(`开始拉取今日(${today})内容数据，共 ${items.length} 篇...`);
   broadcastStatus();
 
@@ -381,7 +381,7 @@ async function runFetchTodayContentDaily(): Promise<{ count: number; cached: num
         progress: i + 1,
         total: items.length,
         currentDate: shortTitle,
-        task: '内容详情',
+        task: '今日数据',
       };
       broadcastStatus();
 

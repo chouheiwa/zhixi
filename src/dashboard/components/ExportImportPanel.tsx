@@ -1,4 +1,6 @@
 import React, { useState, useRef } from 'react';
+import { Card, Button, Space, Alert } from 'antd';
+import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { exportToJSON, importFromJSON } from '@/db/export-import';
 
 interface Props {
@@ -16,7 +18,7 @@ export function ExportImportPanel({ onImported }: Props) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `zhihu-income-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `zhixi-backup-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
       setMsg('导出成功');
@@ -40,23 +42,21 @@ export function ExportImportPanel({ onImported }: Props) {
   };
 
   return (
-    <div style={{ padding: 16, background: '#f9f9f9', borderRadius: 8 }}>
-      <h3 style={{ fontSize: 14, margin: '0 0 12px' }}>数据备份</h3>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={handleExport} style={btnStyle}>导出数据</button>
-        <button onClick={() => fileInputRef.current?.click()} style={btnStyle}>导入数据</button>
+    <Card title="数据备份" size="small">
+      <Space>
+        <Button icon={<DownloadOutlined />} onClick={handleExport}>导出数据</Button>
+        <Button icon={<UploadOutlined />} onClick={() => fileInputRef.current?.click()}>导入数据</Button>
         <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} style={{ display: 'none' }} />
-      </div>
+      </Space>
       {msg && (
-        <div style={{ marginTop: 8, fontSize: 12, color: msg.includes('失败') ? '#d32f2f' : '#34a853' }}>
-          {msg}
-        </div>
+        <Alert
+          message={msg}
+          type={msg.includes('失败') ? 'error' : 'success'}
+          showIcon closable
+          style={{ marginTop: 8 }}
+          onClose={() => setMsg('')}
+        />
       )}
-    </div>
+    </Card>
   );
 }
-
-const btnStyle: React.CSSProperties = {
-  padding: '6px 16px', border: '1px solid #ddd', borderRadius: 4,
-  background: '#fff', cursor: 'pointer', fontSize: 13,
-};

@@ -16,6 +16,13 @@ export default defineConfig({
       input: {
         dashboard: resolve(__dirname, "src/dashboard/index.html"),
       },
+      output: {
+        manualChunks: {
+          tfjs: ["@tensorflow/tfjs"],
+          antd: ["antd", "@ant-design/icons"],
+          echarts: ["echarts", "echarts-for-react"],
+        },
+      },
     },
   },
   test: {

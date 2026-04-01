@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Button, Card, DatePicker, Space, Progress, Spin, Flex, Typography, Statistic } from 'antd';
+import { SyncOutlined, ArrowRightOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { formatDate, getDateRange } from '@/shared/date-utils';
 import { useIncomeData } from '@/hooks/use-income-data';
 import { useCollector } from '@/hooks/use-collector';
@@ -6,6 +9,8 @@ import { useCurrentUser } from '@/hooks/use-current-user';
 import { useUserSettings } from '@/hooks/use-user-settings';
 import { TodaySummary } from './components/TodaySummary';
 import { WeekSparkline } from './components/WeekSparkline';
+
+const { Text } = Typography;
 
 function getYesterday(): string {
   const d = new Date();
@@ -25,16 +30,12 @@ export function Popup() {
 
   const yesterdaySummary = summaries.find((s) => s.date === yesterday);
 
-  // First-time setup: start date input
   const [startDate, setStartDate] = useState('');
   const [resultMsg, setResultMsg] = useState('');
 
-  // Refresh data when collection finishes
   const prevCollecting = React.useRef(status.isCollecting);
   useEffect(() => {
-    if (prevCollecting.current && !status.isCollecting && !status.error) {
-      refresh();
-    }
+    if (prevCollecting.current && !status.isCollecting && !status.error) refresh();
     prevCollecting.current = status.isCollecting;
   }, [status.isCollecting, status.error, refresh]);
 
@@ -42,11 +43,7 @@ export function Popup() {
     setResultMsg('');
     try {
       const result = await sync();
-      if (result.synced === 0) {
-        setResultMsg('数据已是最新');
-      } else {
-        setResultMsg(`同步完成，补全 ${result.synced} 天，共 ${result.count} 条记录`);
-      }
+      setResultMsg(result.synced === 0 ? '数据已是最新' : `同步完成，补全 ${result.synced} 天，共 ${result.count} 条记录`);
       refresh();
     } catch (err) {
       setResultMsg(`同步失败: ${err instanceof Error ? err.message : '未知错误'}`);
@@ -58,7 +55,7 @@ export function Popup() {
     setResultMsg('');
     try {
       const result = await sync(startDate);
-      setResultMsg(`首次同步完成，采集 ${result.synced} 天，共 ${result.count} 条记录`);
+      setResultMsg(`首次同步完成，采集 ${result.synced} 天`);
       refreshSettings();
       refresh();
     } catch (err) {
@@ -73,87 +70,71 @@ export function Popup() {
 
   if (userLoading || settingsLoading) {
     return (
-      <div style={{ width: 340, padding: 24, textAlign: 'center', fontFamily: '-apple-system, sans-serif', color: '#999' }}>
-        正在连接知乎...
-      </div>
+      <Flex justify="center" align="center" style={{ width: 340, padding: 40 }}>
+        <Spin tip="正在连接知乎..." />
+      </Flex>
     );
   }
 
   const hasSetup = !!settings?.collectStartDate;
 
   return (
-    <div style={{ width: 340, padding: 12, fontFamily: '-apple-system, sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+    <div style={{ width: 340, padding: 12 }}>
+      <Flex justify="space-between" align="center" style={{ marginBottom: 8 }}>
         <div>
-          <h1 style={{ fontSize: 14, margin: 0 }}>知乎致知收益分析</h1>
-          {user && <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>{user.name}</div>}
+          <div style={{ fontSize: 14, fontWeight: 700 }}>知析</div>
+          {user && <Text type="secondary" style={{ fontSize: 11 }}>{user.name}</Text>}
         </div>
-        <button onClick={openDashboard} style={{
-          fontSize: 12, padding: '4px 10px', border: '1px solid #ddd',
-          borderRadius: 4, background: '#fff', cursor: 'pointer',
-        }}>
-          详细分析 →
-        </button>
-      </div>
+        <Button size="small" onClick={openDashboard} icon={<ArrowRightOutlined />}>详细分析</Button>
+      </Flex>
 
       {hasSetup && (
         <>
           <TodaySummary summary={yesterdaySummary} loading={loading} />
           <div style={{ marginTop: 8 }}>
-            <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>近 7 天收益趋势</div>
+            <Text type="secondary" style={{ fontSize: 12 }}>近 7 天收益趋势</Text>
             <WeekSparkline summaries={summaries} />
           </div>
         </>
       )}
 
-      {/* Sync / Setup panel */}
-      <div style={{ marginTop: 10, padding: 10, background: '#f5f5f5', borderRadius: 6 }}>
+      <Card size="small" style={{ marginTop: 10 }}>
         {hasSetup ? (
-          // Normal sync mode
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 12, color: '#333' }}>
-              数据范围：{settings!.collectStartDate} 起
-            </div>
-            <button onClick={handleSync} disabled={status.isCollecting} style={{
-              padding: '4px 14px', background: '#1a73e8', color: '#fff', border: 'none',
-              borderRadius: 4, cursor: 'pointer', fontSize: 12, opacity: status.isCollecting ? 0.6 : 1,
-            }}>
-              {status.isCollecting ? '同步中...' : '同步数据'}
-            </button>
-          </div>
+          <Flex justify="space-between" align="center">
+            <Text type="secondary" style={{ fontSize: 12 }}>数据范围：{settings!.collectStartDate} 起</Text>
+            <Button type="primary" size="small" icon={<SyncOutlined />} onClick={handleSync} loading={status.isCollecting}>
+              {status.isCollecting ? '同步中' : '同步数据'}
+            </Button>
+          </Flex>
         ) : (
-          // First-time setup
           <div>
-            <div style={{ fontSize: 12, color: '#333', fontWeight: 600, marginBottom: 8 }}>
-              首次使用：设置致知计划开通日期
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                style={{ padding: '4px 8px', border: '1px solid #ddd', borderRadius: 3, fontSize: 12, flex: 1 }} />
-              <button onClick={handleSetupAndSync} disabled={status.isCollecting || !startDate} style={{
-                padding: '4px 14px', background: '#1a73e8', color: '#fff', border: 'none',
-                borderRadius: 4, cursor: 'pointer', fontSize: 12,
-                opacity: (status.isCollecting || !startDate) ? 0.6 : 1,
-              }}>
-                {status.isCollecting ? '同步中...' : '开始同步'}
-              </button>
-            </div>
+            <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>首次使用：设置致知计划开通日期</Text>
+            <Space>
+              <DatePicker
+                size="small"
+                onChange={(date) => setStartDate(date ? date.format('YYYY-MM-DD') : '')}
+                placeholder="选择开始日期"
+              />
+              <Button type="primary" size="small" onClick={handleSetupAndSync} disabled={!startDate} loading={status.isCollecting}>
+                {status.isCollecting ? '同步中' : '开始同步'}
+              </Button>
+            </Space>
             <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>
-              选择你开通致知计划的大致日期，插件会从这天开始采集数据
+              选择你开通致知计划的大致日期
             </div>
           </div>
         )}
 
         {status.isCollecting && (
-          <div style={{ marginTop: 8, fontSize: 11, color: '#1a73e8' }}>
-            {status.currentDate} ({status.progress}/{status.total})
-            <div style={{ marginTop: 3, height: 3, background: '#e0e0e0', borderRadius: 2 }}>
-              <div style={{
-                height: '100%', background: '#1a73e8', borderRadius: 2,
-                width: `${status.total > 0 ? (status.progress / status.total) * 100 : 0}%`,
-                transition: 'width 0.3s',
-              }} />
-            </div>
+          <div style={{ marginTop: 8 }}>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {status.currentDate} ({status.progress}/{status.total})
+            </Text>
+            <Progress
+              percent={status.total > 0 ? Math.round((status.progress / status.total) * 100) : 0}
+              size="small"
+              showInfo={false}
+            />
           </div>
         )}
 
@@ -162,12 +143,12 @@ export function Popup() {
             {resultMsg}
           </div>
         )}
-      </div>
+      </Card>
 
       {status.error && !resultMsg && (
-        <div style={{ fontSize: 11, color: '#d32f2f', textAlign: 'center', marginTop: 8 }}>
+        <Text type="danger" style={{ fontSize: 11, display: 'block', textAlign: 'center', marginTop: 8 }}>
           {status.error}
-        </div>
+        </Text>
       )}
     </div>
   );
