@@ -582,7 +582,7 @@ export function Dashboard() {
             onBack={() => setSelectedContent(null)}
             onCompare={(item) => {
               setSelectedContent(null);
-              setCompareItems([item as any]);
+              setCompareItems([item]);
             }}
           />
         </Content>

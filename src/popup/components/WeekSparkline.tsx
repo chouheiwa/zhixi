@@ -3,11 +3,16 @@ import ReactECharts from 'echarts-for-react';
 import type { DailySummary } from '@/shared/types';
 import { eachDayInRange, formatDate, getDateRange } from '@/shared/date-utils';
 
+interface SparklineTooltipParam {
+  name: string;
+  value: number;
+}
+
 interface Props {
   summaries: DailySummary[];
 }
 
-export function WeekSparkline({ summaries }: Props) {
+function WeekSparklineInner({ summaries }: Props) {
   const { start, end } = getDateRange(7);
   const days = eachDayInRange(formatDate(start), formatDate(end));
 
@@ -34,9 +39,11 @@ export function WeekSparkline({ summaries }: Props) {
     ],
     tooltip: {
       trigger: 'axis' as const,
-      formatter: (params: any[]) => `${params[0].name}<br/>¥${params[0].value.toFixed(2)}`,
+      formatter: (params: SparklineTooltipParam[]) => `${params[0].name}<br/>¥${params[0].value.toFixed(2)}`,
     },
   };
 
   return <ReactECharts option={option} style={{ height: 100, width: '100%' }} />;
 }
+
+export const WeekSparkline = React.memo(WeekSparklineInner);

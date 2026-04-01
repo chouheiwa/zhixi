@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Row, Col, Statistic, Button, Tag, Progress, Flex, Empty, Alert, Space, Steps, Table } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import {
   ExperimentOutlined,
   TrophyOutlined,
@@ -26,6 +27,28 @@ import { themeColors } from '../theme';
 
 interface Props {
   records: IncomeRecord[];
+}
+
+interface LossTooltipParam {
+  seriesName: string;
+  value: number;
+}
+
+interface PredictionChartParam {
+  name: string;
+  marker: string;
+  seriesName: string;
+  value: number;
+}
+
+interface PredictionRow {
+  title: string;
+  contentType: string;
+  pv: number;
+  upvote: number;
+  comment: number;
+  collect: number;
+  predicted: number;
 }
 
 const FEATURE_LABELS: Record<string, string> = {
@@ -87,17 +110,7 @@ export function MLPredictionPanel({ records }: Props) {
 
   // Prediction state
   const [predicting, setPredicting] = useState(false);
-  const [predictions, setPredictions] = useState<
-    {
-      title: string;
-      contentType: string;
-      pv: number;
-      upvote: number;
-      comment: number;
-      collect: number;
-      predicted: number;
-    }[]
-  >([]);
+  const [predictions, setPredictions] = useState<PredictionRow[]>([]);
   const [cacheInfo, setCacheInfo] = useState('');
 
   useEffect(() => {
@@ -328,8 +341,8 @@ export function MLPredictionPanel({ records }: Props) {
             yAxis: { type: 'value' as const, axisLabel: { fontSize: 9 }, name: 'loss', nameGap: 30 },
             tooltip: {
               trigger: 'axis' as const,
-              formatter: (params: any[]) =>
-                params.map((p: any) => `${p.seriesName}: ${p.value.toFixed(4)}`).join('<br/>'),
+              formatter: (params: LossTooltipParam[]) =>
+                params.map((p) => `${p.seriesName}: ${p.value.toFixed(4)}`).join('<br/>'),
             },
             legend: { data: ['训练 loss', '验证 loss'], textStyle: { fontSize: 10 }, right: 0, top: 0 },
             series: [
@@ -440,9 +453,9 @@ export function MLPredictionPanel({ records }: Props) {
   const predChartOption = {
     tooltip: {
       trigger: 'axis' as const,
-      formatter: (params: any[]) => {
+      formatter: (params: PredictionChartParam[]) => {
         const date = params[0].name;
-        const lines = params.map((p: any) => `${p.marker} ${p.seriesName}: ¥${p.value.toFixed(2)}`);
+        const lines = params.map((p) => `${p.marker} ${p.seriesName}: ¥${p.value.toFixed(2)}`);
         return `${date}<br/>${lines.join('<br/>')}`;
       },
     },
@@ -479,6 +492,43 @@ export function MLPredictionPanel({ records }: Props) {
   const topFactors = importanceData.slice(0, 5);
 
   const predTotal = predictions.reduce((s, p) => s + p.predicted, 0);
+  const predictionColumns: ColumnsType<PredictionRow> = [
+    {
+      title: '内容',
+      dataIndex: 'title',
+      key: 'title',
+      ellipsis: true,
+      render: (title: string, row) => (
+        <span>
+          <Tag color={row.contentType === 'article' ? 'blue' : 'gold'} style={{ marginRight: 4 }}>
+            {row.contentType === 'article' ? '文' : '答'}
+          </Tag>
+          {title}
+        </span>
+      ),
+    },
+    {
+      title: '阅读',
+      dataIndex: 'pv',
+      key: 'pv',
+      width: 80,
+      align: 'right' as const,
+      render: (v: number) => v.toLocaleString(),
+    },
+    { title: '点赞', dataIndex: 'upvote', key: 'upvote', width: 60, align: 'right' as const },
+    { title: '评论', dataIndex: 'comment', key: 'comment', width: 60, align: 'right' as const },
+    { title: '收藏', dataIndex: 'collect', key: 'collect', width: 60, align: 'right' as const },
+    {
+      title: '预测收益',
+      dataIndex: 'predicted',
+      key: 'predicted',
+      width: 100,
+      align: 'right' as const,
+      sorter: (a, b) => a.predicted - b.predicted,
+      defaultSortOrder: 'descend' as const,
+      render: (v: number) => <span style={{ fontWeight: 600, color: themeColors.warmBlue }}>¥{v.toFixed(2)}</span>,
+    },
+  ];
 
   return (
     <Flex vertical gap={16}>
@@ -529,45 +579,7 @@ export function MLPredictionPanel({ records }: Props) {
               rowKey="title"
               size="small"
               pagination={predictions.length > 10 ? { pageSize: 10, size: 'small' } : false}
-              columns={[
-                {
-                  title: '内容',
-                  dataIndex: 'title',
-                  key: 'title',
-                  ellipsis: true,
-                  render: (title: string, row: any) => (
-                    <span>
-                      <Tag color={row.contentType === 'article' ? 'blue' : 'gold'} style={{ marginRight: 4 }}>
-                        {row.contentType === 'article' ? '文' : '答'}
-                      </Tag>
-                      {title}
-                    </span>
-                  ),
-                },
-                {
-                  title: '阅读',
-                  dataIndex: 'pv',
-                  key: 'pv',
-                  width: 80,
-                  align: 'right' as const,
-                  render: (v: number) => v.toLocaleString(),
-                },
-                { title: '点赞', dataIndex: 'upvote', key: 'upvote', width: 60, align: 'right' as const },
-                { title: '评论', dataIndex: 'comment', key: 'comment', width: 60, align: 'right' as const },
-                { title: '收藏', dataIndex: 'collect', key: 'collect', width: 60, align: 'right' as const },
-                {
-                  title: '预测收益',
-                  dataIndex: 'predicted',
-                  key: 'predicted',
-                  width: 100,
-                  align: 'right' as const,
-                  sorter: (a: any, b: any) => a.predicted - b.predicted,
-                  defaultSortOrder: 'descend' as const,
-                  render: (v: number) => (
-                    <span style={{ fontWeight: 600, color: themeColors.warmBlue }}>¥{v.toFixed(2)}</span>
-                  ),
-                },
-              ]}
+              columns={predictionColumns}
             />
           </>
         ) : (
@@ -751,8 +763,8 @@ export function MLPredictionPanel({ records }: Props) {
               grid: { left: 50, right: 30, top: 30, bottom: 30 },
               tooltip: {
                 trigger: 'axis' as const,
-                formatter: (params: any[]) =>
-                  params.map((p: any) => `${p.seriesName}: ${p.value.toFixed(4)}`).join('<br/>'),
+                formatter: (params: LossTooltipParam[]) =>
+                  params.map((p) => `${p.seriesName}: ${p.value.toFixed(4)}`).join('<br/>'),
               },
               legend: { data: ['训练 loss', '验证 loss'], textStyle: { fontSize: 11 }, right: 0, top: 0 },
               xAxis: {

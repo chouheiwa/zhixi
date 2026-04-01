@@ -8,6 +8,10 @@ import { detectAnomalies } from '@/shared/stats';
 import { FormulaBlock } from './FormulaHelp';
 import { themeColors } from '../theme';
 
+interface AnomalyTooltipParam {
+  dataIndex: number;
+}
+
 interface Props {
   summaries: DailySummary[];
   startDate: string;
@@ -38,7 +42,7 @@ export function AnomalyDetectionPanel({ summaries, startDate, endDate }: Props) 
   const option = {
     tooltip: {
       trigger: 'axis' as const,
-      formatter: (params: any[]) => {
+      formatter: (params: AnomalyTooltipParam[]) => {
         const idx = params[0].dataIndex;
         const date = days[idx];
         const income = analysis.incomes[idx];
@@ -73,6 +77,8 @@ export function AnomalyDetectionPanel({ summaries, startDate, endDate }: Props) 
               : { color: 'rgba(91, 122, 157, 0.25)', borderRadius: [3, 3, 0, 0] },
           };
         }),
+        large: true,
+        largeThreshold: 500,
         barMaxWidth: 14,
         markLine: {
           silent: true,

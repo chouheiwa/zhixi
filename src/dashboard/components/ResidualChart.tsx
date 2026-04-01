@@ -6,6 +6,10 @@ import { ridgeRegression, residualAnalysis, detectAnomalies } from '@/shared/sta
 import { FormulaBlock } from './FormulaHelp';
 import { themeColors } from '../theme';
 
+interface AxisTooltipParam {
+  dataIndex: number;
+}
+
 interface Props {
   incomeRecords: IncomeRecord[];
   dailyRecords: ContentDailyRecord[];
@@ -105,7 +109,7 @@ export function ResidualChart({ incomeRecords, dailyRecords }: Props) {
   const residualOption = {
     tooltip: {
       trigger: 'axis' as const,
-      formatter: (params: any[]) => {
+      formatter: (params: AxisTooltipParam[]) => {
         const idx = params[0].dataIndex;
         const date = analysis.alignedDates[idx];
         const resid = analysis.residuals[idx];

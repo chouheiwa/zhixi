@@ -5,13 +5,19 @@ import type { IncomeRecord } from '@/shared/types';
 import { parseDateString } from '@/shared/date-utils';
 import { themeColors } from '../theme';
 
+interface PublishTooltipParam {
+  name: string;
+  seriesName: string;
+  value: number;
+}
+
 interface Props {
   records: IncomeRecord[];
 }
 
 const DAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
-export function PublishTimeAnalysis({ records }: Props) {
+function PublishTimeAnalysisInner({ records }: Props) {
   const analysis = useMemo(() => {
     const contentMap = new Map<
       string,
@@ -77,9 +83,9 @@ export function PublishTimeAnalysis({ records }: Props) {
   const chartOption = {
     tooltip: {
       trigger: 'axis' as const,
-      formatter: (params: any[]) => {
+      formatter: (params: PublishTooltipParam[]) => {
         const item = analysis.result.find((r) => r.label === params[0].name);
-        const lines = params.map((p: any) =>
+        const lines = params.map((p) =>
           p.seriesName === '平均首周收益'
             ? `${p.seriesName}: ¥${p.value.toFixed(2)}`
             : `${p.seriesName}: ${Math.round(p.value).toLocaleString()}`,
@@ -152,3 +158,5 @@ export function PublishTimeAnalysis({ records }: Props) {
     </Card>
   );
 }
+
+export const PublishTimeAnalysis = React.memo(PublishTimeAnalysisInner);

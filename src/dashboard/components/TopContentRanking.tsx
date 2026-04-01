@@ -4,11 +4,16 @@ import ReactECharts from 'echarts-for-react';
 import type { IncomeRecord } from '@/shared/types';
 import { themeColors } from '../theme';
 
+interface RankTooltipParam {
+  name: string;
+  value: number;
+}
+
 interface Props {
   records: IncomeRecord[];
 }
 
-export function TopContentRanking({ records }: Props) {
+function TopContentRankingInner({ records }: Props) {
   const top10 = useMemo(() => {
     const map = new Map<string, { title: string; income: number; type: string }>();
     for (const r of records) {
@@ -23,7 +28,7 @@ export function TopContentRanking({ records }: Props) {
 
   const option = {
     tooltip: {
-      formatter: (params: any) => `${params.name}<br/>¥${params.value.toFixed(2)}`,
+      formatter: (params: RankTooltipParam) => `${params.name}<br/>¥${params.value.toFixed(2)}`,
     },
     grid: { left: 200, right: 40, top: 10, bottom: 10 },
     xAxis: { type: 'value' as const, show: false },
@@ -50,7 +55,7 @@ export function TopContentRanking({ records }: Props) {
         label: {
           show: true,
           position: 'right' as const,
-          formatter: (params: any) => `¥${params.value.toFixed(2)}`,
+          formatter: (params: RankTooltipParam) => `¥${params.value.toFixed(2)}`,
           fontSize: 11,
         },
       },
@@ -63,3 +68,5 @@ export function TopContentRanking({ records }: Props) {
     </Card>
   );
 }
+
+export const TopContentRanking = React.memo(TopContentRankingInner);

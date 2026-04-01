@@ -29,6 +29,63 @@ import { themeColors } from '../theme';
 
 const MODEL_DB_KEY = 'realtimeModel';
 
+interface TodayRealtimePayload {
+  date: string;
+  updatedAt?: string;
+  pv?: number;
+  play?: number;
+  show?: number;
+  upvote?: number;
+  comment?: number;
+  like?: number;
+  collect?: number;
+  share?: number;
+  reaction?: number;
+  rePin?: number;
+  likeAndReaction?: number;
+  newUpvote?: number;
+  newLike?: number;
+  newIncrUpvoteNum?: number;
+  newDescUpvoteNum?: number;
+  newIncrLikeNum?: number;
+  newDescLikeNum?: number;
+}
+
+interface TodayRealtimeResponse {
+  ok: boolean;
+  today?: TodayRealtimePayload;
+  error?: string;
+}
+
+interface PredictionTooltipParam {
+  name: string;
+  marker: string;
+  seriesName: string;
+  value: number;
+}
+
+interface ImportanceTooltipParam {
+  name: string;
+  value: number;
+}
+
+interface ImportanceBarColorParam {
+  dataIndex: number;
+}
+
+type RealtimeMetricKey =
+  | 'pv'
+  | 'show'
+  | 'upvote'
+  | 'comment'
+  | 'collect'
+  | 'share'
+  | 'like'
+  | 'play'
+  | 'rePin'
+  | 'newIncrUpvoteNum'
+  | 'newDescUpvoteNum';
+
 export function TodayPredictionPanel() {
   const { user } = useCurrentUser();
   const [aggrRecords, setAggrRecords] = useState<RealtimeAggrRecord[]>([]);
@@ -57,6 +114,9 @@ export function TodayPredictionPanel() {
     const saved = await db.mlModels.get(`${user.id}_realtime`);
     if (saved) {
       try {
+        if (typeof saved.evaluationResult !== 'string') {
+          return;
+        }
         const evaluation = JSON.parse(saved.evaluationResult) as RealtimeModelResult;
         setModelResult(evaluation);
         setSavedModel({
@@ -144,7 +204,7 @@ export function TodayPredictionPanel() {
     setFetchingToday(true);
     setError('');
     try {
-      const resp = await new Promise<{ ok: boolean; today?: any; error?: string }>((resolve, reject) => {
+      const resp = await new Promise<TodayRealtimeResponse>((resolve, reject) => {
         chrome.runtime.sendMessage({ action: 'fetchTodayRealtime' }, (r) => {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
@@ -322,8 +382,8 @@ export function TodayPredictionPanel() {
   const verifyChartOption = {
     tooltip: {
       trigger: 'axis' as const,
-      formatter: (params: any[]) => {
-        const lines = params.map((p: any) => `${p.marker} ${p.seriesName}: ¥${p.value.toFixed(2)}`);
+      formatter: (params: PredictionTooltipParam[]) => {
+        const lines = params.map((p) => `${p.marker} ${p.seriesName}: ¥${p.value.toFixed(2)}`);
         return `${params[0].name}<br/>${lines.join('<br/>')}`;
       },
     },
@@ -356,7 +416,7 @@ export function TodayPredictionPanel() {
   const importanceOption =
     importanceData.length > 0
       ? {
-          tooltip: { formatter: (p: any) => `${p.name}: 影响力 ${p.value.toFixed(1)}%` },
+          tooltip: { formatter: (p: ImportanceTooltipParam) => `${p.name}: 影响力 ${p.value.toFixed(1)}%` },
           grid: { left: 90, right: 40, top: 10, bottom: 10 },
           xAxis: { type: 'value' as const, show: false },
           yAxis: {
@@ -371,7 +431,7 @@ export function TodayPredictionPanel() {
               barMaxWidth: 14,
               itemStyle: {
                 borderRadius: [0, 4, 4, 0],
-                color: (params: any) => {
+                color: (params: ImportanceBarColorParam) => {
                   const colors = [
                     themeColors.warmBlue,
                     themeColors.sage,
@@ -389,7 +449,7 @@ export function TodayPredictionPanel() {
                 show: true,
                 position: 'right' as const,
                 fontSize: 10,
-                formatter: (p: any) => `${p.value.toFixed(1)}%`,
+                formatter: (p: ImportanceTooltipParam) => `${p.value.toFixed(1)}%`,
               },
             },
           ],
@@ -613,7 +673,7 @@ function HistoryDataSection({
   const dates = sorted.map((r) => r.date.slice(5));
   const incomeData = sorted.map((r) => incomeMap.get(r.date) ?? null);
 
-  const buildChartOption = (metrics: { key: string; label: string; color: string }[]) => ({
+  const buildChartOption = (metrics: { key: RealtimeMetricKey; label: string; color: string }[]) => ({
     tooltip: { trigger: 'axis' as const },
     legend: {
       data: [...metrics.map((m) => m.label), '收益'],
@@ -641,7 +701,7 @@ function HistoryDataSection({
       ...metrics.map((m) => ({
         name: m.label,
         type: 'line' as const,
-        data: sorted.map((r) => (r as any)[m.key] ?? 0),
+        data: sorted.map((r) => r[m.key] ?? 0),
         smooth: true,
         yAxisIndex: 0,
         itemStyle: { color: m.color },
@@ -664,8 +724,8 @@ function HistoryDataSection({
   const overviewOption = {
     tooltip: {
       trigger: 'axis' as const,
-      formatter: (params: any[]) => {
-        const lines = params.map((p: any) => {
+      formatter: (params: PredictionTooltipParam[]) => {
+        const lines = params.map((p) => {
           if (p.seriesName === '收益') return `${p.marker} ${p.seriesName}: ¥${(p.value ?? 0).toFixed(2)}`;
           if (p.seriesName === '互动率') return `${p.marker} ${p.seriesName}: ${((p.value ?? 0) * 100).toFixed(2)}%`;
           return `${p.marker} ${p.seriesName}: ${(p.value ?? 0).toLocaleString()}`;

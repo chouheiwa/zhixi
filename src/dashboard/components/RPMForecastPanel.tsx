@@ -9,6 +9,12 @@ import { computeRPM, ema, holtForecast } from '@/shared/stats';
 import { FormulaBlock } from './FormulaHelp';
 import { themeColors } from '../theme';
 
+interface RPMTooltipParam {
+  name: string;
+  seriesName: string;
+  value: number;
+}
+
 interface Props {
   summaries: DailySummary[];
   startDate: string;
@@ -47,8 +53,8 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
   const rpmOption = {
     tooltip: {
       trigger: 'axis' as const,
-      formatter: (params: any[]) => {
-        const lines = params.map((p: any) => `${p.seriesName}: ¥${p.value.toFixed(2)}`);
+      formatter: (params: RPMTooltipParam[]) => {
+        const lines = params.map((p) => `${p.seriesName}: ¥${p.value.toFixed(2)}`);
         return `${params[0].name}<br/>${lines.join('<br/>')}<br/><span style="color:#999;font-size:11px">即每1000次阅读赚的钱</span>`;
       },
     },
@@ -66,6 +72,8 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
         name: '每日',
         type: 'bar',
         data: analysis.rpms,
+        large: true,
+        largeThreshold: 500,
         itemStyle: { color: 'rgba(184, 134, 78, 0.3)', borderRadius: [2, 2, 0, 0] },
         barMaxWidth: 12,
       },
@@ -73,6 +81,7 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
         name: '7日趋势',
         type: 'line',
         data: analysis.rpmEma,
+        sampling: 'lttb',
         smooth: true,
         itemStyle: { color: themeColors.warmRed },
         lineStyle: { width: 2 },
@@ -103,6 +112,8 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
         name: '实际收益',
         type: 'bar',
         data: [...analysis.incomes, ...new Array(analysis.forecast.length).fill(null)],
+        large: true,
+        largeThreshold: 500,
         itemStyle: { color: 'rgba(184, 134, 78, 0.25)', borderRadius: [2, 2, 0, 0] },
         barMaxWidth: 10,
       },
@@ -110,6 +121,7 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
         name: '趋势线',
         type: 'line',
         data: [...analysis.holtSmoothed, ...new Array(analysis.forecast.length).fill(null)],
+        sampling: 'lttb',
         smooth: true,
         itemStyle: { color: themeColors.sage },
         lineStyle: { width: 2 },
@@ -123,6 +135,7 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
           analysis.holtSmoothed[analysis.holtSmoothed.length - 1],
           ...analysis.forecast,
         ],
+        sampling: 'lttb',
         smooth: true,
         itemStyle: { color: themeColors.warmRed },
         lineStyle: { width: 2, type: 'dashed' },

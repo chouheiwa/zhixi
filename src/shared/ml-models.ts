@@ -34,7 +34,7 @@ export interface MLPTrainingInfo {
   valLossHistory: number[];
 }
 
-export interface EnsembleResult {
+export interface EvaluationResult {
   models: ModelResult[];
   ensemble: {
     predictions: number[];
@@ -50,6 +50,102 @@ export interface EnsembleResult {
   trainCount: number;
   testCount: number;
   mlpTrainingInfo?: MLPTrainingInfo;
+}
+
+export type EnsembleResult = EvaluationResult;
+
+function isNumberArray(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'number');
+}
+
+function isFeatureImportanceList(value: unknown): value is NonNullable<ModelResult['featureImportance']> {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        item !== null &&
+        typeof item === 'object' &&
+        typeof item.name === 'string' &&
+        typeof item.importance === 'number',
+    )
+  );
+}
+
+function isModelResult(value: unknown): value is ModelResult {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    typeof value.name === 'string' &&
+    isNumberArray(value.predictions) &&
+    typeof value.r2 === 'number' &&
+    typeof value.mae === 'number' &&
+    (value.featureImportance === undefined || isFeatureImportanceList(value.featureImportance))
+  );
+}
+
+function isWeightList(value: unknown): value is EvaluationResult['ensemble']['weights'] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        item !== null && typeof item === 'object' && typeof item.name === 'string' && typeof item.weight === 'number',
+    )
+  );
+}
+
+function isMLPTrainingInfo(value: unknown): value is MLPTrainingInfo {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    typeof value.totalEpochs === 'number' &&
+    typeof value.actualEpochs === 'number' &&
+    typeof value.bestEpoch === 'number' &&
+    typeof value.stoppedEarly === 'boolean' &&
+    isNumberArray(value.lossHistory) &&
+    isNumberArray(value.valLossHistory)
+  );
+}
+
+export function isEvaluationResult(value: unknown): value is EvaluationResult {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    Array.isArray(value.models) &&
+    value.models.every(isModelResult) &&
+    value.ensemble !== null &&
+    typeof value.ensemble === 'object' &&
+    isNumberArray(value.ensemble.predictions) &&
+    typeof value.ensemble.r2 === 'number' &&
+    typeof value.ensemble.mae === 'number' &&
+    isWeightList(value.ensemble.weights) &&
+    isNumberArray(value.testActual) &&
+    Array.isArray(value.testDates) &&
+    value.testDates.every((item) => typeof item === 'string') &&
+    Array.isArray(value.featureNames) &&
+    value.featureNames.every((item) => typeof item === 'string') &&
+    typeof value.trainedAt === 'number' &&
+    typeof value.dataCount === 'number' &&
+    typeof value.trainCount === 'number' &&
+    typeof value.testCount === 'number' &&
+    (value.mlpTrainingInfo === undefined || isMLPTrainingInfo(value.mlpTrainingInfo))
+  );
+}
+
+function parseEvaluationResult(value: SavedMLModel['evaluationResult']): EvaluationResult | null {
+  if (isEvaluationResult(value)) {
+    return value;
+  }
+
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return isEvaluationResult(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 // ── Metrics ──
@@ -470,7 +566,7 @@ export async function trainEnsemble(
     scaler,
     labelScaler: { mean: labelMean, std: labelStd },
     ensembleWeights: weights,
-    evaluationResult: JSON.stringify(ensembleResult),
+    evaluationResult: ensembleResult,
   };
   await db.mlModels.put(savedModel);
 
@@ -487,16 +583,16 @@ export async function loadSavedModel(userId: string): Promise<{
   const saved = await db.mlModels.get(userId);
   if (!saved) return null;
 
-  try {
-    const ensembleResult = JSON.parse(saved.evaluationResult) as EnsembleResult;
-    return {
-      ensembleResult,
-      savedAt: saved.trainedAt,
-      dataCount: saved.dataCount,
-    };
-  } catch {
+  const ensembleResult = parseEvaluationResult(saved.evaluationResult);
+  if (!ensembleResult) {
     return null;
   }
+
+  return {
+    ensembleResult,
+    savedAt: saved.trainedAt,
+    dataCount: saved.dataCount,
+  };
 }
 
 // ── Predict with saved model ──

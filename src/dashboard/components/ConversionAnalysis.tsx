@@ -7,6 +7,12 @@ import { efficiencyFrontier, computeRPM } from '@/shared/stats';
 import { FormulaBlock } from './FormulaHelp';
 import { themeColors } from '../theme';
 
+interface ScatterTooltipParam {
+  name: string;
+  seriesType?: string;
+  value: [number, number];
+}
+
 interface Props {
   records: IncomeRecord[];
 }
@@ -43,7 +49,7 @@ export function ConversionAnalysis({ records }: Props) {
   const option = {
     ...scatterZoomToolbox,
     tooltip: {
-      formatter: (params: any) => {
+      formatter: (params: ScatterTooltipParam) => {
         if (params.seriesType === 'scatter') {
           const rpm = params.value[0] > 0 ? computeRPM(params.value[1], params.value[0]) : 0;
           return `${params.name}<br/>阅读: ${params.value[0].toLocaleString()}<br/>收益: ¥${params.value[1].toFixed(2)}<br/>每千次阅读赚 ¥${rpm.toFixed(2)}`;

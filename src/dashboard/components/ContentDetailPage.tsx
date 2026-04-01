@@ -3,6 +3,7 @@ import { Card, Row, Col, Statistic, Tag, Button, Tabs, Alert, Flex } from 'antd'
 import { ReloadOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { timeSeriesZoom, withZoomGrid } from './chartConfig';
+import type { ContentTableItem } from './ContentTable';
 import type { ContentDailyRecord, IncomeRecord } from '@/shared/types';
 import { getContentDailyRecords } from '@/db/content-daily-store';
 import { db } from '@/db/database';
@@ -20,13 +21,12 @@ interface Props {
   title: string;
   publishDate: string;
   onBack: () => void;
-  onCompare?: (item: {
-    contentId: string;
-    contentToken: string;
-    contentType: string;
-    title: string;
-    publishDate: string;
-  }) => void;
+  onCompare?: (item: ContentTableItem) => void;
+}
+
+interface IncomeTooltipParam {
+  name: string;
+  value: number;
 }
 
 type Metric = 'pv' | 'show' | 'upvote' | 'comment' | 'collect' | 'share';
@@ -143,7 +143,7 @@ export function ContentDetailPage({
     return {
       tooltip: {
         trigger: 'axis' as const,
-        formatter: (params: any[]) => `${params[0].name}<br/>¥${(params[0].value / 100).toFixed(2)}`,
+        formatter: (params: IncomeTooltipParam[]) => `${params[0].name}<br/>¥${(params[0].value / 100).toFixed(2)}`,
       },
       grid: withZoomGrid({ left: 50, right: 30, top: 20, bottom: 30 }),
       xAxis: { type: 'category' as const, data: sorted.map((r) => r.recordDate.slice(5)), axisLabel: { fontSize: 11 } },
@@ -174,7 +174,18 @@ export function ContentDetailPage({
         {onCompare && (
           <Button
             size="small"
-            onClick={() => onCompare({ contentId, contentToken, contentType, title, publishDate })}
+            onClick={() =>
+              onCompare({
+                contentId,
+                contentToken,
+                contentType,
+                title,
+                publishDate,
+                currentIncome: 0,
+                currentRead: 0,
+                currentInteraction: 0,
+              })
+            }
             style={{ marginLeft: 8 }}
           >
             添加到对比

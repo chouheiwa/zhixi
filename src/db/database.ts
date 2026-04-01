@@ -7,6 +7,7 @@ import type {
   PanelLayout,
   TourState,
 } from '@/shared/types';
+import type { EvaluationResult } from '@/shared/ml-models';
 
 export interface SyncedDate {
   userId: string;
@@ -23,7 +24,7 @@ export interface SavedMLModel {
   scaler: { means: number[]; stds: number[] };
   labelScaler: { mean: number; std: number };
   ensembleWeights: number[];
-  evaluationResult: string; // EnsembleResult JSON (predictions, r2, mae, etc.)
+  evaluationResult: EvaluationResult | string; // object preferred, legacy JSON string still supported
 }
 
 export interface IncomeGoal {

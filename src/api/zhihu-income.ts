@@ -1,7 +1,8 @@
 import { ZHIHU_INCOME_API, DEFAULT_PAGE_SIZE, REQUEST_INTERVAL_MIN, REQUEST_INTERVAL_MAX } from '@/shared/constants';
+import { randomDelay } from '@/shared/utils';
 import type { IncomeRecord, ZhihuUser } from '@/shared/types';
 import type { ZhihuIncomeApiResponse } from '@/shared/api-types';
-import { proxyFetch } from './fetch-proxy';
+import { fetchWithRetry } from './fetch-proxy';
 
 interface MeApiResponse {
   id: string;
@@ -11,7 +12,7 @@ interface MeApiResponse {
 }
 
 export async function fetchCurrentUser(): Promise<ZhihuUser> {
-  const data = await proxyFetch<MeApiResponse>('https://www.zhihu.com/api/v4/me');
+  const data = await fetchWithRetry<MeApiResponse>('https://www.zhihu.com/api/v4/me');
   return {
     id: data.id,
     urlToken: data.url_token,
@@ -60,11 +61,6 @@ export function parseIncomeResponse(
   }));
 }
 
-function randomDelay(): Promise<void> {
-  const ms = REQUEST_INTERVAL_MIN + Math.random() * (REQUEST_INTERVAL_MAX - REQUEST_INTERVAL_MIN);
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 /**
  * Fetch all income records for a single day (handles pagination).
  * Returns null if the API returns 400 (e.g. today's data not available).
@@ -78,7 +74,7 @@ export async function fetchDayIncome(date: string, userId: string): Promise<Inco
     const url = buildIncomeUrl(date, date, page);
     let data: ZhihuIncomeApiResponse;
     try {
-      data = await proxyFetch<ZhihuIncomeApiResponse>(url);
+      data = await fetchWithRetry<ZhihuIncomeApiResponse>(url);
     } catch (err) {
       // If API returns HTTP 400 (e.g. today's data not yet available), skip gracefully
       if (err instanceof Error && err.message.includes('400')) {
@@ -91,7 +87,7 @@ export async function fetchDayIncome(date: string, userId: string): Promise<Inco
     allRecords.push(...records);
     if (records.length === 0) break;
     page++;
-    await randomDelay();
+    await randomDelay(REQUEST_INTERVAL_MIN, REQUEST_INTERVAL_MAX);
   }
 
   return allRecords;
@@ -125,7 +121,7 @@ export async function fetchDateRangeIncome(
       }
     }
 
-    if (i > 0) await randomDelay();
+    if (i > 0) await randomDelay(REQUEST_INTERVAL_MIN, REQUEST_INTERVAL_MAX);
 
     const dayRecords = await fetchDayIncome(days[i], userId);
     if (dayRecords !== null) {

@@ -5,6 +5,7 @@ import {
   REQUEST_INTERVAL_MAX,
   AUTO_SYNC_INTERVAL_MINUTES,
 } from '@/shared/constants';
+import { randomDelay } from '@/shared/utils';
 import { fetchDayIncome, fetchCurrentUser } from '@/api/zhihu-income';
 import { fetchContentDaily, parseContentDailyResponse } from '@/api/zhihu-content-daily';
 import { fetchRealtimeAggr, fetchTodayRealtime } from '@/api/zhihu-realtime';
@@ -20,6 +21,19 @@ import {
 import { upsertContentDailyRecords, getContentDailyLatestDate } from '@/db/content-daily-store';
 import { upsertRealtimeAggr, getRealtimeAggrLatestDate } from '@/db/realtime-store';
 import { db } from '@/db/database';
+import type {
+  ContentCollectionItem,
+  FetchAllCreationsResponse,
+  FetchContentDailyResponse,
+  FetchTodayContentDailyResponse,
+  FetchTodayRealtimeResponse,
+  GetCollectStatusResponse,
+  OpenDashboardResponse,
+  Request,
+  SyncIncomeResponse,
+  SyncRealtimeAggrResponse,
+  TodayRealtimeSnapshot,
+} from '@/shared/message-types';
 import type { CollectionStatus } from '@/shared/types';
 
 // ============ Collection State ============
@@ -46,11 +60,6 @@ function broadcastStatus() {
       status: { ...collectionStatus, logs: [...recentLogs] },
     })
     .catch(() => {});
-}
-
-function randomDelay(): Promise<void> {
-  const ms = REQUEST_INTERVAL_MIN + Math.random() * (REQUEST_INTERVAL_MAX - REQUEST_INTERVAL_MIN);
-  return new Promise((r) => setTimeout(r, ms));
 }
 
 function getYesterday(): string {
@@ -100,7 +109,7 @@ async function runSync(startDate?: string): Promise<{ count: number; synced: num
     let totalRecords = 0;
 
     for (let i = 0; i < missingDates.length; i++) {
-      if (i > 0) await randomDelay();
+      if (i > 0) await randomDelay(REQUEST_INTERVAL_MIN, REQUEST_INTERVAL_MAX);
 
       const date = missingDates[i];
       collectionStatus = {
@@ -139,15 +148,7 @@ async function runSync(startDate?: string): Promise<{ count: number; synced: num
 
 // ============ Content Daily Batch Fetch ============
 
-interface ContentItem {
-  contentId: string;
-  contentToken: string;
-  contentType: string;
-  title: string;
-  publishDate: string;
-}
-
-async function runFetchContentDaily(items: ContentItem[]): Promise<{ count: number }> {
+async function runFetchContentDaily(items: ContentCollectionItem[]): Promise<{ count: number }> {
   if (collectionStatus.isCollecting) {
     throw new Error('正在采集中，请等待完成');
   }
@@ -163,7 +164,7 @@ async function runFetchContentDaily(items: ContentItem[]): Promise<{ count: numb
     let skipped = 0;
 
     for (let i = 0; i < items.length; i++) {
-      if (i > 0) await randomDelay();
+      if (i > 0) await randomDelay(REQUEST_INTERVAL_MIN, REQUEST_INTERVAL_MAX);
 
       const item = items[i];
       const shortTitle = item.title.length > 20 ? item.title.slice(0, 20) + '...' : item.title;
@@ -282,7 +283,7 @@ async function runSyncRealtimeAggr(): Promise<{ count: number }> {
     let totalRecords = 0;
 
     for (let i = 0; i < dates.length; i++) {
-      if (i > 0) await randomDelay();
+      if (i > 0) await randomDelay(REQUEST_INTERVAL_MIN, REQUEST_INTERVAL_MAX);
 
       const date = dates[i];
       collectionStatus = {
@@ -325,9 +326,7 @@ async function runSyncRealtimeAggr(): Promise<{ count: number }> {
   }
 }
 
-async function runFetchTodayRealtime(): Promise<{
-  today: ReturnType<typeof Object.assign> | null;
-}> {
+async function runFetchTodayRealtime(): Promise<{ today: TodayRealtimeSnapshot | null }> {
   const user = await fetchCurrentUser();
   const today = formatDate(new Date());
   const result = await fetchTodayRealtime(today);
@@ -399,7 +398,7 @@ async function runFetchTodayContentDaily(): Promise<{ count: number; cached: num
 
     let totalRecords = 0;
     for (let i = 0; i < items.length; i++) {
-      if (i > 0) await randomDelay();
+      if (i > 0) await randomDelay(REQUEST_INTERVAL_MIN, REQUEST_INTERVAL_MAX);
 
       const item = items[i];
       const shortTitle = item.title.length > 20 ? item.title.slice(0, 20) + '...' : item.title;
@@ -446,65 +445,76 @@ async function runFetchTodayContentDaily(): Promise<{ count: number; cached: num
 
 // ============ Message Handling ============
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message.action === 'openDashboard') {
-    chrome.tabs.create({
-      url: chrome.runtime.getURL('src/dashboard/index.html'),
-    });
-    return;
-  }
+chrome.runtime.onMessage.addListener((message: Request, _sender, sendResponse) => {
+  switch (message.action) {
+    case 'openDashboard': {
+      const respond = sendResponse as (response?: OpenDashboardResponse) => void;
+      chrome.tabs.create({
+        url: chrome.runtime.getURL('src/dashboard/index.html'),
+      });
+      respond();
+      return;
+    }
 
-  if (message.action === 'syncIncome') {
-    runSync(message.startDate)
-      .then((result) => sendResponse({ ok: true, ...result }))
-      .catch((err) => sendResponse({ ok: false, error: err.message }));
-    return true;
-  }
+    case 'syncIncome': {
+      const respond = sendResponse as (response: SyncIncomeResponse) => void;
+      runSync(message.startDate)
+        .then((result) => respond({ ok: true, ...result }))
+        .catch((err: Error) => respond({ ok: false, error: err.message }));
+      return true;
+    }
 
-  if (message.action === 'fetchContentDaily') {
-    runFetchContentDaily(message.items)
-      .then((result) => sendResponse({ ok: true, ...result }))
-      .catch((err) => sendResponse({ ok: false, error: err.message }));
-    return true;
-  }
+    case 'fetchContentDaily': {
+      const respond = sendResponse as (response: FetchContentDailyResponse) => void;
+      runFetchContentDaily(message.items)
+        .then((result) => respond({ ok: true, ...result }))
+        .catch((err: Error) => respond({ ok: false, error: err.message }));
+      return true;
+    }
 
-  if (message.action === 'fetchAllCreations') {
-    addLog('正在获取全部已发表内容...');
-    fetchAllCreations((fetched, total) => {
-      addLog(`已获取 ${fetched}/${total} 篇`);
-    })
-      .then((items) => {
-        addLog(`获取完成，共 ${items.length} 篇内容`);
-        sendResponse({ ok: true, items });
+    case 'fetchAllCreations': {
+      const respond = sendResponse as (response: FetchAllCreationsResponse) => void;
+      addLog('正在获取全部已发表内容...');
+      fetchAllCreations((fetched, total) => {
+        addLog(`已获取 ${fetched}/${total} 篇`);
       })
-      .catch((err) => sendResponse({ ok: false, error: err.message }));
-    return true;
-  }
+        .then((items) => {
+          addLog(`获取完成，共 ${items.length} 篇内容`);
+          respond({ ok: true, items });
+        })
+        .catch((err: Error) => respond({ ok: false, error: err.message }));
+      return true;
+    }
 
-  if (message.action === 'fetchTodayContentDaily') {
-    runFetchTodayContentDaily()
-      .then((result) => sendResponse({ ok: true, ...result }))
-      .catch((err) => sendResponse({ ok: false, error: err.message }));
-    return true;
-  }
+    case 'fetchTodayContentDaily': {
+      const respond = sendResponse as (response: FetchTodayContentDailyResponse) => void;
+      runFetchTodayContentDaily()
+        .then((result) => respond({ ok: true, ...result }))
+        .catch((err: Error) => respond({ ok: false, error: err.message }));
+      return true;
+    }
 
-  if (message.action === 'syncRealtimeAggr') {
-    runSyncRealtimeAggr()
-      .then((result) => sendResponse({ ok: true, ...result }))
-      .catch((err) => sendResponse({ ok: false, error: err.message }));
-    return true;
-  }
+    case 'syncRealtimeAggr': {
+      const respond = sendResponse as (response: SyncRealtimeAggrResponse) => void;
+      runSyncRealtimeAggr()
+        .then((result) => respond({ ok: true, ...result }))
+        .catch((err: Error) => respond({ ok: false, error: err.message }));
+      return true;
+    }
 
-  if (message.action === 'fetchTodayRealtime') {
-    runFetchTodayRealtime()
-      .then((result) => sendResponse({ ok: true, ...result }))
-      .catch((err) => sendResponse({ ok: false, error: err.message }));
-    return true;
-  }
+    case 'fetchTodayRealtime': {
+      const respond = sendResponse as (response: FetchTodayRealtimeResponse) => void;
+      runFetchTodayRealtime()
+        .then((result) => respond({ ok: true, ...result }))
+        .catch((err: Error) => respond({ ok: false, error: err.message }));
+      return true;
+    }
 
-  if (message.action === 'getCollectStatus') {
-    sendResponse({ ...collectionStatus, logs: [...recentLogs] });
-    return;
+    case 'getCollectStatus': {
+      const respond = sendResponse as (response: GetCollectStatusResponse) => void;
+      respond({ ...collectionStatus, logs: [...recentLogs] });
+      return;
+    }
   }
 });
 

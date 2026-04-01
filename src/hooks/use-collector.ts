@@ -1,4 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import type {
+  BroadcastMessage,
+  ContentCollectionItem,
+  GetCollectStatusResponse,
+  MessageAction,
+  RequestOf,
+  ResponseOf,
+} from '@/shared/message-types';
 import type { CollectionStatus } from '@/shared/types';
 
 interface SyncResult {
@@ -11,18 +19,33 @@ interface FetchResult {
   count: number;
 }
 
-function sendMsg<T = Record<string, unknown>>(message: Record<string, unknown>): Promise<T> {
+type CollectorAction =
+  | Extract<MessageAction, 'syncIncome'>
+  | Extract<MessageAction, 'syncRealtimeAggr'>
+  | Extract<MessageAction, 'fetchContentDaily'>
+  | Extract<MessageAction, 'fetchAllCreations'>
+  | Extract<MessageAction, 'fetchTodayContentDaily'>
+  | Extract<MessageAction, 'fetchTodayRealtime'>;
+
+function sendMsg<TAction extends CollectorAction>(message: RequestOf<TAction>): Promise<ResponseOf<TAction>> {
   return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(message, (response) => {
+    chrome.runtime.sendMessage(message, (response: ResponseOf<TAction>) => {
       if (chrome.runtime.lastError) {
         reject(new Error(chrome.runtime.lastError.message));
         return;
       }
-      if (response?.ok) {
-        resolve(response as T);
-      } else {
-        reject(new Error(response?.error ?? '操作失败'));
+
+      if (response && typeof response === 'object' && 'ok' in response) {
+        if (response.ok) {
+          resolve(response);
+          return;
+        }
+
+        reject(new Error(response.error ?? '操作失败'));
+        return;
       }
+
+      reject(new Error('操作失败'));
     });
   });
 }
@@ -36,7 +59,7 @@ export function useCollector() {
   const [logs, setLogs] = useState<string[]>([]);
 
   useEffect(() => {
-    const listener = (message: { action: string; status: CollectionStatus }) => {
+    const listener = (message: BroadcastMessage) => {
       if (message.action === 'collectStatus') {
         setStatus(message.status);
         if (message.status.logs) {
@@ -46,64 +69,46 @@ export function useCollector() {
     };
     chrome.runtime.onMessage.addListener(listener);
 
-    chrome.runtime.sendMessage({ action: 'getCollectStatus' }, (response) => {
-      if (response && !chrome.runtime.lastError) {
-        setStatus(response);
-        if (response.logs) setLogs(response.logs);
-      }
-    });
+    chrome.runtime.sendMessage(
+      { action: 'getCollectStatus' } satisfies RequestOf<'getCollectStatus'>,
+      (response?: GetCollectStatusResponse) => {
+        if (response && !chrome.runtime.lastError) {
+          setStatus(response);
+          if (response.logs) setLogs(response.logs);
+        }
+      },
+    );
 
     return () => chrome.runtime.onMessage.removeListener(listener);
   }, []);
 
   /** 收益同步 */
   const syncIncome = useCallback((startDate?: string): Promise<SyncResult> => {
-    return sendMsg<SyncResult & { ok: boolean }>({ action: 'syncIncome', startDate }).then(
-      ({ count, synced, total }) => ({ count, synced, total }),
-    );
+    return sendMsg({ action: 'syncIncome', startDate }).then(({ count, synced, total }) => ({
+      count,
+      synced,
+      total,
+    }));
   }, []);
 
   /** 每日汇总 */
   const syncRealtimeAggr = useCallback((): Promise<FetchResult> => {
-    return sendMsg<FetchResult & { ok: boolean }>({ action: 'syncRealtimeAggr' }).then(({ count }) => ({ count }));
+    return sendMsg({ action: 'syncRealtimeAggr' }).then(({ count }) => ({ count }));
   }, []);
 
   /** 内容详情（需传入内容列表） */
-  const fetchContentDaily = useCallback(
-    (
-      items: Array<{
-        contentId: string;
-        contentToken: string;
-        contentType: string;
-        title: string;
-        publishDate: string;
-      }>,
-    ): Promise<FetchResult> => {
-      return sendMsg<FetchResult & { ok: boolean }>({ action: 'fetchContentDaily', items }).then(({ count }) => ({
-        count,
-      }));
-    },
-    [],
-  );
+  const fetchContentDaily = useCallback((items: ContentCollectionItem[]): Promise<FetchResult> => {
+    return sendMsg({ action: 'fetchContentDaily', items }).then(({ count }) => ({ count }));
+  }, []);
 
   /** 获取全部已发表内容列表 */
-  const fetchAllCreations = useCallback((): Promise<
-    Array<{
-      contentId: string;
-      contentToken: string;
-      contentType: string;
-      title: string;
-      publishDate: string;
-    }>
-  > => {
-    return sendMsg<{ ok: boolean; items: any[] }>({ action: 'fetchAllCreations' }).then((resp) => resp.items ?? []);
+  const fetchAllCreations = useCallback((): Promise<ContentCollectionItem[]> => {
+    return sendMsg({ action: 'fetchAllCreations' }).then((resp) => resp.items ?? []);
   }, []);
 
   /** 今日内容数据 */
   const fetchTodayContentDaily = useCallback((): Promise<{ count: number; cached: number }> => {
-    return sendMsg<{ ok: boolean; count: number; cached: number }>({ action: 'fetchTodayContentDaily' }).then(
-      ({ count, cached }) => ({ count, cached }),
-    );
+    return sendMsg({ action: 'fetchTodayContentDaily' }).then(({ count, cached }) => ({ count, cached }));
   }, []);
 
   /** 今日实时汇总 */

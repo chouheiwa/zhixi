@@ -6,13 +6,23 @@ import { weeklySeasonality } from '@/shared/stats';
 import { themeColors } from '../theme';
 import { FormulaBlock } from './FormulaHelp';
 
+interface SeriesTooltipParam {
+  name: string;
+  seriesName: string;
+  value: number;
+}
+
+interface BarColorParam {
+  value: number;
+}
+
 interface Props {
   summaries: DailySummary[];
 }
 
 const DAY_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
-export function WeeklySeasonalityChart({ summaries }: Props) {
+function WeeklySeasonalityChartInner({ summaries }: Props) {
   const { seasonality, bestDay, worstDay } = useMemo(() => {
     const dates = summaries.map((s) => s.date);
     const incomes = summaries.map((s) => s.totalIncome / 100);
@@ -39,11 +49,11 @@ export function WeeklySeasonalityChart({ summaries }: Props) {
   const option = {
     tooltip: {
       trigger: 'axis' as const,
-      formatter: (params: any[]) => {
+      formatter: (params: SeriesTooltipParam[]) => {
         const day = params[0].name;
         const item = seasonality.find((s) => s.label === day);
         const lines = params.map(
-          (p: any) => `${p.seriesName}: ${p.seriesName === '平均收益' ? `¥${p.value.toFixed(2)}` : p.value.toFixed(0)}`,
+          (p) => `${p.seriesName}: ${p.seriesName === '平均收益' ? `¥${p.value.toFixed(2)}` : p.value.toFixed(0)}`,
         );
         return `${day}（统计了 ${item?.count ?? 0} 天）<br/>${lines.join('<br/>')}`;
       },
@@ -70,10 +80,12 @@ export function WeeklySeasonalityChart({ summaries }: Props) {
         name: '平均收益',
         type: 'bar',
         data: seasonality.map((s) => s.avgIncome),
+        large: true,
+        largeThreshold: 500,
         yAxisIndex: 0,
         itemStyle: {
           borderRadius: [4, 4, 0, 0],
-          color: (params: any) => {
+          color: (params: BarColorParam) => {
             const ratio = params.value / maxIncome;
             const r = Math.round(26 + (234 - 26) * ratio);
             const g = Math.round(115 + (67 - 115) * ratio);
@@ -87,6 +99,7 @@ export function WeeklySeasonalityChart({ summaries }: Props) {
         name: '平均阅读',
         type: 'line',
         data: seasonality.map((s) => s.avgReads),
+        sampling: 'lttb',
         yAxisIndex: 1,
         smooth: true,
         itemStyle: { color: themeColors.sage },
@@ -119,3 +132,5 @@ export function WeeklySeasonalityChart({ summaries }: Props) {
     </Card>
   );
 }
+
+export const WeeklySeasonalityChart = React.memo(WeeklySeasonalityChartInner);

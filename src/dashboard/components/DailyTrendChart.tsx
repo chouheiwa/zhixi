@@ -17,7 +17,7 @@ const METRICS: { key: keyof DailySummary; label: string; color: string }[] = [
   { key: 'totalInteraction', label: '互动量', color: themeColors.warmBlue },
 ];
 
-export function DailyTrendChart({ summaries, startDate, endDate }: Props) {
+function DailyTrendChartInner({ summaries, startDate, endDate }: Props) {
   const days = eachDayInRange(startDate, endDate);
   const summaryMap = new Map(summaries.map((s) => [s.date, s]));
   const dates = days.map((d) => d.slice(5));
@@ -49,6 +49,7 @@ export function DailyTrendChart({ summaries, startDate, endDate }: Props) {
                 type: 'line',
                 data,
                 smooth: true,
+                sampling: 'lttb',
                 yAxisIndex: 0,
                 itemStyle: { color },
                 lineStyle: { width: 2 },
@@ -58,6 +59,8 @@ export function DailyTrendChart({ summaries, startDate, endDate }: Props) {
                 name: '收益',
                 type: 'bar',
                 data: incomeData,
+                large: true,
+                largeThreshold: 500,
                 yAxisIndex: 1,
                 itemStyle: { color: 'rgba(184, 134, 78, 0.3)', borderRadius: [2, 2, 0, 0] },
                 barMaxWidth: 8,
@@ -75,3 +78,5 @@ export function DailyTrendChart({ summaries, startDate, endDate }: Props) {
     </Card>
   );
 }
+
+export const DailyTrendChart = React.memo(DailyTrendChartInner);

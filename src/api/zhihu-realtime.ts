@@ -4,7 +4,7 @@
  */
 
 import type { ZhihuRealtimeAggrItem, ZhihuRealtimeAggrResponse } from '@/shared/api-types';
-import { proxyFetch } from './fetch-proxy';
+import { fetchWithRetry } from './fetch-proxy';
 
 function parseRaw(raw: ZhihuRealtimeAggrItem) {
   return {
@@ -37,7 +37,7 @@ export async function fetchRealtimeAggr(date: string): Promise<{
 } | null> {
   try {
     const url = `https://www.zhihu.com/api/v4/creators/analysis/realtime/member/aggr?tab=all&start=${date}&end=${date}`;
-    const resp = await proxyFetch<ZhihuRealtimeAggrResponse>(url);
+    const resp = await fetchWithRetry<ZhihuRealtimeAggrResponse>(url);
     return {
       data: parseRaw(resp),
       updatedAt: resp.updated ?? '',
@@ -56,7 +56,7 @@ export async function fetchTodayRealtime(today: string): Promise<{
 } | null> {
   try {
     const url = `https://www.zhihu.com/api/v4/creators/analysis/realtime/member/aggr?tab=all&start=${today}&end=${today}`;
-    const resp = await proxyFetch<ZhihuRealtimeAggrResponse>(url);
+    const resp = await fetchWithRetry<ZhihuRealtimeAggrResponse>(url);
     return {
       today: { ...parseRaw(resp.today ?? resp), updatedAt: resp.updated ?? '' },
       yesterday: parseRaw(resp.yesterday ?? resp),

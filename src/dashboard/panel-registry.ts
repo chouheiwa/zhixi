@@ -33,6 +33,8 @@ const UnmonetizedContentPanel = React.lazy(() =>
   import('./components/UnmonetizedContentPanel').then((m) => ({ default: m.UnmonetizedContentPanel })),
 );
 
+type RankedContentItem = Pick<ContentTableItem, 'contentId' | 'contentToken' | 'contentType' | 'title' | 'publishDate'>;
+
 export interface DashboardContext {
   userId: string;
   allSummaries: DailySummary[];
@@ -160,7 +162,7 @@ const panelRegistry: PanelMeta[] = [
         { fallback: null },
         React.createElement(MultiDimensionRanking, {
           records: ctx.allIncomeRecords,
-          onContentClick: (item: any) =>
+          onContentClick: (item: RankedContentItem) =>
             ctx.onContentClick({
               ...item,
               currentIncome: 0,

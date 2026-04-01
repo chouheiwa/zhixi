@@ -1,4 +1,4 @@
-import { proxyFetch } from './fetch-proxy';
+import { fetchWithRetry } from './fetch-proxy';
 import type { ZhihuContentDailyApiResponse } from '@/shared/api-types';
 import type { ContentDailyRecord } from '@/shared/types';
 
@@ -16,7 +16,7 @@ export async function fetchContentDaily(
     start: startDate,
     end: endDate,
   });
-  return proxyFetch<ZhihuContentDailyApiResponse>(`${CONTENT_DAILY_API}?${params}`);
+  return fetchWithRetry<ZhihuContentDailyApiResponse>(`${CONTENT_DAILY_API}?${params}`);
 }
 
 export function parseContentDailyResponse(

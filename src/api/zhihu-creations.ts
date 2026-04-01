@@ -2,9 +2,10 @@
  * Fetch all user-published content from Zhihu creator API.
  * Supports pagination.
  */
-
 import type { ZhihuCreationsApiResponse } from '@/shared/api-types';
-import { proxyFetch } from './fetch-proxy';
+import { REQUEST_INTERVAL_MIN, REQUEST_INTERVAL_MAX } from '@/shared/constants';
+import { randomDelay } from '@/shared/utils';
+import { fetchWithRetry } from './fetch-proxy';
 
 const CREATIONS_API = 'https://www.zhihu.com/api/v4/creators/creations/v2/all';
 
@@ -38,7 +39,7 @@ export async function fetchAllCreations(
 
   do {
     const url = `${CREATIONS_API}?start=0&end=0&limit=${limit}&offset=${offset}&need_co_creation=1&sort_type=created`;
-    const resp = await proxyFetch<ZhihuCreationsApiResponse>(url);
+    const resp = await fetchWithRetry<ZhihuCreationsApiResponse>(url);
 
     total = resp.paging.totals;
 
@@ -61,8 +62,7 @@ export async function fetchAllCreations(
 
     if (resp.paging.is_end || resp.data.length === 0) break;
 
-    // Small delay between pages
-    await new Promise((r) => setTimeout(r, 500));
+    await randomDelay(REQUEST_INTERVAL_MIN, REQUEST_INTERVAL_MAX);
   } while (offset < total);
 
   return items;

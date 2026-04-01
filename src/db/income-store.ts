@@ -85,7 +85,7 @@ export async function markDatesSynced(userId: string, dates: string[]): Promise<
 }
 
 /** Get all synced dates for a user */
-async function getSyncedDates(userId: string): Promise<Set<string>> {
+export async function getSyncedDates(userId: string): Promise<Set<string>> {
   const records = await db.syncedDates.where('userId').equals(userId).toArray();
   return new Set(records.map((r) => r.date));
 }
@@ -120,7 +120,7 @@ export async function getMissingDates(userId: string, startDate: string): Promis
 
   return allDays
     .filter((d) => {
-      if (d > threeDaysAgo) {
+      if (d >= threeDaysAgo) {
         // Recent dates (within 3 days): always re-fetch
         return true;
       }
