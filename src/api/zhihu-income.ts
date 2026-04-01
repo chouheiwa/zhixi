@@ -1,26 +1,7 @@
 import { ZHIHU_INCOME_API, DEFAULT_PAGE_SIZE, REQUEST_INTERVAL_MIN, REQUEST_INTERVAL_MAX } from '@/shared/constants';
 import type { IncomeRecord, ZhihuUser } from '@/shared/types';
+import type { ZhihuIncomeApiResponse } from '@/shared/api-types';
 import { proxyFetch } from './fetch-proxy';
-
-interface IncomeApiItem {
-  content_id: string;
-  content_token: string;
-  content_title: string;
-  content_publish_at: number;
-  content_publish_date: string;
-  current_read: number;
-  current_interaction: number;
-  current_income: number;
-  total_read: number;
-  total_interaction: number;
-  total_income: number;
-  content_type: string;
-}
-
-interface IncomeApiResponse {
-  total: number;
-  data: IncomeApiItem[];
-}
 
 interface MeApiResponse {
   id: string;
@@ -40,7 +21,10 @@ export async function fetchCurrentUser(): Promise<ZhihuUser> {
 }
 
 export function buildIncomeUrl(
-  startDate: string, endDate: string, page: number, pageSize: number = DEFAULT_PAGE_SIZE
+  startDate: string,
+  endDate: string,
+  page: number,
+  pageSize: number = DEFAULT_PAGE_SIZE,
 ): string {
   const params = new URLSearchParams({
     start_date: startDate,
@@ -53,7 +37,11 @@ export function buildIncomeUrl(
   return `${ZHIHU_INCOME_API}?${params}`;
 }
 
-export function parseIncomeResponse(apiData: IncomeApiResponse, recordDate: string, userId: string): IncomeRecord[] {
+export function parseIncomeResponse(
+  apiData: ZhihuIncomeApiResponse,
+  recordDate: string,
+  userId: string,
+): IncomeRecord[] {
   return apiData.data.map((item) => ({
     userId,
     contentId: item.content_id,
@@ -88,9 +76,9 @@ export async function fetchDayIncome(date: string, userId: string): Promise<Inco
 
   while (allRecords.length < total) {
     const url = buildIncomeUrl(date, date, page);
-    let data: IncomeApiResponse;
+    let data: ZhihuIncomeApiResponse;
     try {
-      data = await proxyFetch<IncomeApiResponse>(url);
+      data = await proxyFetch<ZhihuIncomeApiResponse>(url);
     } catch (err) {
       // If API returns HTTP 400 (e.g. today's data not yet available), skip gracefully
       if (err instanceof Error && err.message.includes('400')) {
@@ -121,7 +109,7 @@ export async function fetchDateRangeIncome(
   options?: {
     shouldSkipDate?: (date: string) => Promise<boolean>;
     onProgress?: (completedDate: string, current: number, total: number, skipped: boolean) => void;
-  }
+  },
 ): Promise<IncomeRecord[]> {
   const { eachDayInRange } = await import('@/shared/date-utils');
   const days = eachDayInRange(startDate, endDate).reverse(); // newest first

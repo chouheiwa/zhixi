@@ -24,16 +24,16 @@ function describeAnomaly(z: number, value: number, mean: number): string {
 
 export function AnomalyDetectionPanel({ summaries, startDate, endDate }: Props) {
   const days = eachDayInRange(startDate, endDate);
-  const summaryMap = new Map(summaries.map(s => [s.date, s]));
+  const summaryMap = new Map(summaries.map((s) => [s.date, s]));
 
   const analysis = useMemo(() => {
-    const incomes = days.map(d => (summaryMap.get(d)?.totalIncome ?? 0) / 100);
+    const incomes = days.map((d) => (summaryMap.get(d)?.totalIncome ?? 0) / 100);
     const mean = incomes.reduce((a, b) => a + b, 0) / (incomes.length || 1);
     const incomeAnomalies = detectAnomalies(incomes, 2.0, days);
     return { incomes, mean, incomeAnomalies };
   }, [summaries, startDate, endDate]);
 
-  const dates = days.map(d => d.slice(5));
+  const dates = days.map((d) => d.slice(5));
 
   const option = {
     tooltip: {
@@ -42,7 +42,7 @@ export function AnomalyDetectionPanel({ summaries, startDate, endDate }: Props) 
         const idx = params[0].dataIndex;
         const date = days[idx];
         const income = analysis.incomes[idx];
-        const anomaly = analysis.incomeAnomalies.find(a => a.index === idx);
+        const anomaly = analysis.incomeAnomalies.find((a) => a.index === idx);
         let text = `${date}<br/>收益: ¥${income.toFixed(2)}`;
         if (anomaly) {
           text += `<br/><b style="color:${anomaly.zScore > 0 ? themeColors.sage : themeColors.warmRed}">${describeAnomaly(anomaly.zScore, anomaly.value, analysis.mean)}</b>`;
@@ -53,16 +53,23 @@ export function AnomalyDetectionPanel({ summaries, startDate, endDate }: Props) 
     grid: withZoomGrid({ left: 50, right: 30, top: 40, bottom: 25 }),
     title: { text: '收益波动监控', textStyle: { fontSize: 13, fontWeight: 600 }, left: 0 },
     xAxis: { type: 'category' as const, data: dates, axisLabel: { fontSize: 10 }, axisTick: { show: false } },
-    yAxis: { type: 'value' as const, axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(0)}` }, splitNumber: 3 },
+    yAxis: {
+      type: 'value' as const,
+      axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(0)}` },
+      splitNumber: 3,
+    },
     series: [
       {
         type: 'bar',
         data: analysis.incomes.map((v, i) => {
-          const anomaly = analysis.incomeAnomalies.find(a => a.index === i);
+          const anomaly = analysis.incomeAnomalies.find((a) => a.index === i);
           return {
             value: v,
             itemStyle: anomaly
-              ? { color: anomaly.zScore > 0 ? 'rgba(107, 143, 113, 0.7)' : 'rgba(196, 89, 74, 0.7)', borderRadius: [3, 3, 0, 0] }
+              ? {
+                  color: anomaly.zScore > 0 ? 'rgba(107, 143, 113, 0.7)' : 'rgba(196, 89, 74, 0.7)',
+                  borderRadius: [3, 3, 0, 0],
+                }
               : { color: 'rgba(91, 122, 157, 0.25)', borderRadius: [3, 3, 0, 0] },
           };
         }),
@@ -74,7 +81,7 @@ export function AnomalyDetectionPanel({ summaries, startDate, endDate }: Props) 
         },
       },
     ],
-  ...timeSeriesZoom,
+    ...timeSeriesZoom,
   };
 
   return (
@@ -82,9 +89,11 @@ export function AnomalyDetectionPanel({ summaries, startDate, endDate }: Props) 
       title="收益波动监控"
       size="small"
       extra={
-        analysis.incomeAnomalies.length > 0
-          ? <Tag color="warning">{analysis.incomeAnomalies.length} 天异常</Tag>
-          : <Tag color="success">波动正常</Tag>
+        analysis.incomeAnomalies.length > 0 ? (
+          <Tag color="warning">{analysis.incomeAnomalies.length} 天异常</Tag>
+        ) : (
+          <Tag color="success">波动正常</Tag>
+        )
       }
     >
       <Row gutter={16}>
@@ -103,11 +112,23 @@ export function AnomalyDetectionPanel({ summaries, startDate, endDate }: Props) 
               {analysis.incomeAnomalies
                 .sort((a, b) => Math.abs(b.zScore) - Math.abs(a.zScore))
                 .map((a, i) => (
-                  <div key={i} style={{
-                    padding: '8px 10px', borderRadius: 6, marginBottom: 6,
-                    background: a.zScore > 0 ? '#e8f5e9' : '#ffebee',
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <div
+                    key={i}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: 6,
+                      marginBottom: 6,
+                      background: a.zScore > 0 ? '#e8f5e9' : '#ffebee',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: 4,
+                      }}
+                    >
                       <span style={{ fontSize: 12, fontWeight: 600 }}>{a.date}</span>
                       <span style={{ fontSize: 13, fontWeight: 700 }}>¥{a.value.toFixed(2)}</span>
                     </div>
@@ -120,9 +141,16 @@ export function AnomalyDetectionPanel({ summaries, startDate, endDate }: Props) 
           )}
         </Col>
       </Row>
-      <FormulaBlock title="" items={[
-        { name: '异常检测（Z-score 方法）', formula: 'Z = (当日收益 - 平均收益) ÷ 标准差\n|Z| ≥ 2 判定为异常', desc: '标准差衡量收益的正常波动范围。Z值表示当天偏离平均值多少个标准差。|Z|≥2意味着该值出现的概率不到5%，属于统计意义上的异常。' },
-      ]} />
+      <FormulaBlock
+        title=""
+        items={[
+          {
+            name: '异常检测（Z-score 方法）',
+            formula: 'Z = (当日收益 - 平均收益) ÷ 标准差\n|Z| ≥ 2 判定为异常',
+            desc: '标准差衡量收益的正常波动范围。Z值表示当天偏离平均值多少个标准差。|Z|≥2意味着该值出现的概率不到5%，属于统计意义上的异常。',
+          },
+        ]}
+      />
     </Card>
   );
 }

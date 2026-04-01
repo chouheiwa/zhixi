@@ -58,36 +58,52 @@ export function useCollector() {
 
   /** 收益同步 */
   const syncIncome = useCallback((startDate?: string): Promise<SyncResult> => {
-    return sendMsg<SyncResult & { ok: boolean }>({ action: 'syncIncome', startDate })
-      .then(({ count, synced, total }) => ({ count, synced, total }));
+    return sendMsg<SyncResult & { ok: boolean }>({ action: 'syncIncome', startDate }).then(
+      ({ count, synced, total }) => ({ count, synced, total }),
+    );
   }, []);
 
   /** 每日汇总 */
   const syncRealtimeAggr = useCallback((): Promise<FetchResult> => {
-    return sendMsg<FetchResult & { ok: boolean }>({ action: 'syncRealtimeAggr' })
-      .then(({ count }) => ({ count }));
+    return sendMsg<FetchResult & { ok: boolean }>({ action: 'syncRealtimeAggr' }).then(({ count }) => ({ count }));
   }, []);
 
   /** 内容详情（需传入内容列表） */
-  const fetchContentDaily = useCallback((items: Array<{
-    contentId: string; contentToken: string; contentType: string; title: string; publishDate: string;
-  }>): Promise<FetchResult> => {
-    return sendMsg<FetchResult & { ok: boolean }>({ action: 'fetchContentDaily', items })
-      .then(({ count }) => ({ count }));
-  }, []);
+  const fetchContentDaily = useCallback(
+    (
+      items: Array<{
+        contentId: string;
+        contentToken: string;
+        contentType: string;
+        title: string;
+        publishDate: string;
+      }>,
+    ): Promise<FetchResult> => {
+      return sendMsg<FetchResult & { ok: boolean }>({ action: 'fetchContentDaily', items }).then(({ count }) => ({
+        count,
+      }));
+    },
+    [],
+  );
 
   /** 获取全部已发表内容列表 */
-  const fetchAllCreations = useCallback((): Promise<Array<{
-    contentId: string; contentToken: string; contentType: string; title: string; publishDate: string;
-  }>> => {
-    return sendMsg<{ ok: boolean; items: any[] }>({ action: 'fetchAllCreations' })
-      .then((resp) => resp.items ?? []);
+  const fetchAllCreations = useCallback((): Promise<
+    Array<{
+      contentId: string;
+      contentToken: string;
+      contentType: string;
+      title: string;
+      publishDate: string;
+    }>
+  > => {
+    return sendMsg<{ ok: boolean; items: any[] }>({ action: 'fetchAllCreations' }).then((resp) => resp.items ?? []);
   }, []);
 
   /** 今日内容数据 */
   const fetchTodayContentDaily = useCallback((): Promise<{ count: number; cached: number }> => {
-    return sendMsg<{ ok: boolean; count: number; cached: number }>({ action: 'fetchTodayContentDaily' })
-      .then(({ count, cached }) => ({ count, cached }));
+    return sendMsg<{ ok: boolean; count: number; cached: number }>({ action: 'fetchTodayContentDaily' }).then(
+      ({ count, cached }) => ({ count, cached }),
+    );
   }, []);
 
   /** 今日实时汇总 */
@@ -99,9 +115,14 @@ export function useCollector() {
   const sync = syncIncome;
 
   return {
-    status, logs,
-    sync, syncIncome, syncRealtimeAggr,
-    fetchContentDaily, fetchAllCreations,
-    fetchTodayContentDaily, fetchTodayRealtime,
+    status,
+    logs,
+    sync,
+    syncIncome,
+    syncRealtimeAggr,
+    fetchContentDaily,
+    fetchAllCreations,
+    fetchTodayContentDaily,
+    fetchTodayRealtime,
   };
 }

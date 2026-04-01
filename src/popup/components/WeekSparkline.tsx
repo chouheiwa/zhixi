@@ -24,12 +24,14 @@ export function WeekSparkline({ summaries }: Props) {
       axisTick: { show: false },
     },
     yAxis: { type: 'value' as const, show: false },
-    series: [{
-      type: 'bar',
-      data: incomeData,
-      itemStyle: { borderRadius: [3, 3, 0, 0], color: '#1a73e8' },
-      barWidth: '60%',
-    }],
+    series: [
+      {
+        type: 'bar',
+        data: incomeData,
+        itemStyle: { borderRadius: [3, 3, 0, 0], color: '#1a73e8' },
+        barWidth: '60%',
+      },
+    ],
     tooltip: {
       trigger: 'axis' as const,
       formatter: (params: any[]) => `${params[0].name}<br/>¥${params[0].value.toFixed(2)}`,

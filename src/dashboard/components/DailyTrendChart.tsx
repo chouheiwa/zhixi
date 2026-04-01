@@ -36,11 +36,32 @@ export function DailyTrendChart({ summaries, startDate, endDate }: Props) {
             xAxis: { type: 'category' as const, data: dates, axisLabel: { fontSize: 10 }, axisTick: { show: false } },
             yAxis: [
               { type: 'value' as const, axisLabel: { fontSize: 10 }, splitNumber: 3, position: 'left' as const },
-              { type: 'value' as const, axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v}` }, splitNumber: 3, position: 'right' as const },
+              {
+                type: 'value' as const,
+                axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v}` },
+                splitNumber: 3,
+                position: 'right' as const,
+              },
             ],
             series: [
-              { name: label, type: 'line', data, smooth: true, yAxisIndex: 0, itemStyle: { color }, lineStyle: { width: 2 }, areaStyle: { color: `${color}18` } },
-              { name: '收益', type: 'bar', data: incomeData, yAxisIndex: 1, itemStyle: { color: 'rgba(184, 134, 78, 0.3)', borderRadius: [2, 2, 0, 0] }, barMaxWidth: 8 },
+              {
+                name: label,
+                type: 'line',
+                data,
+                smooth: true,
+                yAxisIndex: 0,
+                itemStyle: { color },
+                lineStyle: { width: 2 },
+                areaStyle: { color: `${color}18` },
+              },
+              {
+                name: '收益',
+                type: 'bar',
+                data: incomeData,
+                yAxisIndex: 1,
+                itemStyle: { color: 'rgba(184, 134, 78, 0.3)', borderRadius: [2, 2, 0, 0] },
+                barMaxWidth: 8,
+              },
             ],
             ...timeSeriesZoom,
           };

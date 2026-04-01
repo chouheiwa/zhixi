@@ -3,53 +3,10 @@
  * Endpoint: /api/v4/creators/analysis/realtime/member/aggr
  */
 
+import type { ZhihuRealtimeAggrItem, ZhihuRealtimeAggrResponse } from '@/shared/api-types';
 import { proxyFetch } from './fetch-proxy';
 
-interface RawRealtimeAggr {
-  updated: string | null;
-  pv: number;
-  play: number;
-  show: number;
-  upvote: number;
-  comment: number;
-  like: number;
-  collect: number;
-  share: number;
-  reaction: number;
-  re_pin: number;
-  like_and_reaction: number;
-  new_upvote: number;
-  new_like: number;
-  new_incr_upvote_num: number;
-  new_desc_upvote_num: number;
-  new_incr_like_num: number;
-  new_desc_like_num: number;
-}
-
-export interface RealtimeAggrResponse {
-  today: RawRealtimeAggr;
-  yesterday: RawRealtimeAggr;
-  updated: string;
-  pv: number;
-  show: number;
-  upvote: number;
-  comment: number;
-  like: number;
-  collect: number;
-  share: number;
-  play: number;
-  reaction: number;
-  re_pin: number;
-  like_and_reaction: number;
-  new_upvote: number;
-  new_like: number;
-  new_incr_upvote_num: number;
-  new_desc_upvote_num: number;
-  new_incr_like_num: number;
-  new_desc_like_num: number;
-}
-
-function parseRaw(raw: RawRealtimeAggr) {
+function parseRaw(raw: ZhihuRealtimeAggrItem) {
   return {
     pv: raw.pv ?? 0,
     play: raw.play ?? 0,
@@ -80,7 +37,7 @@ export async function fetchRealtimeAggr(date: string): Promise<{
 } | null> {
   try {
     const url = `https://www.zhihu.com/api/v4/creators/analysis/realtime/member/aggr?tab=all&start=${date}&end=${date}`;
-    const resp = await proxyFetch<RealtimeAggrResponse>(url);
+    const resp = await proxyFetch<ZhihuRealtimeAggrResponse>(url);
     return {
       data: parseRaw(resp),
       updatedAt: resp.updated ?? '',
@@ -99,7 +56,7 @@ export async function fetchTodayRealtime(today: string): Promise<{
 } | null> {
   try {
     const url = `https://www.zhihu.com/api/v4/creators/analysis/realtime/member/aggr?tab=all&start=${today}&end=${today}`;
-    const resp = await proxyFetch<RealtimeAggrResponse>(url);
+    const resp = await proxyFetch<ZhihuRealtimeAggrResponse>(url);
     return {
       today: { ...parseRaw(resp.today ?? resp), updatedAt: resp.updated ?? '' },
       yesterday: parseRaw(resp.yesterday ?? resp),

@@ -32,7 +32,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   window.dispatchEvent(
     new CustomEvent('__zhihu_analyzer_fetch_request', {
       detail: { id: requestId, url: message.url },
-    })
+    }),
   );
 
   return true; // keep sendResponse channel open

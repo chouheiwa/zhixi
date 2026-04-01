@@ -17,24 +17,14 @@ export async function getRealtimeAggrByDateRange(
 }
 
 export async function getAllRealtimeAggr(userId: string): Promise<RealtimeAggrRecord[]> {
-  return db.realtimeAggr
-    .where('userId')
-    .equals(userId)
-    .sortBy('date');
+  return db.realtimeAggr.where('userId').equals(userId).sortBy('date');
 }
 
 export async function getRealtimeAggrLatestDate(userId: string): Promise<string | null> {
-  const records = await db.realtimeAggr
-    .where('userId')
-    .equals(userId)
-    .reverse()
-    .sortBy('date');
+  const records = await db.realtimeAggr.where('userId').equals(userId).reverse().sortBy('date');
   return records.length > 0 ? records[0].date : null;
 }
 
-export async function getRealtimeAggrForDate(
-  userId: string,
-  date: string,
-): Promise<RealtimeAggrRecord | undefined> {
+export async function getRealtimeAggrForDate(userId: string, date: string): Promise<RealtimeAggrRecord | undefined> {
   return db.realtimeAggr.get([userId, date]);
 }

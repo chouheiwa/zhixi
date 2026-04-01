@@ -1,12 +1,7 @@
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import './tour-theme.css';
-import {
-  CORE_STEPS,
-  EXTENDED_STEPS,
-  FEATURE_CHANGELOG,
-  type FeatureEntry,
-} from './tour-config';
+import { CORE_STEPS, EXTENDED_STEPS, FEATURE_CHANGELOG, type FeatureEntry } from './tour-config';
 import type { TourState } from '@/shared/types';
 
 const DRIVER_BASE_CONFIG = {
@@ -17,9 +12,7 @@ const DRIVER_BASE_CONFIG = {
   doneBtnText: '完成',
 } as const;
 
-export function shouldShowTour(
-  tourState: TourState | undefined,
-): 'core' | 'extended' | 'new-features' | null {
+export function shouldShowTour(tourState: TourState | undefined): 'core' | 'extended' | 'new-features' | null {
   if (!tourState) return 'core';
   if (!tourState.coreCompleted) return 'core';
   if (!tourState.extendedCompleted) return 'extended';
@@ -71,13 +64,10 @@ export function startExtendedTour(onComplete: () => void): void {
   d.drive();
 }
 
-export function startNewFeatureTour(
-  features: FeatureEntry[],
-  onComplete: () => void,
-): void {
+export function startNewFeatureTour(features: FeatureEntry[], onComplete: () => void): void {
   const d = driver({
     ...DRIVER_BASE_CONFIG,
-    steps: features.map(f => f.step),
+    steps: features.map((f) => f.step),
     onDestroyed: onComplete,
   });
   d.drive();

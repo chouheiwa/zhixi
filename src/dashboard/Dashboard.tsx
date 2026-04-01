@@ -1,6 +1,39 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Layout, Tabs, Spin, Empty, Row, Col, Statistic, Card, Flex, DatePicker, Space, Button, theme, Dropdown, Progress, Alert, Modal, Drawer } from 'antd';
-import { ArrowLeftOutlined, SyncOutlined, DownloadOutlined, UploadOutlined, SettingOutlined, DatabaseOutlined, CloudDownloadOutlined, TrophyOutlined, ReadOutlined, DollarOutlined, BarChartOutlined, FileTextOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import {
+  Layout,
+  Tabs,
+  Spin,
+  Empty,
+  Row,
+  Col,
+  Statistic,
+  Card,
+  Flex,
+  DatePicker,
+  Space,
+  Button,
+  theme,
+  Dropdown,
+  Progress,
+  Alert,
+  Modal,
+  Drawer,
+} from 'antd';
+import {
+  ArrowLeftOutlined,
+  SyncOutlined,
+  DownloadOutlined,
+  UploadOutlined,
+  SettingOutlined,
+  DatabaseOutlined,
+  CloudDownloadOutlined,
+  TrophyOutlined,
+  ReadOutlined,
+  DollarOutlined,
+  BarChartOutlined,
+  FileTextOutlined,
+  ThunderboltOutlined,
+} from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import { formatDate, getDateRange } from '@/shared/date-utils';
@@ -21,7 +54,15 @@ import { usePanelLayout } from '@/hooks/use-panel-layout';
 import { getPanelMeta, type DashboardContext } from './panel-registry';
 import { LayoutCustomizer } from './components/LayoutCustomizer';
 import { themeColors } from './theme';
-import { getTourState, saveTourState, markCoreCompleted, markExtendedCompleted, markFeaturesRead, updateCompletedVersion, resetTourState } from '@/db/tour-store';
+import {
+  getTourState,
+  saveTourState,
+  markCoreCompleted,
+  markExtendedCompleted,
+  markFeaturesRead,
+  updateCompletedVersion,
+  resetTourState,
+} from '@/db/tour-store';
 import { getNewFeatures, startCoreTour, startExtendedTour, startNewFeatureTour } from './tour/tour-manager';
 import { TOUR_VERSION } from './tour/tour-config';
 import { NewFeatureBanner } from './tour/NewFeatureBanner';
@@ -33,10 +74,10 @@ const { RangePicker } = DatePicker;
 const { useToken } = theme;
 
 const quickRanges: Record<string, [Dayjs, Dayjs]> = {
-  '昨日': [dayjs().subtract(1, 'day'), dayjs().subtract(1, 'day')],
-  '最近7天': [dayjs().subtract(7, 'day'), dayjs()],
-  '最近30天': [dayjs().subtract(30, 'day'), dayjs()],
-  '最近90天': [dayjs().subtract(90, 'day'), dayjs()],
+  昨日: [dayjs().subtract(1, 'day'), dayjs().subtract(1, 'day')],
+  最近7天: [dayjs().subtract(7, 'day'), dayjs()],
+  最近30天: [dayjs().subtract(30, 'day'), dayjs()],
+  最近90天: [dayjs().subtract(90, 'day'), dayjs()],
 };
 
 export function Dashboard() {
@@ -50,9 +91,14 @@ export function Dashboard() {
   const { settings, refresh: refreshSettings } = useUserSettings(user?.id ?? '');
   const { records, summaries, loading, refresh } = useIncomeData(user?.id ?? '', startDate, endDate);
   const {
-    status, logs, syncIncome, syncRealtimeAggr,
-    fetchContentDaily: fetchContentDailyTask, fetchAllCreations,
-    fetchTodayContentDaily, fetchTodayRealtime,
+    status,
+    logs,
+    syncIncome,
+    syncRealtimeAggr,
+    fetchContentDaily: fetchContentDailyTask,
+    fetchAllCreations,
+    fetchTodayContentDaily,
+    fetchTodayRealtime,
   } = useCollector();
   const { token } = useToken();
   const { layout, updateLayout, resetLayout } = usePanelLayout(user?.id ?? '');
@@ -69,17 +115,26 @@ export function Dashboard() {
   // Full summaries (not filtered by date) for overview charts
   const [allSummaries, setAllSummaries] = useState<DailySummary[]>([]);
   const [allIncomeRecords, setAllIncomeRecords] = useState<IncomeRecord[]>([]);
-  const monetizedContentIds = useMemo(() => new Set(allIncomeRecords.map(r => r.contentId)), [allIncomeRecords]);
+  const monetizedContentIds = useMemo(() => new Set(allIncomeRecords.map((r) => r.contentId)), [allIncomeRecords]);
   /** contentToken-based set for matching with creations API (which uses url_token as id) */
-  const monetizedContentTokens = useMemo(() => new Set(allIncomeRecords.map(r => r.contentToken)), [allIncomeRecords]);
+  const monetizedContentTokens = useMemo(
+    () => new Set(allIncomeRecords.map((r) => r.contentToken)),
+    [allIncomeRecords],
+  );
 
   const allContentOptions = useMemo(() => {
-    const map = new Map<string, { contentId: string; contentToken: string; contentType: string; title: string; publishDate: string }>();
+    const map = new Map<
+      string,
+      { contentId: string; contentToken: string; contentType: string; title: string; publishDate: string }
+    >();
     for (const r of allIncomeRecords) {
       if (!map.has(r.contentId)) {
         map.set(r.contentId, {
-          contentId: r.contentId, contentToken: r.contentToken,
-          contentType: r.contentType, title: r.title, publishDate: r.publishDate,
+          contentId: r.contentId,
+          contentToken: r.contentToken,
+          contentType: r.contentType,
+          title: r.title,
+          publishDate: r.publishDate,
         });
       }
     }
@@ -91,12 +146,14 @@ export function Dashboard() {
     getAllDailySummaries(user.id).then(setAllSummaries);
     db.incomeRecords.where('userId').equals(user.id).toArray().then(setAllIncomeRecords);
   }, [user]);
-  useEffect(() => { refreshAllSummaries(); }, [refreshAllSummaries]);
+  useEffect(() => {
+    refreshAllSummaries();
+  }, [refreshAllSummaries]);
 
   // Load tour state
   useEffect(() => {
     if (!user) return;
-    getTourState(user.id).then(state => {
+    getTourState(user.id).then((state) => {
       setTourState(state);
       setTourLoaded(true);
       if (state) {
@@ -130,7 +187,7 @@ export function Dashboard() {
           setTourActive(true);
           startCoreTour(() => {
             markCoreCompleted(user.id).then(() => {
-              setTourState(prev => prev ? { ...prev, coreCompleted: true } : prev);
+              setTourState((prev) => (prev ? { ...prev, coreCompleted: true } : prev));
               Modal.confirm({
                 title: '还有更多功能可以探索',
                 content: '要继续了解更多高级功能吗？也可以稍后在设置菜单中查看。',
@@ -139,7 +196,7 @@ export function Dashboard() {
                 onOk: () => {
                   startExtendedTour(() => {
                     markExtendedCompleted(user.id);
-                    setTourState(prev => prev ? { ...prev, extendedCompleted: true } : prev);
+                    setTourState((prev) => (prev ? { ...prev, extendedCompleted: true } : prev));
                     onTourEnd();
                   });
                 },
@@ -149,7 +206,10 @@ export function Dashboard() {
           });
         });
       }, 800);
-      return () => { clearTimeout(timer); tourLaunchingRef.current = false; };
+      return () => {
+        clearTimeout(timer);
+        tourLaunchingRef.current = false;
+      };
     }
   }, [user, tourLoaded, tourState]);
 
@@ -184,7 +244,8 @@ export function Dashboard() {
       const result = await syncIncome(initDate);
       if (!hasSetup) refreshSettings();
       setSyncMsg(result.synced === 0 ? '收益数据已是最新' : `收益同步完成，补全 ${result.synced} 天`);
-      refresh(); refreshAllSummaries();
+      refresh();
+      refreshAllSummaries();
       if (initDate) setSetupOpen(false);
     } catch (err) {
       setSyncMsg(`收益同步失败: ${err instanceof Error ? err.message : '未知错误'}`);
@@ -196,28 +257,37 @@ export function Dashboard() {
     try {
       const result = await syncRealtimeAggr();
       setSyncMsg(result.count === 0 ? '每日汇总已是最新' : `每日汇总完成，同步 ${result.count} 天`);
-      refresh(); refreshAllSummaries();
+      refresh();
+      refreshAllSummaries();
     } catch (err) {
       setSyncMsg(`每日汇总失败: ${err instanceof Error ? err.message : '未知错误'}`);
     }
   };
 
   const getContentItems = async () => {
-    const contentMap = new Map<string, { contentId: string; contentToken: string; contentType: string; title: string; publishDate: string }>();
+    const contentMap = new Map<
+      string,
+      { contentId: string; contentToken: string; contentType: string; title: string; publishDate: string }
+    >();
     // Fetch from creations API
     try {
       const creations = await fetchAllCreations();
       for (const item of creations) {
         contentMap.set(item.contentId, item);
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     // Supplement with income records
     const incomeAll = await db.incomeRecords.where('userId').equals(user!.id).toArray();
     for (const r of incomeAll) {
       if (!contentMap.has(r.contentId)) {
         contentMap.set(r.contentId, {
-          contentId: r.contentId, contentToken: r.contentToken,
-          contentType: r.contentType, title: r.title, publishDate: r.publishDate,
+          contentId: r.contentId,
+          contentToken: r.contentToken,
+          contentType: r.contentType,
+          title: r.title,
+          publishDate: r.publishDate,
         });
       }
     }
@@ -229,7 +299,10 @@ export function Dashboard() {
     try {
       setSyncMsg('正在获取内容列表...');
       const items = await getContentItems();
-      if (items.length === 0) { setSyncMsg('没有找到内容数据'); return; }
+      if (items.length === 0) {
+        setSyncMsg('没有找到内容数据');
+        return;
+      }
       setSyncMsg(`找到 ${items.length} 篇内容，开始拉取每日详情...`);
       const result = await fetchContentDailyTask(items);
       setSyncMsg(`内容详情拉取完成，共 ${items.length} 篇，获取 ${result.count} 条数据`);
@@ -248,7 +321,8 @@ export function Dashboard() {
       } else {
         setSyncMsg(`今日数据拉取完成，${result.count} 篇有数据`);
       }
-      refresh(); refreshAllSummaries();
+      refresh();
+      refreshAllSummaries();
     } catch (err) {
       setSyncMsg(`今日数据拉取失败: ${err instanceof Error ? err.message : '未知错误'}`);
     }
@@ -274,7 +348,8 @@ export function Dashboard() {
       await fetchTodayRealtime();
       await fetchTodayContentDaily();
       setSyncMsg('全部同步完成');
-      refresh(); refreshAllSummaries();
+      refresh();
+      refreshAllSummaries();
     } catch (err) {
       setSyncMsg(`同步失败: ${err instanceof Error ? err.message : '未知错误'}`);
     }
@@ -298,7 +373,8 @@ export function Dashboard() {
       const text = await file.text();
       const result = await importFromJSON(text);
       setImportMsg(`导入成功，共 ${result.imported} 条记录`);
-      refresh(); refreshAllSummaries();
+      refresh();
+      refreshAllSummaries();
     } catch (err) {
       setImportMsg(`导入失败: ${err instanceof Error ? err.message : '未知错误'}`);
     }
@@ -310,14 +386,18 @@ export function Dashboard() {
     const features = getNewFeatures(tourState);
     setShowNewFeatureBanner(false);
     startNewFeatureTour(features, () => {
-      const featureKeys = features.map(f => f.key);
+      const featureKeys = features.map((f) => f.key);
       markFeaturesRead(user.id, featureKeys);
       updateCompletedVersion(user.id, TOUR_VERSION);
-      setTourState(prev => prev ? {
-        ...prev,
-        seenFeatures: [...prev.seenFeatures, ...featureKeys],
-        completedVersion: TOUR_VERSION,
-      } : prev);
+      setTourState((prev) =>
+        prev
+          ? {
+              ...prev,
+              seenFeatures: [...prev.seenFeatures, ...featureKeys],
+              completedVersion: TOUR_VERSION,
+            }
+          : prev,
+      );
     });
   };
 
@@ -325,25 +405,29 @@ export function Dashboard() {
     if (!user || !tourState) return;
     setShowNewFeatureBanner(false);
     const features = getNewFeatures(tourState);
-    const featureKeys = features.map(f => f.key);
+    const featureKeys = features.map((f) => f.key);
     markFeaturesRead(user.id, featureKeys);
     updateCompletedVersion(user.id, TOUR_VERSION);
-    setTourState(prev => prev ? {
-      ...prev,
-      seenFeatures: [...prev.seenFeatures, ...featureKeys],
-      completedVersion: TOUR_VERSION,
-    } : prev);
+    setTourState((prev) =>
+      prev
+        ? {
+            ...prev,
+            seenFeatures: [...prev.seenFeatures, ...featureKeys],
+            completedVersion: TOUR_VERSION,
+          }
+        : prev,
+    );
   };
 
   const handleStartTour = () => {
     if (!user) return;
     resetTourState(user.id).then(() => {
-      setTourState(prev => prev ? { ...prev, coreCompleted: false, extendedCompleted: false } : prev);
+      setTourState((prev) => (prev ? { ...prev, coreCompleted: false, extendedCompleted: false } : prev));
       setTourActive(true);
       const onTourEnd = () => setTourActive(false);
       startCoreTour(() => {
         markCoreCompleted(user.id);
-        setTourState(prev => prev ? { ...prev, coreCompleted: true } : prev);
+        setTourState((prev) => (prev ? { ...prev, coreCompleted: true } : prev));
         Modal.confirm({
           title: '还有更多功能可以探索',
           content: '要继续了解更多高级功能吗？也可以稍后在设置菜单中查看。',
@@ -352,7 +436,7 @@ export function Dashboard() {
           onOk: () => {
             startExtendedTour(() => {
               markExtendedCompleted(user.id);
-              setTourState(prev => prev ? { ...prev, extendedCompleted: true } : prev);
+              setTourState((prev) => (prev ? { ...prev, extendedCompleted: true } : prev));
               onTourEnd();
             });
           },
@@ -366,14 +450,16 @@ export function Dashboard() {
   const useDemo = tourActive && allSummaries.length === 0;
   const effectiveSummaries = useDemo ? getDemoSummaries() : allSummaries;
   const effectiveRecords = useDemo ? getDemoRecords() : allIncomeRecords;
-  const totalContentCount = useDemo ? new Set(effectiveRecords.map(r => r.contentId)).size : realContentCount;
+  const totalContentCount = useDemo ? new Set(effectiveRecords.map((r) => r.contentId)).size : realContentCount;
   const effectiveDateRange = useMemo(() => {
     if (effectiveSummaries.length === 0) return { start: '', end: '' };
     return { start: effectiveSummaries[0].date, end: effectiveSummaries[effectiveSummaries.length - 1].date };
   }, [effectiveSummaries]);
 
   const stats = useMemo(() => {
-    let totalIncome = 0, totalRead = 0, totalInteraction = 0;
+    let totalIncome = 0,
+      totalRead = 0,
+      totalInteraction = 0;
     for (const s of effectiveSummaries) {
       totalIncome += s.totalIncome;
       totalRead += s.totalRead;
@@ -385,7 +471,7 @@ export function Dashboard() {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yStr = formatDate(yesterday);
-    const ySummary = effectiveSummaries.find(s => s.date === yStr);
+    const ySummary = effectiveSummaries.find((s) => s.date === yStr);
     const yesterdayIncome = ySummary ? ySummary.totalIncome / 100 : 0;
     const yesterdayRead = ySummary ? ySummary.totalRead : 0;
     const yesterdayContentCount = ySummary ? ySummary.contentCount : 0;
@@ -393,7 +479,8 @@ export function Dashboard() {
     // This month — need allIncomeRecords for unique content count
     const now = new Date();
     const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    let monthIncome = 0, monthRead = 0;
+    let monthIncome = 0,
+      monthRead = 0;
     for (const s of effectiveSummaries) {
       if (s.date.startsWith(monthPrefix)) {
         monthIncome += s.totalIncome;
@@ -407,15 +494,23 @@ export function Dashboard() {
       }
     }
 
-      const monthDaysElapsed = now.getDate();
-      const monthDaysTotal = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const monthDaysElapsed = now.getDate();
+    const monthDaysTotal = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
     return {
-      totalIncome: totalIncome / 100, totalRead, totalInteraction, rpm,
+      totalIncome: totalIncome / 100,
+      totalRead,
+      totalInteraction,
+      rpm,
       days: effectiveSummaries.length,
-      yesterdayIncome, yesterdayRead, yesterdayContentCount,
-      monthIncome: monthIncome / 100, monthRead, monthContentCount: monthContentIds.size,
-      monthDaysElapsed, monthDaysTotal,
+      yesterdayIncome,
+      yesterdayRead,
+      yesterdayContentCount,
+      monthIncome: monthIncome / 100,
+      monthRead,
+      monthContentCount: monthContentIds.size,
+      monthDaysElapsed,
+      monthDaysTotal,
     };
   }, [effectiveSummaries, effectiveRecords]);
 
@@ -434,7 +529,17 @@ export function Dashboard() {
       monthDaysTotal: stats.monthDaysTotal,
       onContentClick: (item) => setSelectedContent(item),
     };
-  }, [user, effectiveSummaries, effectiveDateRange, effectiveRecords, useDemo, records, monetizedContentIds, monetizedContentTokens, stats]);
+  }, [
+    user,
+    effectiveSummaries,
+    effectiveDateRange,
+    effectiveRecords,
+    useDemo,
+    records,
+    monetizedContentIds,
+    monetizedContentTokens,
+    stats,
+  ]);
 
   if (userLoading) {
     return (
@@ -491,8 +596,23 @@ export function Dashboard() {
         {/* Header */}
         <Flex justify="space-between" align="center" style={{ marginBottom: 28 }}>
           <div>
-            <h1 style={{ fontSize: 24, margin: 0, fontWeight: 700, fontFamily: '"Noto Serif SC", serif', letterSpacing: '0.04em', color: themeColors.ink }}>知析</h1>
-            {user && <div style={{ fontSize: 12, color: themeColors.muted, marginTop: 4, letterSpacing: '0.02em' }}>{user.name} 的创作数据</div>}
+            <h1
+              style={{
+                fontSize: 24,
+                margin: 0,
+                fontWeight: 700,
+                fontFamily: '"Noto Serif SC", serif',
+                letterSpacing: '0.04em',
+                color: themeColors.ink,
+              }}
+            >
+              知析
+            </h1>
+            {user && (
+              <div style={{ fontSize: 12, color: themeColors.muted, marginTop: 4, letterSpacing: '0.02em' }}>
+                {user.name} 的创作数据
+              </div>
+            )}
           </div>
           <Space>
             {/* Data management dropdown */}
@@ -558,7 +678,12 @@ export function Dashboard() {
                       }
                     },
                   },
-                  { key: 'import', icon: <UploadOutlined />, label: '导入数据', onClick: () => fileInputRef.current?.click() },
+                  {
+                    key: 'import',
+                    icon: <UploadOutlined />,
+                    label: '导入数据',
+                    onClick: () => fileInputRef.current?.click(),
+                  },
                   { type: 'divider' },
                   {
                     key: 'layout',
@@ -592,25 +717,29 @@ export function Dashboard() {
                     onClick: async () => {
                       if (!user || !settings) return;
                       const newEnabled = settings.autoSyncEnabled === false;
-                      await import('@/db/income-store').then(m =>
-                        m.saveUserSettings({ ...settings, autoSyncEnabled: newEnabled })
+                      await import('@/db/income-store').then((m) =>
+                        m.saveUserSettings({ ...settings, autoSyncEnabled: newEnabled }),
                       );
                       refreshSettings();
                     },
                   },
                   { type: 'divider' },
                   {
-                    key: 'info', label: (
+                    key: 'info',
+                    label: (
                       <span style={{ fontSize: 12, color: '#999' }}>
                         {hasSetup ? `采集范围：${settings!.collectStartDate} 起` : '未设置采集'}
                       </span>
-                    ), disabled: true,
+                    ),
+                    disabled: true,
                   },
                 ],
               }}
               trigger={['click']}
             >
-              <Button id="tour-settings-menu" icon={<SettingOutlined />} size="small">设置</Button>
+              <Button id="tour-settings-menu" icon={<SettingOutlined />} size="small">
+                设置
+              </Button>
             </Dropdown>
             <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} style={{ display: 'none' }} />
           </Space>
@@ -627,13 +756,27 @@ export function Dashboard() {
                   <SyncOutlined spin style={{ color: token.colorPrimary }} />
                   <span style={{ fontSize: 13 }}>{status.task ?? '采集中'}</span>
                   {status.currentDate && <span style={{ fontSize: 12, color: '#999' }}>— {status.currentDate}</span>}
-                  <span style={{ fontSize: 12, color: '#999' }}>{status.progress}/{status.total}</span>
+                  <span style={{ fontSize: 12, color: '#999' }}>
+                    {status.progress}/{status.total}
+                  </span>
                 </Flex>
               ) : (
                 <span style={{ fontSize: 13 }}>采集日志</span>
               )
             }
-            extra={!status.isCollecting && <Button size="small" type="text" onClick={() => { /* logs cleared on next collect */ }}>收起</Button>}
+            extra={
+              !status.isCollecting && (
+                <Button
+                  size="small"
+                  type="text"
+                  onClick={() => {
+                    /* logs cleared on next collect */
+                  }}
+                >
+                  收起
+                </Button>
+              )
+            }
           >
             {status.isCollecting && (
               <Progress
@@ -642,21 +785,36 @@ export function Dashboard() {
                 style={{ marginBottom: 8 }}
               />
             )}
-            <div style={{
-              maxHeight: 150, overflow: 'auto', fontSize: 12, fontFamily: 'monospace',
-              background: '#fafafa', borderRadius: 4, padding: '6px 10px',
-              lineHeight: 1.8, color: '#555',
-            }}>
+            <div
+              style={{
+                maxHeight: 150,
+                overflow: 'auto',
+                fontSize: 12,
+                fontFamily: 'monospace',
+                background: '#fafafa',
+                borderRadius: 4,
+                padding: '6px 10px',
+                lineHeight: 1.8,
+                color: '#555',
+              }}
+            >
               {logs.length === 0 ? (
                 <span style={{ color: '#999' }}>暂无日志</span>
               ) : (
                 logs.map((log, i) => (
-                  <div key={i} style={{
-                    color: log.includes('失败') || log.includes('错误') ? '#d32f2f'
-                      : log.includes('完成') ? '#34a853'
-                      : log.includes('跳过') ? '#999'
-                      : '#555',
-                  }}>
+                  <div
+                    key={i}
+                    style={{
+                      color:
+                        log.includes('失败') || log.includes('错误')
+                          ? '#d32f2f'
+                          : log.includes('完成')
+                            ? '#34a853'
+                            : log.includes('跳过')
+                              ? '#999'
+                              : '#555',
+                    }}
+                  >
                     {log}
                   </div>
                 ))
@@ -667,12 +825,24 @@ export function Dashboard() {
 
         {/* Messages */}
         {syncMsg && (
-          <Alert message={syncMsg} type={syncMsg.includes('失败') ? 'error' : 'success'} showIcon closable
-            style={{ marginBottom: 16 }} onClose={() => setSyncMsg('')} />
+          <Alert
+            message={syncMsg}
+            type={syncMsg.includes('失败') ? 'error' : 'success'}
+            showIcon
+            closable
+            style={{ marginBottom: 16 }}
+            onClose={() => setSyncMsg('')}
+          />
         )}
         {importMsg && (
-          <Alert message={importMsg} type={importMsg.includes('失败') ? 'error' : 'success'} showIcon closable
-            style={{ marginBottom: 16 }} onClose={() => setImportMsg('')} />
+          <Alert
+            message={importMsg}
+            type={importMsg.includes('失败') ? 'error' : 'success'}
+            showIcon
+            closable
+            style={{ marginBottom: 16 }}
+            onClose={() => setImportMsg('')}
+          />
         )}
 
         {showNewFeatureBanner && (
@@ -721,29 +891,136 @@ export function Dashboard() {
             {/* Summary Stats */}
             <Row id="tour-summary-cards" gutter={[16, 16]} style={{ marginBottom: 28 }}>
               <Col span={8}>
-                <Card size="small" styles={{ header: { minHeight: 0, padding: '10px 16px', fontSize: 12, color: themeColors.muted, fontWeight: 500, letterSpacing: '0.05em', borderBottom: `1px solid ${themeColors.border}` }, body: { padding: '12px 16px' } }} title="昨日">
+                <Card
+                  size="small"
+                  styles={{
+                    header: {
+                      minHeight: 0,
+                      padding: '10px 16px',
+                      fontSize: 12,
+                      color: themeColors.muted,
+                      fontWeight: 500,
+                      letterSpacing: '0.05em',
+                      borderBottom: `1px solid ${themeColors.border}`,
+                    },
+                    body: { padding: '12px 16px' },
+                  }}
+                  title="昨日"
+                >
                   <Flex justify="space-between">
-                    <Statistic title="收益" value={stats.yesterdayIncome} precision={2} prefix="¥" valueStyle={{ color: themeColors.amber, fontWeight: 700, fontSize: 22, fontFamily: '"Noto Serif SC", serif' }} />
-                    <Statistic title="阅读" value={stats.yesterdayRead} valueStyle={{ fontSize: 20, color: themeColors.ink }} />
-                    <Statistic title="内容" value={stats.yesterdayContentCount} suffix="篇" valueStyle={{ fontSize: 20, color: themeColors.ink }} />
+                    <Statistic
+                      title="收益"
+                      value={stats.yesterdayIncome}
+                      precision={2}
+                      prefix="¥"
+                      valueStyle={{
+                        color: themeColors.amber,
+                        fontWeight: 700,
+                        fontSize: 22,
+                        fontFamily: '"Noto Serif SC", serif',
+                      }}
+                    />
+                    <Statistic
+                      title="阅读"
+                      value={stats.yesterdayRead}
+                      valueStyle={{ fontSize: 20, color: themeColors.ink }}
+                    />
+                    <Statistic
+                      title="内容"
+                      value={stats.yesterdayContentCount}
+                      suffix="篇"
+                      valueStyle={{ fontSize: 20, color: themeColors.ink }}
+                    />
                   </Flex>
                 </Card>
               </Col>
               <Col span={8}>
-                <Card size="small" styles={{ header: { minHeight: 0, padding: '10px 16px', fontSize: 12, color: themeColors.muted, fontWeight: 500, letterSpacing: '0.05em', borderBottom: `1px solid ${themeColors.border}` }, body: { padding: '12px 16px' } }} title="本月">
+                <Card
+                  size="small"
+                  styles={{
+                    header: {
+                      minHeight: 0,
+                      padding: '10px 16px',
+                      fontSize: 12,
+                      color: themeColors.muted,
+                      fontWeight: 500,
+                      letterSpacing: '0.05em',
+                      borderBottom: `1px solid ${themeColors.border}`,
+                    },
+                    body: { padding: '12px 16px' },
+                  }}
+                  title="本月"
+                >
                   <Flex justify="space-between">
-                    <Statistic title="收益" value={stats.monthIncome} precision={2} prefix="¥" valueStyle={{ color: themeColors.amber, fontWeight: 700, fontSize: 22, fontFamily: '"Noto Serif SC", serif' }} />
-                    <Statistic title="阅读" value={stats.monthRead} valueStyle={{ fontSize: 20, color: themeColors.ink }} />
-                    <Statistic title="内容" value={stats.monthContentCount} suffix="篇" valueStyle={{ fontSize: 20, color: themeColors.ink }} />
+                    <Statistic
+                      title="收益"
+                      value={stats.monthIncome}
+                      precision={2}
+                      prefix="¥"
+                      valueStyle={{
+                        color: themeColors.amber,
+                        fontWeight: 700,
+                        fontSize: 22,
+                        fontFamily: '"Noto Serif SC", serif',
+                      }}
+                    />
+                    <Statistic
+                      title="阅读"
+                      value={stats.monthRead}
+                      valueStyle={{ fontSize: 20, color: themeColors.ink }}
+                    />
+                    <Statistic
+                      title="内容"
+                      value={stats.monthContentCount}
+                      suffix="篇"
+                      valueStyle={{ fontSize: 20, color: themeColors.ink }}
+                    />
                   </Flex>
                 </Card>
               </Col>
               <Col span={8}>
-                <Card size="small" styles={{ header: { minHeight: 0, padding: '10px 16px', fontSize: 12, color: themeColors.muted, fontWeight: 500, letterSpacing: '0.05em', borderBottom: `1px solid ${themeColors.border}` }, body: { padding: '12px 16px' } }} title="总览">
+                <Card
+                  size="small"
+                  styles={{
+                    header: {
+                      minHeight: 0,
+                      padding: '10px 16px',
+                      fontSize: 12,
+                      color: themeColors.muted,
+                      fontWeight: 500,
+                      letterSpacing: '0.05em',
+                      borderBottom: `1px solid ${themeColors.border}`,
+                    },
+                    body: { padding: '12px 16px' },
+                  }}
+                  title="总览"
+                >
                   <Flex justify="space-between">
-                    <Statistic title="收益" value={stats.totalIncome} precision={2} prefix="¥" valueStyle={{ color: themeColors.warmBlue, fontWeight: 700, fontSize: 22, fontFamily: '"Noto Serif SC", serif' }} />
-                    <Statistic title="RPM" value={stats.rpm} precision={2} prefix="¥" valueStyle={{ fontSize: 20, color: themeColors.ink }} />
-                    <Statistic title="内容" value={totalContentCount} suffix="篇" valueStyle={{ fontSize: 20, color: themeColors.ink }} />
+                    <Statistic
+                      title="收益"
+                      value={stats.totalIncome}
+                      precision={2}
+                      prefix="¥"
+                      valueStyle={{
+                        color: themeColors.warmBlue,
+                        fontWeight: 700,
+                        fontSize: 22,
+                        fontFamily: '"Noto Serif SC", serif',
+                      }}
+                    />
+                    <Statistic
+                      title="RPM"
+                      value={stats.rpm}
+                      precision={2}
+                      prefix="¥"
+                      valueStyle={{ fontSize: 20, color: themeColors.ink }}
+                    />
+                    <Statistic
+                      title="内容"
+                      value={totalContentCount}
+                      suffix="篇"
+                      valueStyle={{ fontSize: 20, color: themeColors.ink }}
+                    />
                   </Flex>
                 </Card>
               </Col>
@@ -757,9 +1034,9 @@ export function Dashboard() {
               items={
                 layout
                   ? [...layout.tabs]
-                      .filter(t => t.visible)
+                      .filter((t) => t.visible)
                       .sort((a, b) => a.order - b.order)
-                      .map(tab => {
+                      .map((tab) => {
                         if (tab.key === 'content') {
                           return {
                             key: 'content',
@@ -786,27 +1063,28 @@ export function Dashboard() {
                         }
 
                         const visiblePanels = [...tab.panels]
-                          .filter(p => p.visible)
+                          .filter((p) => p.visible)
                           .sort((a, b) => a.order - b.order);
 
                         return {
                           key: tab.key,
                           label: tab.label,
-                          children: effectiveSummaries.length === 0 && tab.key === 'overview' ? (
-                            <Empty description="暂无数据" />
-                          ) : dashboardContext ? (
-                            <Flex vertical gap={24}>
-                              {visiblePanels.map(panelConfig => {
-                                const meta = getPanelMeta(panelConfig.key);
-                                if (!meta) return null;
-                                return (
-                                  <div key={panelConfig.key} id={`tour-${panelConfig.key}`}>
-                                    {meta.render(dashboardContext)}
-                                  </div>
-                                );
-                              })}
-                            </Flex>
-                          ) : null,
+                          children:
+                            effectiveSummaries.length === 0 && tab.key === 'overview' ? (
+                              <Empty description="暂无数据" />
+                            ) : dashboardContext ? (
+                              <Flex vertical gap={24}>
+                                {visiblePanels.map((panelConfig) => {
+                                  const meta = getPanelMeta(panelConfig.key);
+                                  if (!meta) return null;
+                                  return (
+                                    <div key={panelConfig.key} id={`tour-${panelConfig.key}`}>
+                                      {meta.render(dashboardContext)}
+                                    </div>
+                                  );
+                                })}
+                              </Flex>
+                            ) : null,
                         };
                       })
                   : []
@@ -814,12 +1092,7 @@ export function Dashboard() {
             />
           </>
         )}
-        <Drawer
-          title="成就记录"
-          open={milestonesOpen}
-          onClose={() => setMilestonesOpen(false)}
-          width={480}
-        >
+        <Drawer title="成就记录" open={milestonesOpen} onClose={() => setMilestonesOpen(false)} width={480}>
           <MilestonesPage allSummaries={allSummaries} allRecords={allIncomeRecords} />
         </Drawer>
         {layout && (
@@ -828,7 +1101,10 @@ export function Dashboard() {
             onClose={() => setCustomizerOpen(false)}
             tabs={layout.tabs}
             onUpdate={updateLayout}
-            onReset={() => { resetLayout(); setCustomizerOpen(false); }}
+            onReset={() => {
+              resetLayout();
+              setCustomizerOpen(false);
+            }}
           />
         )}
       </Content>

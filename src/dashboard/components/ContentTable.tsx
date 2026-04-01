@@ -52,16 +52,24 @@ export function ContentTable({ records, onContentClick, onCompare }: Props) {
   }, [records]);
 
   const handleBatchFetch = useCallback(async () => {
-    const items = aggregated.filter(i => selectedKeys.includes(i.contentId)).map(i => ({
-      contentId: i.contentId, contentToken: i.contentToken,
-      contentType: i.contentType, title: i.title, publishDate: i.publishDate,
-    }));
+    const items = aggregated
+      .filter((i) => selectedKeys.includes(i.contentId))
+      .map((i) => ({
+        contentId: i.contentId,
+        contentToken: i.contentToken,
+        contentType: i.contentType,
+        title: i.title,
+        publishDate: i.publishDate,
+      }));
     if (items.length === 0) return;
     setFetchMsg('');
     try {
       const response = await new Promise<{ ok: boolean; count?: number; error?: string }>((resolve, reject) => {
         chrome.runtime.sendMessage({ action: 'fetchContentDaily', items }, (resp) => {
-          if (chrome.runtime.lastError) { reject(new Error(chrome.runtime.lastError.message)); return; }
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
           resolve(resp);
         });
       });
@@ -78,16 +86,19 @@ export function ContentTable({ records, onContentClick, onCompare }: Props) {
 
   const columns: ColumnsType<ContentTableItem> = [
     {
-      title: '标题', dataIndex: 'title', key: 'title',
+      title: '标题',
+      dataIndex: 'title',
+      key: 'title',
       ellipsis: true,
       sorter: (a, b) => a.title.localeCompare(b.title),
     },
     {
-      title: '类型', dataIndex: 'contentType', key: 'contentType', width: 80,
+      title: '类型',
+      dataIndex: 'contentType',
+      key: 'contentType',
+      width: 80,
       render: (type: string) => (
-        <Tag color={type === 'article' ? 'blue' : 'gold'}>
-          {type === 'article' ? '文章' : '回答'}
-        </Tag>
+        <Tag color={type === 'article' ? 'blue' : 'gold'}>{type === 'article' ? '文章' : '回答'}</Tag>
       ),
       filters: [
         { text: '文章', value: 'article' },
@@ -96,35 +107,52 @@ export function ContentTable({ records, onContentClick, onCompare }: Props) {
       onFilter: (value, record) => record.contentType === value,
     },
     {
-      title: '发布日期', dataIndex: 'publishDate', key: 'publishDate', width: 110,
+      title: '发布日期',
+      dataIndex: 'publishDate',
+      key: 'publishDate',
+      width: 110,
       sorter: (a, b) => a.publishDate.localeCompare(b.publishDate),
     },
     {
-      title: '阅读', dataIndex: 'currentRead', key: 'currentRead', width: 100, align: 'right',
+      title: '阅读',
+      dataIndex: 'currentRead',
+      key: 'currentRead',
+      width: 100,
+      align: 'right',
       sorter: (a, b) => a.currentRead - b.currentRead,
       render: (v: number) => v.toLocaleString(),
     },
     {
-      title: '互动', dataIndex: 'currentInteraction', key: 'currentInteraction', width: 80, align: 'right',
+      title: '互动',
+      dataIndex: 'currentInteraction',
+      key: 'currentInteraction',
+      width: 80,
+      align: 'right',
       sorter: (a, b) => a.currentInteraction - b.currentInteraction,
       render: (v: number) => v.toLocaleString(),
     },
     {
-      title: '收益', dataIndex: 'currentIncome', key: 'currentIncome', width: 100, align: 'right',
+      title: '收益',
+      dataIndex: 'currentIncome',
+      key: 'currentIncome',
+      width: 100,
+      align: 'right',
       defaultSortOrder: 'descend',
       sorter: (a, b) => a.currentIncome - b.currentIncome,
       render: (v: number) => <b>¥{(v / 100).toFixed(2)}</b>,
     },
     {
-      title: '转化率', key: 'rpm', width: 110, align: 'right',
+      title: '转化率',
+      key: 'rpm',
+      width: 110,
+      align: 'right',
       sorter: (a, b) => {
         const rpmA = a.currentRead > 0 ? a.currentIncome / a.currentRead : 0;
         const rpmB = b.currentRead > 0 ? b.currentIncome / b.currentRead : 0;
         return rpmA - rpmB;
       },
-      render: (_, item) => item.currentRead > 0
-        ? `¥${(item.currentIncome / 100 / item.currentRead * 1000).toFixed(2)}/千次`
-        : '-',
+      render: (_, item) =>
+        item.currentRead > 0 ? `¥${((item.currentIncome / 100 / item.currentRead) * 1000).toFixed(2)}/千次` : '-',
     },
   ];
 
@@ -134,18 +162,14 @@ export function ContentTable({ records, onContentClick, onCompare }: Props) {
         {selectedKeys.length > 0 && (
           <>
             <span style={{ fontSize: 13, color: '#666' }}>已选 {selectedKeys.length} 篇</span>
-            <Button
-              type="primary" size="small"
-              onClick={handleBatchFetch}
-              loading={status.isCollecting}
-            >
+            <Button type="primary" size="small" onClick={handleBatchFetch} loading={status.isCollecting}>
               批量拉取详情
             </Button>
             {onCompare && selectedKeys.length >= 2 && selectedKeys.length <= 3 && (
               <Button
                 size="small"
                 onClick={() => {
-                  const items = aggregated.filter(i => selectedKeys.includes(i.contentId));
+                  const items = aggregated.filter((i) => selectedKeys.includes(i.contentId));
                   onCompare(items);
                 }}
               >
@@ -173,7 +197,8 @@ export function ContentTable({ records, onContentClick, onCompare }: Props) {
         <Alert
           message={fetchMsg}
           type={fetchMsg.includes('失败') ? 'error' : 'success'}
-          showIcon closable
+          showIcon
+          closable
           style={{ marginBottom: 8 }}
           onClose={() => setFetchMsg('')}
         />

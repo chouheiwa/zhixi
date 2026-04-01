@@ -1,10 +1,22 @@
 import { formatDate } from '@/shared/date-utils';
-import { STORAGE_KEYS, REQUEST_INTERVAL_MIN, REQUEST_INTERVAL_MAX, AUTO_SYNC_INTERVAL_MINUTES } from '@/shared/constants';
+import {
+  STORAGE_KEYS,
+  REQUEST_INTERVAL_MIN,
+  REQUEST_INTERVAL_MAX,
+  AUTO_SYNC_INTERVAL_MINUTES,
+} from '@/shared/constants';
 import { fetchDayIncome, fetchCurrentUser } from '@/api/zhihu-income';
 import { fetchContentDaily, parseContentDailyResponse } from '@/api/zhihu-content-daily';
 import { fetchRealtimeAggr, fetchTodayRealtime } from '@/api/zhihu-realtime';
 import { fetchAllCreations } from '@/api/zhihu-creations';
-import { upsertIncomeRecords, getMissingDates, getUserSettings, saveUserSettings, markDateSynced, getAllDailySummaries } from '@/db/income-store';
+import {
+  upsertIncomeRecords,
+  getMissingDates,
+  getUserSettings,
+  saveUserSettings,
+  markDateSynced,
+  getAllDailySummaries,
+} from '@/db/income-store';
 import { upsertContentDailyRecords, getContentDailyLatestDate } from '@/db/content-daily-store';
 import { upsertRealtimeAggr, getRealtimeAggrLatestDate } from '@/db/realtime-store';
 import { db } from '@/db/database';
@@ -28,10 +40,12 @@ function addLog(msg: string) {
 }
 
 function broadcastStatus() {
-  chrome.runtime.sendMessage({
-    action: 'collectStatus',
-    status: { ...collectionStatus, logs: [...recentLogs] },
-  }).catch(() => {});
+  chrome.runtime
+    .sendMessage({
+      action: 'collectStatus',
+      status: { ...collectionStatus, logs: [...recentLogs] },
+    })
+    .catch(() => {});
 }
 
 function randomDelay(): Promise<void> {
@@ -179,7 +193,14 @@ async function runFetchContentDaily(items: ContentItem[]): Promise<{ count: numb
 
       try {
         const apiItems = await fetchContentDaily(item.contentType, item.contentToken, startDate, yesterday);
-        const records = parseContentDailyResponse(apiItems, user.id, item.contentToken, item.contentId, item.contentType, item.title);
+        const records = parseContentDailyResponse(
+          apiItems,
+          user.id,
+          item.contentToken,
+          item.contentId,
+          item.contentType,
+          item.title,
+        );
         if (records.length > 0) {
           await upsertContentDailyRecords(records);
           totalRecords += records.length;
@@ -275,13 +296,15 @@ async function runSyncRealtimeAggr(): Promise<{ count: number }> {
 
       const result = await fetchRealtimeAggr(date);
       if (result) {
-        await upsertRealtimeAggr([{
-          userId: user.id,
-          date,
-          updatedAt: result.updatedAt,
-          ...result.data,
-          collectedAt: Date.now(),
-        }]);
+        await upsertRealtimeAggr([
+          {
+            userId: user.id,
+            date,
+            updatedAt: result.updatedAt,
+            ...result.data,
+            collectedAt: Date.now(),
+          },
+        ]);
         totalRecords++;
         addLog(`${date}: 汇总数据已保存`);
       } else {
@@ -311,13 +334,15 @@ async function runFetchTodayRealtime(): Promise<{
   if (!result) return { today: null };
 
   // Save today's data (will be updated each time)
-  await upsertRealtimeAggr([{
-    userId: user.id,
-    date: today,
-    updatedAt: result.today.updatedAt,
-    ...result.today,
-    collectedAt: Date.now(),
-  }]);
+  await upsertRealtimeAggr([
+    {
+      userId: user.id,
+      date: today,
+      updatedAt: result.today.updatedAt,
+      ...result.today,
+      collectedAt: Date.now(),
+    },
+  ]);
 
   return {
     today: { date: today, ...result.today },
@@ -339,7 +364,7 @@ async function runFetchTodayContentDaily(): Promise<{ count: number; cached: num
   // Check cache freshness: find oldest cachedAt in cache for this user
   const existingCache = await db.contentDailyCache.where('userId').equals(user.id).toArray();
   if (existingCache.length > 0) {
-    const oldestCachedAt = Math.min(...existingCache.map(r => r.collectedAt));
+    const oldestCachedAt = Math.min(...existingCache.map((r) => r.collectedAt));
     if (Date.now() - oldestCachedAt < CACHE_TTL_MS) {
       addLog(`今日数据缓存仍有效（${Math.round((Date.now() - oldestCachedAt) / 60000)} 分钟前更新）`);
       return { count: 0, cached: existingCache.length };
@@ -352,8 +377,10 @@ async function runFetchTodayContentDaily(): Promise<{ count: number; cached: num
   for (const r of allRecords) {
     if (!contentMap.has(r.contentId)) {
       contentMap.set(r.contentId, {
-        contentId: r.contentId, contentToken: r.contentToken,
-        contentType: r.contentType, title: r.title,
+        contentId: r.contentId,
+        contentToken: r.contentToken,
+        contentType: r.contentType,
+        title: r.title,
       });
     }
   }
@@ -387,7 +414,14 @@ async function runFetchTodayContentDaily(): Promise<{ count: number; cached: num
 
       try {
         const apiItems = await fetchContentDaily(item.contentType, item.contentToken, today, today);
-        const records = parseContentDailyResponse(apiItems, user.id, item.contentToken, item.contentId, item.contentType, item.title);
+        const records = parseContentDailyResponse(
+          apiItems,
+          user.id,
+          item.contentToken,
+          item.contentId,
+          item.contentType,
+          item.title,
+        );
         if (records.length > 0) {
           await db.contentDailyCache.bulkPut(records);
           totalRecords += records.length;
@@ -483,13 +517,13 @@ async function checkIncomeAnomalyAndNotify(userId: string): Promise<void> {
 
     // Get yesterday's income
     const yesterday = getYesterday();
-    const yesterdaySummary = allSummaries.find(s => s.date === yesterday);
+    const yesterdaySummary = allSummaries.find((s) => s.date === yesterday);
     if (!yesterdaySummary) return;
 
     const yesterdayIncome = yesterdaySummary.totalIncome / 100;
 
     // Get average of 7 days before yesterday
-    const yesterdayIdx = allSummaries.findIndex(s => s.date === yesterday);
+    const yesterdayIdx = allSummaries.findIndex((s) => s.date === yesterday);
     if (yesterdayIdx < 7) return;
 
     const prev7 = allSummaries.slice(yesterdayIdx - 7, yesterdayIdx);

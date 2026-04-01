@@ -17,11 +17,11 @@ interface Props {
 
 export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
   const days = eachDayInRange(startDate, endDate);
-  const summaryMap = new Map(summaries.map(s => [s.date, s]));
+  const summaryMap = new Map(summaries.map((s) => [s.date, s]));
 
   const analysis = useMemo(() => {
-    const incomes = days.map(d => (summaryMap.get(d)?.totalIncome ?? 0) / 100);
-    const reads = days.map(d => summaryMap.get(d)?.totalRead ?? 0);
+    const incomes = days.map((d) => (summaryMap.get(d)?.totalIncome ?? 0) / 100);
+    const reads = days.map((d) => summaryMap.get(d)?.totalRead ?? 0);
     const rpms = days.map((_, i) => computeRPM(incomes[i], reads[i]));
     const rpmEma = ema(rpms, 7);
     const { smoothed: holtSmoothed, forecast } = holtForecast(incomes, 0.3, 0.1, 7);
@@ -36,13 +36,13 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
 
     const forecast7Total = forecast.reduce((a, b) => a + b, 0);
     const latestRpm = rpmEma.length > 0 ? rpmEma[rpmEma.length - 1] : 0;
-    const prevRpm = rpmEma.length > 7 ? rpmEma[rpmEma.length - 8] : rpmEma[0] ?? 0;
+    const prevRpm = rpmEma.length > 7 ? rpmEma[rpmEma.length - 8] : (rpmEma[0] ?? 0);
     const rpmTrend = prevRpm > 0 ? ((latestRpm - prevRpm) / prevRpm) * 100 : 0;
 
     return { incomes, rpms, rpmEma, holtSmoothed, forecast, forecastDates, forecast7Total, latestRpm, rpmTrend };
   }, [summaries, startDate, endDate]);
 
-  const dates = days.map(d => d.slice(5));
+  const dates = days.map((d) => d.slice(5));
 
   const rpmOption = {
     tooltip: {
@@ -56,7 +56,11 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
     grid: withZoomGrid({ left: 50, right: 30, top: 30, bottom: 25 }),
     title: { text: '每千次阅读收益', textStyle: { fontSize: 13, fontWeight: 600 }, left: 0 },
     xAxis: { type: 'category' as const, data: dates, axisLabel: { fontSize: 10 }, axisTick: { show: false } },
-    yAxis: { type: 'value' as const, axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(1)}` }, splitNumber: 3 },
+    yAxis: {
+      type: 'value' as const,
+      axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(1)}` },
+      splitNumber: 3,
+    },
     series: [
       {
         name: '每日',
@@ -75,7 +79,7 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
         symbol: 'none',
       },
     ],
-  ...timeSeriesZoom,
+    ...timeSeriesZoom,
   };
 
   const forecastOption = {
@@ -89,7 +93,11 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
       axisLabel: { fontSize: 10 },
       axisTick: { show: false },
     },
-    yAxis: { type: 'value' as const, axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(0)}` }, splitNumber: 3 },
+    yAxis: {
+      type: 'value' as const,
+      axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(0)}` },
+      splitNumber: 3,
+    },
     series: [
       {
         name: '实际收益',
@@ -110,7 +118,11 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
       {
         name: '预测',
         type: 'line',
-        data: [...new Array(analysis.incomes.length - 1).fill(null), analysis.holtSmoothed[analysis.holtSmoothed.length - 1], ...analysis.forecast],
+        data: [
+          ...new Array(analysis.incomes.length - 1).fill(null),
+          analysis.holtSmoothed[analysis.holtSmoothed.length - 1],
+          ...analysis.forecast,
+        ],
         smooth: true,
         itemStyle: { color: themeColors.warmRed },
         lineStyle: { width: 2, type: 'dashed' },
@@ -118,7 +130,7 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
         areaStyle: { color: 'rgba(196, 89, 74, 0.08)' },
       },
     ],
-  ...timeSeriesZoom,
+    ...timeSeriesZoom,
   };
 
   return (
@@ -139,10 +151,21 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
         />
       </Card>
       <ReactECharts option={rpmOption} style={{ height: 220 }} />
-      <FormulaBlock title="本区域使用的计算方法" items={[
-        { name: '每千次阅读收益', formula: 'RPM = (当日收益 ÷ 当日阅读量) × 1000', desc: '衡量每1000次阅读能带来多少收益，数值越高说明内容变现效率越好。' },
-        { name: '7日趋势线（指数移动平均 EMA）', formula: 'EMA(t) = α × 当日值 + (1-α) × 昨日EMA\nα = 2 ÷ (7+1) = 0.25', desc: '对最近7天的数据做加权平均，越近的数据权重越大。比简单平均更能反映最新趋势。' },
-      ]} />
+      <FormulaBlock
+        title="本区域使用的计算方法"
+        items={[
+          {
+            name: '每千次阅读收益',
+            formula: 'RPM = (当日收益 ÷ 当日阅读量) × 1000',
+            desc: '衡量每1000次阅读能带来多少收益，数值越高说明内容变现效率越好。',
+          },
+          {
+            name: '7日趋势线（指数移动平均 EMA）',
+            formula: 'EMA(t) = α × 当日值 + (1-α) × 昨日EMA\nα = 2 ÷ (7+1) = 0.25',
+            desc: '对最近7天的数据做加权平均，越近的数据权重越大。比简单平均更能反映最新趋势。',
+          },
+        ]}
+      />
       <div style={{ fontSize: 11, color: '#999', textAlign: 'center', marginTop: 8 }}>
         * 预估结果仅供参考，不代表实际收益
       </div>

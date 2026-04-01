@@ -2,16 +2,36 @@ import React from 'react';
 import type { DailySummary, IncomeRecord, TabConfig } from '@/shared/types';
 import type { ContentTableItem } from './components/ContentTable';
 
-const DailyTrendChart = React.lazy(() => import('./components/DailyTrendChart').then(m => ({ default: m.DailyTrendChart })));
-const RPMForecastPanel = React.lazy(() => import('./components/RPMForecastPanel').then(m => ({ default: m.RPMForecastPanel })));
-const WeeklySeasonalityChart = React.lazy(() => import('./components/WeeklySeasonalityChart').then(m => ({ default: m.WeeklySeasonalityChart })));
-const AnomalyDetectionPanel = React.lazy(() => import('./components/AnomalyDetectionPanel').then(m => ({ default: m.AnomalyDetectionPanel })));
-const ContentTypeComparisonPanel = React.lazy(() => import('./components/ContentTypeComparisonPanel').then(m => ({ default: m.ContentTypeComparisonPanel })));
-const PublishTimeAnalysis = React.lazy(() => import('./components/PublishTimeAnalysis').then(m => ({ default: m.PublishTimeAnalysis })));
-const MultiDimensionRanking = React.lazy(() => import('./components/MultiDimensionRanking').then(m => ({ default: m.MultiDimensionRanking })));
-const IncomeGoalPanel = React.lazy(() => import('./components/IncomeGoalPanel').then(m => ({ default: m.IncomeGoalPanel })));
-const MLPredictionPanel = React.lazy(() => import('./components/MLPredictionPanel').then(m => ({ default: m.MLPredictionPanel })));
-const UnmonetizedContentPanel = React.lazy(() => import('./components/UnmonetizedContentPanel').then(m => ({ default: m.UnmonetizedContentPanel })));
+const DailyTrendChart = React.lazy(() =>
+  import('./components/DailyTrendChart').then((m) => ({ default: m.DailyTrendChart })),
+);
+const RPMForecastPanel = React.lazy(() =>
+  import('./components/RPMForecastPanel').then((m) => ({ default: m.RPMForecastPanel })),
+);
+const WeeklySeasonalityChart = React.lazy(() =>
+  import('./components/WeeklySeasonalityChart').then((m) => ({ default: m.WeeklySeasonalityChart })),
+);
+const AnomalyDetectionPanel = React.lazy(() =>
+  import('./components/AnomalyDetectionPanel').then((m) => ({ default: m.AnomalyDetectionPanel })),
+);
+const ContentTypeComparisonPanel = React.lazy(() =>
+  import('./components/ContentTypeComparisonPanel').then((m) => ({ default: m.ContentTypeComparisonPanel })),
+);
+const PublishTimeAnalysis = React.lazy(() =>
+  import('./components/PublishTimeAnalysis').then((m) => ({ default: m.PublishTimeAnalysis })),
+);
+const MultiDimensionRanking = React.lazy(() =>
+  import('./components/MultiDimensionRanking').then((m) => ({ default: m.MultiDimensionRanking })),
+);
+const IncomeGoalPanel = React.lazy(() =>
+  import('./components/IncomeGoalPanel').then((m) => ({ default: m.IncomeGoalPanel })),
+);
+const MLPredictionPanel = React.lazy(() =>
+  import('./components/MLPredictionPanel').then((m) => ({ default: m.MLPredictionPanel })),
+);
+const UnmonetizedContentPanel = React.lazy(() =>
+  import('./components/UnmonetizedContentPanel').then((m) => ({ default: m.UnmonetizedContentPanel })),
+);
 
 export interface DashboardContext {
   userId: string;
@@ -43,14 +63,17 @@ const panelRegistry: PanelMeta[] = [
     tab: 'overview',
     defaultOrder: 0,
     defaultVisible: true,
-    render: (ctx) => React.createElement(React.Suspense, { fallback: null },
-      React.createElement(IncomeGoalPanel, {
-        userId: ctx.userId,
-        monthIncome: ctx.monthIncome,
-        monthDaysElapsed: ctx.monthDaysElapsed,
-        monthDaysTotal: ctx.monthDaysTotal,
-      }),
-    ),
+    render: (ctx) =>
+      React.createElement(
+        React.Suspense,
+        { fallback: null },
+        React.createElement(IncomeGoalPanel, {
+          userId: ctx.userId,
+          monthIncome: ctx.monthIncome,
+          monthDaysElapsed: ctx.monthDaysElapsed,
+          monthDaysTotal: ctx.monthDaysTotal,
+        }),
+      ),
   },
   {
     key: 'dailyTrend',
@@ -58,13 +81,16 @@ const panelRegistry: PanelMeta[] = [
     tab: 'overview',
     defaultOrder: 1,
     defaultVisible: true,
-    render: (ctx) => React.createElement(React.Suspense, { fallback: null },
-      React.createElement(DailyTrendChart, {
-        summaries: ctx.allSummaries,
-        startDate: ctx.allDateRange.start,
-        endDate: ctx.allDateRange.end,
-      }),
-    ),
+    render: (ctx) =>
+      React.createElement(
+        React.Suspense,
+        { fallback: null },
+        React.createElement(DailyTrendChart, {
+          summaries: ctx.allSummaries,
+          startDate: ctx.allDateRange.start,
+          endDate: ctx.allDateRange.end,
+        }),
+      ),
   },
   {
     key: 'contentTypeComparison',
@@ -72,9 +98,12 @@ const panelRegistry: PanelMeta[] = [
     tab: 'overview',
     defaultOrder: 2,
     defaultVisible: true,
-    render: (ctx) => React.createElement(React.Suspense, { fallback: null },
-      React.createElement(ContentTypeComparisonPanel, { records: ctx.allIncomeRecords }),
-    ),
+    render: (ctx) =>
+      React.createElement(
+        React.Suspense,
+        { fallback: null },
+        React.createElement(ContentTypeComparisonPanel, { records: ctx.allIncomeRecords }),
+      ),
   },
   {
     key: 'rpm',
@@ -82,13 +111,16 @@ const panelRegistry: PanelMeta[] = [
     tab: 'overview',
     defaultOrder: 3,
     defaultVisible: true,
-    render: (ctx) => React.createElement(React.Suspense, { fallback: null },
-      React.createElement(RPMForecastPanel, {
-        summaries: ctx.allSummaries,
-        startDate: ctx.allDateRange.start,
-        endDate: ctx.allDateRange.end,
-      }),
-    ),
+    render: (ctx) =>
+      React.createElement(
+        React.Suspense,
+        { fallback: null },
+        React.createElement(RPMForecastPanel, {
+          summaries: ctx.allSummaries,
+          startDate: ctx.allDateRange.start,
+          endDate: ctx.allDateRange.end,
+        }),
+      ),
   },
   {
     key: 'weeklySeasonality',
@@ -96,9 +128,12 @@ const panelRegistry: PanelMeta[] = [
     tab: 'overview',
     defaultOrder: 4,
     defaultVisible: true,
-    render: (ctx) => React.createElement(React.Suspense, { fallback: null },
-      React.createElement(WeeklySeasonalityChart, { summaries: ctx.allSummaries }),
-    ),
+    render: (ctx) =>
+      React.createElement(
+        React.Suspense,
+        { fallback: null },
+        React.createElement(WeeklySeasonalityChart, { summaries: ctx.allSummaries }),
+      ),
   },
   {
     key: 'publishTimeAnalysis',
@@ -106,9 +141,12 @@ const panelRegistry: PanelMeta[] = [
     tab: 'overview',
     defaultOrder: 5,
     defaultVisible: true,
-    render: (ctx) => React.createElement(React.Suspense, { fallback: null },
-      React.createElement(PublishTimeAnalysis, { records: ctx.allIncomeRecords }),
-    ),
+    render: (ctx) =>
+      React.createElement(
+        React.Suspense,
+        { fallback: null },
+        React.createElement(PublishTimeAnalysis, { records: ctx.allIncomeRecords }),
+      ),
   },
   {
     key: 'multiDimensionRanking',
@@ -116,14 +154,21 @@ const panelRegistry: PanelMeta[] = [
     tab: 'overview',
     defaultOrder: 6,
     defaultVisible: true,
-    render: (ctx) => React.createElement(React.Suspense, { fallback: null },
-      React.createElement(MultiDimensionRanking, {
-        records: ctx.allIncomeRecords,
-        onContentClick: (item: any) => ctx.onContentClick({
-          ...item, currentIncome: 0, currentRead: 0, currentInteraction: 0,
+    render: (ctx) =>
+      React.createElement(
+        React.Suspense,
+        { fallback: null },
+        React.createElement(MultiDimensionRanking, {
+          records: ctx.allIncomeRecords,
+          onContentClick: (item: any) =>
+            ctx.onContentClick({
+              ...item,
+              currentIncome: 0,
+              currentRead: 0,
+              currentInteraction: 0,
+            }),
         }),
-      }),
-    ),
+      ),
   },
   {
     key: 'anomalyDetection',
@@ -131,13 +176,16 @@ const panelRegistry: PanelMeta[] = [
     tab: 'overview',
     defaultOrder: 7,
     defaultVisible: true,
-    render: (ctx) => React.createElement(React.Suspense, { fallback: null },
-      React.createElement(AnomalyDetectionPanel, {
-        summaries: ctx.allSummaries,
-        startDate: ctx.allDateRange.start,
-        endDate: ctx.allDateRange.end,
-      }),
-    ),
+    render: (ctx) =>
+      React.createElement(
+        React.Suspense,
+        { fallback: null },
+        React.createElement(AnomalyDetectionPanel, {
+          summaries: ctx.allSummaries,
+          startDate: ctx.allDateRange.start,
+          endDate: ctx.allDateRange.end,
+        }),
+      ),
   },
   {
     key: 'mlPrediction',
@@ -145,9 +193,12 @@ const panelRegistry: PanelMeta[] = [
     tab: 'ml',
     defaultOrder: 0,
     defaultVisible: true,
-    render: (ctx) => React.createElement(React.Suspense, { fallback: null },
-      React.createElement(MLPredictionPanel, { records: ctx.records }),
-    ),
+    render: (ctx) =>
+      React.createElement(
+        React.Suspense,
+        { fallback: null },
+        React.createElement(MLPredictionPanel, { records: ctx.records }),
+      ),
   },
   {
     key: 'unmonetizedContent',
@@ -155,9 +206,12 @@ const panelRegistry: PanelMeta[] = [
     tab: 'unmonetized',
     defaultOrder: 0,
     defaultVisible: true,
-    render: (ctx) => React.createElement(React.Suspense, { fallback: null },
-      React.createElement(UnmonetizedContentPanel, { monetizedContentTokens: ctx.monetizedContentTokens }),
-    ),
+    render: (ctx) =>
+      React.createElement(
+        React.Suspense,
+        { fallback: null },
+        React.createElement(UnmonetizedContentPanel, { monetizedContentTokens: ctx.monetizedContentTokens }),
+      ),
   },
 ];
 
@@ -166,7 +220,7 @@ export function getPanelRegistry(): PanelMeta[] {
 }
 
 export function getPanelsByTab(tab: string): PanelMeta[] {
-  return panelRegistry.filter(p => p.tab === tab);
+  return panelRegistry.filter((p) => p.tab === tab);
 }
 
 export function getDefaultTabs(): TabConfig[] {
@@ -182,7 +236,7 @@ export function getDefaultTabs(): TabConfig[] {
     label: t.label,
     visible: true,
     order: idx,
-    panels: getPanelsByTab(t.key).map(p => ({
+    panels: getPanelsByTab(t.key).map((p) => ({
       key: p.key,
       visible: p.defaultVisible,
       order: p.defaultOrder,
@@ -191,5 +245,5 @@ export function getDefaultTabs(): TabConfig[] {
 }
 
 export function getPanelMeta(key: string): PanelMeta | undefined {
-  return panelRegistry.find(p => p.key === key);
+  return panelRegistry.find((p) => p.key === key);
 }

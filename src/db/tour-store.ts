@@ -26,7 +26,7 @@ export async function markExtendedCompleted(userId: string): Promise<void> {
 export async function markFeaturesRead(userId: string, featureKeys: string[]): Promise<void> {
   const state = await getTourState(userId);
   if (state) {
-    const merged = [...state.seenFeatures, ...featureKeys.filter(k => !state.seenFeatures.includes(k))];
+    const merged = [...state.seenFeatures, ...featureKeys.filter((k) => !state.seenFeatures.includes(k))];
     await saveTourState({ ...state, seenFeatures: merged });
   }
 }

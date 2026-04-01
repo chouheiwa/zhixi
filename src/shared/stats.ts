@@ -7,7 +7,11 @@ export function pearsonCorrelation(x: number[], y: number[]): number {
   const n = x.length;
   if (n < 2) return 0;
 
-  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+  let sumX = 0,
+    sumY = 0,
+    sumXY = 0,
+    sumX2 = 0,
+    sumY2 = 0;
   for (let i = 0; i < n; i++) {
     sumX += x[i];
     sumY += y[i];
@@ -17,9 +21,7 @@ export function pearsonCorrelation(x: number[], y: number[]): number {
   }
 
   const numerator = n * sumXY - sumX * sumY;
-  const denominator = Math.sqrt(
-    (n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY)
-  );
+  const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
 
   if (denominator === 0) return 0;
   return numerator / denominator;
@@ -36,10 +38,7 @@ export function pearsonCorrelation(x: number[], y: number[]): number {
  * @param y - Target array
  * @returns coefficients [b0, b1, b2, ...bn] and r2 score
  */
-export function multipleLinearRegression(
-  xs: number[][],
-  y: number[]
-): { coefficients: number[]; r2: number } {
+export function multipleLinearRegression(xs: number[][], y: number[]): { coefficients: number[]; r2: number } {
   const n = y.length;
   const p = xs.length;
 
@@ -49,12 +48,12 @@ export function multipleLinearRegression(
 
   // Track which features are active (not eliminated)
   let activeIndices = xs.map((_, i) => i);
-  let finalCoeffs = new Array(p + 1).fill(0);
+  const finalCoeffs = new Array(p + 1).fill(0);
 
   for (let iter = 0; iter < p + 1; iter++) {
     if (activeIndices.length === 0) break;
 
-    const activeXs = activeIndices.map(i => xs[i]);
+    const activeXs = activeIndices.map((i) => xs[i]);
     const result = olsFit(activeXs, y);
     if (!result) break;
 
@@ -74,8 +73,8 @@ export function multipleLinearRegression(
     }
 
     // Remove features with negative coefficients
-    const toRemove = new Set(negatives.map(i => activeIndices[i]));
-    activeIndices = activeIndices.filter(i => !toRemove.has(i));
+    const toRemove = new Set(negatives.map((i) => activeIndices[i]));
+    activeIndices = activeIndices.filter((i) => !toRemove.has(i));
 
     // If this was the last iteration or no active features left, use what we have
     if (activeIndices.length === 0) {
@@ -87,8 +86,8 @@ export function multipleLinearRegression(
   }
 
   // If we still have active features, do a final fit
-  if (activeIndices.length > 0 && finalCoeffs.every(c => c === 0)) {
-    const activeXs = activeIndices.map(i => xs[i]);
+  if (activeIndices.length > 0 && finalCoeffs.every((c) => c === 0)) {
+    const activeXs = activeIndices.map((i) => xs[i]);
     const result = olsFit(activeXs, y);
     if (result) {
       finalCoeffs[0] = result[0];
@@ -103,7 +102,8 @@ export function multipleLinearRegression(
   for (let i = 0; i < n; i++) yMean += y[i];
   yMean /= n;
 
-  let ssTot = 0, ssRes = 0;
+  let ssTot = 0,
+    ssRes = 0;
   for (let i = 0; i < n; i++) {
     let predicted = finalCoeffs[0];
     for (let j = 0; j < p; j++) {
@@ -128,7 +128,7 @@ function olsFit(xs: number[][], y: number[]): number[] | null {
   const Xty: number[] = new Array(cols).fill(0);
 
   for (let i = 0; i < n; i++) {
-    const row = [1, ...xs.map(x => x[i])];
+    const row = [1, ...xs.map((x) => x[i])];
     for (let j = 0; j < cols; j++) {
       for (let k = 0; k < cols; k++) {
         XtX[j][k] += row[j] * row[k];
@@ -171,10 +171,7 @@ function rankArray(arr: number[]): number[] {
  * b = "x increases 1% → y increases b%"
  * Skips zero values (log undefined).
  */
-export function elasticityAnalysis(
-  xs: number[][],
-  y: number[]
-): { elasticities: number[]; r2s: number[] } {
+export function elasticityAnalysis(xs: number[][], y: number[]): { elasticities: number[]; r2s: number[] } {
   const elasticities: number[] = [];
   const r2s: number[] = [];
 
@@ -191,8 +188,8 @@ export function elasticityAnalysis(
       continue;
     }
 
-    const logX = validIndices.map(i => Math.log(x[i]));
-    const logY = validIndices.map(i => Math.log(y[i]));
+    const logX = validIndices.map((i) => Math.log(x[i]));
+    const logY = validIndices.map((i) => Math.log(y[i]));
 
     // Simple OLS on log-log
     const result = olsFit([logX], logY);
@@ -208,7 +205,8 @@ export function elasticityAnalysis(
     let mean = 0;
     for (const v of logY) mean += v;
     mean /= logY.length;
-    let ssTot = 0, ssRes = 0;
+    let ssTot = 0,
+      ssRes = 0;
     for (let i = 0; i < logY.length; i++) {
       const predicted = result[0] + result[1] * logX[i];
       ssRes += (logY[i] - predicted) ** 2;
@@ -224,10 +222,7 @@ export function elasticityAnalysis(
  * Contribution percentage from NNLS coefficients.
  * Multiplies each coefficient by the mean of its feature, then normalizes to 100%.
  */
-export function contributionPercentages(
-  coefficients: number[],
-  xs: number[][]
-): number[] {
+export function contributionPercentages(coefficients: number[], xs: number[][]): number[] {
   // coefficients[0] is intercept, coefficients[1..] are feature weights
   const contributions = xs.map((x, i) => {
     const mean = x.reduce((a, b) => a + b, 0) / x.length;
@@ -236,7 +231,7 @@ export function contributionPercentages(
 
   const total = contributions.reduce((a, b) => a + b, 0);
   if (total === 0) return contributions.map(() => 0);
-  return contributions.map(c => (c / total) * 100);
+  return contributions.map((c) => (c / total) * 100);
 }
 
 /**
@@ -247,7 +242,7 @@ export function contributionPercentages(
 export function laggedCorrelation(
   metric: number[],
   income: number[],
-  maxLag: number = 3
+  maxLag: number = 3,
 ): { lag: number; r: number }[] {
   const results: { lag: number; r: number }[] = [];
   for (let lag = 0; lag <= maxLag; lag++) {
@@ -287,7 +282,7 @@ export function holtForecast(
   values: number[],
   alpha = 0.3,
   beta = 0.1,
-  horizon = 7
+  horizon = 7,
 ): { smoothed: number[]; forecast: number[] } {
   if (values.length < 2) return { smoothed: [...values], forecast: [] };
   let level = values[0];
@@ -311,7 +306,7 @@ export function holtForecast(
 
 export function weeklySeasonality(
   dates: string[],
-  values: number[]
+  values: number[],
 ): { dayOfWeek: number; avg: number; count: number }[] {
   const buckets = Array.from({ length: 7 }, (_, i) => ({ dayOfWeek: i, sum: 0, count: 0 }));
   for (let i = 0; i < dates.length; i++) {
@@ -319,7 +314,7 @@ export function weeklySeasonality(
     buckets[dow].sum += values[i];
     buckets[dow].count++;
   }
-  return buckets.map(b => ({
+  return buckets.map((b) => ({
     dayOfWeek: b.dayOfWeek,
     avg: b.count > 0 ? b.sum / b.count : 0,
     count: b.count,
@@ -329,7 +324,7 @@ export function weeklySeasonality(
 // ── Exponential Decay Fit: income(t) = A * e^(-λt) ──
 
 export function exponentialDecayFit(
-  values: number[]
+  values: number[],
 ): { A: number; lambda: number; halfLife: number; ltv: number; r2: number } | null {
   // Filter positive values, use index as t
   const valid: { t: number; v: number }[] = [];
@@ -338,8 +333,8 @@ export function exponentialDecayFit(
   }
   if (valid.length < 3) return null;
 
-  const logY = valid.map(p => Math.log(p.v));
-  const ts = valid.map(p => p.t);
+  const logY = valid.map((p) => Math.log(p.v));
+  const ts = valid.map((p) => p.t);
   const result = olsFit([ts], logY);
   if (!result) return null;
 
@@ -354,7 +349,8 @@ export function exponentialDecayFit(
   let mean = 0;
   for (const v of logY) mean += v;
   mean /= logY.length;
-  let ssTot = 0, ssRes = 0;
+  let ssTot = 0,
+    ssRes = 0;
   for (let i = 0; i < logY.length; i++) {
     const pred = result[0] + result[1] * ts[i];
     ssRes += (logY[i] - pred) ** 2;
@@ -367,9 +363,7 @@ export function exponentialDecayFit(
 
 // ── Power Law Decay Fit: income(t) = A * t^(-α) ──
 
-export function powerLawDecayFit(
-  values: number[]
-): { A: number; alpha: number; r2: number } | null {
+export function powerLawDecayFit(values: number[]): { A: number; alpha: number; r2: number } | null {
   // Use t starting from 1 (avoid log(0))
   const valid: { t: number; v: number }[] = [];
   for (let i = 0; i < values.length; i++) {
@@ -377,8 +371,8 @@ export function powerLawDecayFit(
   }
   if (valid.length < 3) return null;
 
-  const logT = valid.map(p => Math.log(p.t));
-  const logY = valid.map(p => Math.log(p.v));
+  const logT = valid.map((p) => Math.log(p.t));
+  const logY = valid.map((p) => Math.log(p.v));
   const result = olsFit([logT], logY);
   if (!result) return null;
 
@@ -388,7 +382,8 @@ export function powerLawDecayFit(
   let mean = 0;
   for (const v of logY) mean += v;
   mean /= logY.length;
-  let ssTot = 0, ssRes = 0;
+  let ssTot = 0,
+    ssRes = 0;
   for (let i = 0; i < logY.length; i++) {
     const pred = result[0] + result[1] * logT[i];
     ssRes += (logY[i] - pred) ** 2;
@@ -403,22 +398,18 @@ export function powerLawDecayFit(
 
 export function earlyPerformanceMultiplier(
   contentIncomes: { firstNDays: number; total: number }[],
-  n: number
+  n: number,
 ): { multiplier: number; sampleSize: number } {
-  const valid = contentIncomes.filter(c => c.firstNDays > 0 && c.total > 0);
+  const valid = contentIncomes.filter((c) => c.firstNDays > 0 && c.total > 0);
   if (valid.length === 0) return { multiplier: 0, sampleSize: 0 };
-  const ratios = valid.map(c => c.total / c.firstNDays);
+  const ratios = valid.map((c) => c.total / c.firstNDays);
   const avg = ratios.reduce((a, b) => a + b, 0) / ratios.length;
   return { multiplier: avg, sampleSize: valid.length };
 }
 
 // ── Ridge Regression: minimize ||y - Xβ||² + λ||β||² ──
 
-export function ridgeRegression(
-  xs: number[][],
-  y: number[],
-  lambda = 1.0
-): { coefficients: number[]; r2: number } {
+export function ridgeRegression(xs: number[][], y: number[], lambda = 1.0): { coefficients: number[]; r2: number } {
   const n = y.length;
   const p = xs.length;
   const cols = p + 1;
@@ -429,7 +420,7 @@ export function ridgeRegression(
   const Xty: number[] = new Array(cols).fill(0);
 
   for (let i = 0; i < n; i++) {
-    const row = [1, ...xs.map(x => x[i])];
+    const row = [1, ...xs.map((x) => x[i])];
     for (let j = 0; j < cols; j++) {
       for (let k = 0; k < cols; k++) {
         XtX[j][k] += row[j] * row[k];
@@ -450,7 +441,8 @@ export function ridgeRegression(
   for (let i = 0; i < n; i++) yMean += y[i];
   yMean /= n;
 
-  let ssTot = 0, ssRes = 0;
+  let ssTot = 0,
+    ssRes = 0;
   for (let i = 0; i < n; i++) {
     let pred = coefficients[0];
     for (let j = 0; j < p; j++) pred += coefficients[j + 1] * xs[j][i];
@@ -466,7 +458,7 @@ export function ridgeRegression(
 export function interactionRegression(
   xs: number[][],
   y: number[],
-  labels: string[]
+  labels: string[],
 ): { terms: { name: string; coeff: number }[]; r2: number } {
   // Build features: original + pairwise interactions
   const allXs: number[][] = [...xs];
@@ -479,22 +471,19 @@ export function interactionRegression(
   }
 
   const result = ridgeRegression(allXs, y, 0.5);
-  const terms = termNames.map((name, i) => ({
-    name,
-    coeff: result.coefficients[i + 1],
-  })).sort((a, b) => Math.abs(b.coeff) - Math.abs(a.coeff));
+  const terms = termNames
+    .map((name, i) => ({
+      name,
+      coeff: result.coefficients[i + 1],
+    }))
+    .sort((a, b) => Math.abs(b.coeff) - Math.abs(a.coeff));
 
   return { terms, r2: result.r2 };
 }
 
 // ── Quantile Regression (iteratively reweighted least squares) ──
 
-export function quantileRegression(
-  xs: number[][],
-  y: number[],
-  tau: number,
-  maxIter = 20
-): number[] {
+export function quantileRegression(xs: number[][], y: number[], tau: number, maxIter = 20): number[] {
   const n = y.length;
   const p = xs.length;
   if (n < 2) return new Array(p + 1).fill(0);
@@ -509,7 +498,7 @@ export function quantileRegression(
       let pred = beta[0];
       for (let j = 0; j < p; j++) pred += beta[j + 1] * xs[j][i];
       const resid = y[i] - pred;
-      const w = resid >= 0 ? tau : (1 - tau);
+      const w = resid >= 0 ? tau : 1 - tau;
       weights.push(w / (Math.abs(resid) + 1e-6));
     }
 
@@ -519,7 +508,7 @@ export function quantileRegression(
     const XtWy: number[] = new Array(cols).fill(0);
 
     for (let i = 0; i < n; i++) {
-      const row = [1, ...xs.map(x => x[i])];
+      const row = [1, ...xs.map((x) => x[i])];
       for (let j = 0; j < cols; j++) {
         for (let k = 0; k < cols; k++) {
           XtWX[j][k] += weights[i] * row[j] * row[k];
@@ -539,9 +528,9 @@ export function quantileRegression(
 export function quantileRegressionPredict(
   xs: number[][],
   y: number[],
-  taus: number[]
+  taus: number[],
 ): { tau: number; coefficients: number[] }[] {
-  return taus.map(tau => ({
+  return taus.map((tau) => ({
     tau,
     coefficients: quantileRegression(xs, y, tau),
   }));
@@ -556,11 +545,7 @@ export interface AnomalyPoint {
   date?: string;
 }
 
-export function detectAnomalies(
-  values: number[],
-  threshold = 2.0,
-  dates?: string[]
-): AnomalyPoint[] {
+export function detectAnomalies(values: number[], threshold = 2.0, dates?: string[]): AnomalyPoint[] {
   if (values.length < 3) return [];
   const mean = values.reduce((a, b) => a + b, 0) / values.length;
   let variance = 0;
@@ -583,7 +568,7 @@ export function detectAnomalies(
 export function residualAnalysis(
   xs: number[][],
   y: number[],
-  coefficients: number[]
+  coefficients: number[],
 ): { predicted: number[]; residuals: number[]; mape: number } {
   const predicted: number[] = [];
   const residuals: number[] = [];
@@ -609,15 +594,13 @@ export function residualAnalysis(
 
 // ── Efficiency Frontier (upper envelope on scatter) ──
 
-export function efficiencyFrontier(
-  reads: number[],
-  incomes: number[]
-): { x: number; y: number }[] {
+export function efficiencyFrontier(reads: number[], incomes: number[]): { x: number; y: number }[] {
   if (reads.length === 0) return [];
 
   // Sort by reads, build upper envelope
-  const points = reads.map((r, i) => ({ x: r, y: incomes[i] }))
-    .filter(p => p.x > 0)
+  const points = reads
+    .map((r, i) => ({ x: r, y: incomes[i] }))
+    .filter((p) => p.x > 0)
     .sort((a, b) => a.x - b.x);
 
   if (points.length === 0) return [];
@@ -637,14 +620,12 @@ export function efficiencyFrontier(
 
 // ── Standardized Percentile Rank ──
 
-export function percentileRanks(
-  values: number[]
-): number[] {
+export function percentileRanks(values: number[]): number[] {
   const n = values.length;
   if (n === 0) return [];
   const sorted = [...values].sort((a, b) => a - b);
-  return values.map(v => {
-    const rank = sorted.filter(s => s <= v).length;
+  return values.map((v) => {
+    const rank = sorted.filter((s) => s <= v).length;
     return (rank / n) * 100;
   });
 }

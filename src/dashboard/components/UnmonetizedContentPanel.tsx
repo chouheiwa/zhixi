@@ -19,7 +19,10 @@ export function UnmonetizedContentPanel({ monetizedContentTokens }: Props) {
     try {
       const resp = await new Promise<{ ok: boolean; items?: CreationItem[]; error?: string }>((resolve, reject) => {
         chrome.runtime.sendMessage({ action: 'fetchAllCreations' }, (r) => {
-          if (chrome.runtime.lastError) { reject(new Error(chrome.runtime.lastError.message)); return; }
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
           resolve(r);
         });
       });
@@ -31,7 +34,7 @@ export function UnmonetizedContentPanel({ monetizedContentTokens }: Props) {
 
       // Filter: only show content NOT in monetizedContentTokens
       // Creations API uses url_token as contentToken, income API also stores url_token as contentToken
-      const unmonetized = resp.items.filter(item => !monetizedContentTokens.has(item.contentToken));
+      const unmonetized = resp.items.filter((item) => !monetizedContentTokens.has(item.contentToken));
       setItems(unmonetized);
     } catch (err) {
       setError(err instanceof Error ? err.message : '获取失败');
@@ -42,15 +45,14 @@ export function UnmonetizedContentPanel({ monetizedContentTokens }: Props) {
 
   return (
     <Card
-      title={<><FileSearchOutlined /> 未产生收益的内容</>}
+      title={
+        <>
+          <FileSearchOutlined /> 未产生收益的内容
+        </>
+      }
       size="small"
       extra={
-        <Button
-          size="small"
-          icon={<ReloadOutlined />}
-          onClick={handleFetch}
-          loading={loading}
-        >
+        <Button size="small" icon={<ReloadOutlined />} onClick={handleFetch} loading={loading}>
           {items !== null ? '刷新' : '获取列表'}
         </Button>
       }
@@ -75,7 +77,10 @@ export function UnmonetizedContentPanel({ monetizedContentTokens }: Props) {
             pagination={items.length > 10 ? { pageSize: 10, size: 'small' } : false}
             columns={[
               {
-                title: '内容', dataIndex: 'title', key: 'title', ellipsis: true,
+                title: '内容',
+                dataIndex: 'title',
+                key: 'title',
+                ellipsis: true,
                 render: (title: string, row) => (
                   <span>
                     <Tag color={row.contentType === 'article' ? 'blue' : 'gold'} style={{ marginRight: 4 }}>
@@ -86,8 +91,23 @@ export function UnmonetizedContentPanel({ monetizedContentTokens }: Props) {
                 ),
               },
               { title: '发布日期', dataIndex: 'publishDate', key: 'publishDate', width: 100 },
-              { title: '阅读', dataIndex: 'readCount', key: 'readCount', width: 70, align: 'right' as const, sorter: (a, b) => a.readCount - b.readCount, render: (v: number) => v.toLocaleString() },
-              { title: '点赞', dataIndex: 'upvoteCount', key: 'upvoteCount', width: 60, align: 'right' as const, sorter: (a, b) => a.upvoteCount - b.upvoteCount },
+              {
+                title: '阅读',
+                dataIndex: 'readCount',
+                key: 'readCount',
+                width: 70,
+                align: 'right' as const,
+                sorter: (a, b) => a.readCount - b.readCount,
+                render: (v: number) => v.toLocaleString(),
+              },
+              {
+                title: '点赞',
+                dataIndex: 'upvoteCount',
+                key: 'upvoteCount',
+                width: 60,
+                align: 'right' as const,
+                sorter: (a, b) => a.upvoteCount - b.upvoteCount,
+              },
               { title: '评论', dataIndex: 'commentCount', key: 'commentCount', width: 60, align: 'right' as const },
               { title: '收藏', dataIndex: 'collectCount', key: 'collectCount', width: 60, align: 'right' as const },
             ]}

@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, Row, Col, Statistic, Button, Tag, Flex, Alert, Steps, Progress, Space, Tabs } from 'antd';
-import { ReloadOutlined, ExperimentOutlined, LoadingOutlined, CheckCircleOutlined, ClockCircleOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import {
+  ReloadOutlined,
+  ExperimentOutlined,
+  LoadingOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  ThunderboltOutlined,
+} from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { timeSeriesZoom, withZoomGrid } from './chartConfig';
 import { useCurrentUser } from '@/hooks/use-current-user';
@@ -42,10 +49,7 @@ export function TodayPredictionPanel() {
   // Load data
   const loadData = useCallback(async () => {
     if (!user) return;
-    const [aggr, sums] = await Promise.all([
-      getAllRealtimeAggr(user.id),
-      getAllDailySummaries(user.id),
-    ]);
+    const [aggr, sums] = await Promise.all([getAllRealtimeAggr(user.id), getAllDailySummaries(user.id)]);
     setAggrRecords(aggr);
     setSummaries(sums);
 
@@ -62,11 +66,15 @@ export function TodayPredictionPanel() {
           ridgeWeight: saved.ensembleWeights[1],
           evaluation: saved.evaluationResult,
         });
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   }, [user]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // Sync historical realtime data
   const handleSyncHistory = useCallback(async () => {
@@ -75,7 +83,10 @@ export function TodayPredictionPanel() {
     try {
       const resp = await new Promise<{ ok: boolean; count?: number; error?: string }>((resolve, reject) => {
         chrome.runtime.sendMessage({ action: 'syncRealtimeAggr' }, (r) => {
-          if (chrome.runtime.lastError) { reject(new Error(chrome.runtime.lastError.message)); return; }
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
           resolve(r);
         });
       });
@@ -135,7 +146,10 @@ export function TodayPredictionPanel() {
     try {
       const resp = await new Promise<{ ok: boolean; today?: any; error?: string }>((resolve, reject) => {
         chrome.runtime.sendMessage({ action: 'fetchTodayRealtime' }, (r) => {
-          if (chrome.runtime.lastError) { reject(new Error(chrome.runtime.lastError.message)); return; }
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
           resolve(r);
         });
       });
@@ -172,7 +186,7 @@ export function TodayPredictionPanel() {
       setTodayUpdatedAt(resp.today.updatedAt ?? '');
 
       // Get yesterday's income for feature
-      const incomeMap = new Map(summaries.map(s => [s.date, s.totalIncome / 100]));
+      const incomeMap = new Map(summaries.map((s) => [s.date, s.totalIncome / 100]));
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       const yStr = yesterday.toISOString().slice(0, 10);
@@ -194,7 +208,14 @@ export function TodayPredictionPanel() {
   // ── No data synced yet ──
   if (aggrRecords.length === 0) {
     return (
-      <Card title={<><ThunderboltOutlined /> 今日收益预测</>} size="small">
+      <Card
+        title={
+          <>
+            <ThunderboltOutlined /> 今日收益预测
+          </>
+        }
+        size="small"
+      >
         <Flex vertical align="center" gap={12} style={{ padding: 20 }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>需要先同步历史汇总数据</div>
@@ -215,23 +236,31 @@ export function TodayPredictionPanel() {
   if (training) {
     const percent = trainingStep ? Math.round((trainingStep.step / trainingStep.total) * 100) : 0;
     return (
-      <Card title={<><ThunderboltOutlined /> 正在训练预测模型...</>} size="small">
+      <Card
+        title={
+          <>
+            <ThunderboltOutlined /> 正在训练预测模型...
+          </>
+        }
+        size="small"
+      >
         <Progress percent={percent} status="active" strokeColor={themeColors.warmBlue} style={{ marginBottom: 16 }} />
         <Steps
           current={trainingStep ? trainingStep.step - 1 : 0}
           size="small"
-          items={[
-            { title: '准备数据' },
-            { title: '随机森林' },
-            { title: '岭回归' },
-            { title: '集成计算' },
-          ].map((item, i) => ({
-            ...item,
-            status: trainingStep
-              ? i < trainingStep.step - 1 ? 'finish' : i === trainingStep.step - 1 ? 'process' : 'wait'
-              : 'wait',
-            icon: trainingStep && i === trainingStep.step - 1 ? <LoadingOutlined /> : undefined,
-          }))}
+          items={[{ title: '准备数据' }, { title: '随机森林' }, { title: '岭回归' }, { title: '集成计算' }].map(
+            (item, i) => ({
+              ...item,
+              status: trainingStep
+                ? i < trainingStep.step - 1
+                  ? 'finish'
+                  : i === trainingStep.step - 1
+                    ? 'process'
+                    : 'wait'
+                : 'wait',
+              icon: trainingStep && i === trainingStep.step - 1 ? <LoadingOutlined /> : undefined,
+            }),
+          )}
         />
       </Card>
     );
@@ -240,7 +269,14 @@ export function TodayPredictionPanel() {
   // ── Model not trained yet ──
   if (!modelResult) {
     return (
-      <Card title={<><ThunderboltOutlined /> 今日收益预测</>} size="small">
+      <Card
+        title={
+          <>
+            <ThunderboltOutlined /> 今日收益预测
+          </>
+        }
+        size="small"
+      >
         <Flex vertical align="center" gap={12} style={{ padding: 20 }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>训练预测模型</div>
@@ -249,7 +285,8 @@ export function TodayPredictionPanel() {
             </div>
             {!hasEnoughData && (
               <Alert
-                type="warning" showIcon
+                type="warning"
+                showIcon
                 message={`需要至少 10 天数据（当前 ${trainingRows.length} 天），请确保已同步收益数据`}
                 style={{ marginBottom: 12, textAlign: 'left' }}
               />
@@ -270,14 +307,18 @@ export function TodayPredictionPanel() {
   }
 
   // ── Model trained, show results + prediction ──
-  const accuracy = modelResult.r2 >= 0.9 ? { text: '非常准', color: themeColors.sage }
-    : modelResult.r2 >= 0.7 ? { text: '比较准', color: themeColors.warmBlue }
-    : modelResult.r2 >= 0.5 ? { text: '一般', color: themeColors.amber }
-    : { text: '不太准', color: themeColors.warmRed };
+  const accuracy =
+    modelResult.r2 >= 0.9
+      ? { text: '非常准', color: themeColors.sage }
+      : modelResult.r2 >= 0.7
+        ? { text: '比较准', color: themeColors.warmBlue }
+        : modelResult.r2 >= 0.5
+          ? { text: '一般', color: themeColors.amber }
+          : { text: '不太准', color: themeColors.warmRed };
 
   const importanceData = (modelResult.featureImportance ?? []).slice(0, 8);
 
-  const chartDates = (modelResult.testDates ?? []).map(d => d.slice(5));
+  const chartDates = (modelResult.testDates ?? []).map((d) => d.slice(5));
   const verifyChartOption = {
     tooltip: {
       trigger: 'axis' as const,
@@ -312,35 +353,58 @@ export function TodayPredictionPanel() {
     ...timeSeriesZoom,
   };
 
-  const importanceOption = importanceData.length > 0 ? {
-    tooltip: { formatter: (p: any) => `${p.name}: 影响力 ${p.value.toFixed(1)}%` },
-    grid: { left: 90, right: 40, top: 10, bottom: 10 },
-    xAxis: { type: 'value' as const, show: false },
-    yAxis: {
-      type: 'category' as const,
-      data: importanceData.map(i => REALTIME_FEATURE_LABELS[i.name] ?? i.name).reverse(),
-      axisLabel: { fontSize: 11 },
-    },
-    series: [{
-      type: 'bar',
-      data: importanceData.map(i => i.importance).reverse(),
-      barMaxWidth: 14,
-      itemStyle: {
-        borderRadius: [0, 4, 4, 0],
-        color: (params: any) => {
-          const colors = [themeColors.warmBlue, themeColors.sage, themeColors.warmRed, themeColors.amberLight, '#8b7bb5', '#5a9e8f', themeColors.amberLight, themeColors.muted];
-          return colors[params.dataIndex % colors.length];
-        },
-      },
-      label: { show: true, position: 'right' as const, fontSize: 10, formatter: (p: any) => `${p.value.toFixed(1)}%` },
-    }],
-  } : null;
+  const importanceOption =
+    importanceData.length > 0
+      ? {
+          tooltip: { formatter: (p: any) => `${p.name}: 影响力 ${p.value.toFixed(1)}%` },
+          grid: { left: 90, right: 40, top: 10, bottom: 10 },
+          xAxis: { type: 'value' as const, show: false },
+          yAxis: {
+            type: 'category' as const,
+            data: importanceData.map((i) => REALTIME_FEATURE_LABELS[i.name] ?? i.name).reverse(),
+            axisLabel: { fontSize: 11 },
+          },
+          series: [
+            {
+              type: 'bar',
+              data: importanceData.map((i) => i.importance).reverse(),
+              barMaxWidth: 14,
+              itemStyle: {
+                borderRadius: [0, 4, 4, 0],
+                color: (params: any) => {
+                  const colors = [
+                    themeColors.warmBlue,
+                    themeColors.sage,
+                    themeColors.warmRed,
+                    themeColors.amberLight,
+                    '#8b7bb5',
+                    '#5a9e8f',
+                    themeColors.amberLight,
+                    themeColors.muted,
+                  ];
+                  return colors[params.dataIndex % colors.length];
+                },
+              },
+              label: {
+                show: true,
+                position: 'right' as const,
+                fontSize: 10,
+                formatter: (p: any) => `${p.value.toFixed(1)}%`,
+              },
+            },
+          ],
+        }
+      : null;
 
   return (
     <Flex vertical gap={16}>
       {/* Today's prediction */}
       <Card
-        title={<><ThunderboltOutlined /> 今日收益预测</>}
+        title={
+          <>
+            <ThunderboltOutlined /> 今日收益预测
+          </>
+        }
         size="small"
         extra={
           <Space>
@@ -364,18 +428,19 @@ export function TodayPredictionPanel() {
         {prediction !== null && todayData ? (
           <Row gutter={16}>
             <Col span={8}>
-              <div style={{
-                textAlign: 'center', padding: '20px 0',
-                background: 'linear-gradient(135deg, #f0f7ff, #e8f5e9)',
-                borderRadius: 12,
-              }}>
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '20px 0',
+                  background: 'linear-gradient(135deg, #f0f7ff, #e8f5e9)',
+                  borderRadius: 12,
+                }}
+              >
                 <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>预测今日总收益</div>
                 <div style={{ fontSize: 32, fontWeight: 700, color: themeColors.warmBlue }}>
                   ¥{prediction.toFixed(2)}
                 </div>
-                <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>
-                  基于当前实时数据推算
-                </div>
+                <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>基于当前实时数据推算</div>
               </div>
             </Col>
             <Col span={16}>
@@ -390,7 +455,7 @@ export function TodayPredictionPanel() {
                   { label: '分享', value: todayData.share.toLocaleString(), color: '#8b7bb5' },
                   { label: '新增赞', value: `+${todayData.newIncrUpvoteNum}`, color: themeColors.sage },
                   { label: '取消赞', value: `-${todayData.newDescUpvoteNum}`, color: themeColors.warmRed },
-                ].map(item => (
+                ].map((item) => (
                   <Col span={6} key={item.label}>
                     <div style={{ background: '#fafafa', borderRadius: 6, padding: '6px 10px', textAlign: 'center' }}>
                       <div style={{ fontSize: 10, color: '#999' }}>{item.label}</div>
@@ -413,11 +478,19 @@ export function TodayPredictionPanel() {
       <Card size="small">
         <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
           <Flex align="center" gap={12}>
-            <div style={{
-              width: 52, height: 52, borderRadius: '50%', display: 'flex',
-              alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
-              background: `${accuracy.color}15`, border: `2px solid ${accuracy.color}`,
-            }}>
+            <div
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexDirection: 'column',
+                background: `${accuracy.color}15`,
+                border: `2px solid ${accuracy.color}`,
+              }}
+            >
               <div style={{ fontSize: 15, fontWeight: 700, color: accuracy.color, lineHeight: 1 }}>
                 {(modelResult.r2 * 100).toFixed(0)}%
               </div>
@@ -460,15 +533,29 @@ export function TodayPredictionPanel() {
       </Card>
 
       {/* Historical daily data */}
-      {aggrRecords.length > 0 && (
-        <HistoryDataSection aggrRecords={aggrRecords} summaries={summaries} />
-      )}
+      {aggrRecords.length > 0 && <HistoryDataSection aggrRecords={aggrRecords} summaries={summaries} />}
 
-      <FormulaBlock title="今日预测原理" items={[
-        { name: '数据来源', formula: '知乎创作者实时 API\n每次获取当天最新的阅读、点赞等汇总数据', desc: '数据是实时更新的，随着今天的阅读量增长，预测结果也会不断变化。建议下午/晚上预测会更准（数据更完整）。' },
-        { name: '训练数据', formula: '每天的汇总指标（阅读、点赞、评论...）→ 当天总收益\n历史 N 天数据 = N 条训练样本', desc: '模型学的是「一天的整体表现 → 当天能赚多少钱」的关系。和 ML 预测标签页的单篇预测不同，这里是全部内容的汇总预测。' },
-        { name: '特征工程', formula: '原始指标: 阅读、曝光、点赞、评论、收藏、分享...\n衍生指标: 点击率=阅读/曝光, 互动率, 赞同流失率\n时间特征: 星期几\n历史: 昨日收益', desc: '赞同流失率（取消赞同/新增赞同）是一个有趣的特征——如果很多人取消赞同，可能说明内容争议性大，这会影响推荐和收益。' },
-      ]} />
+      <FormulaBlock
+        title="今日预测原理"
+        items={[
+          {
+            name: '数据来源',
+            formula: '知乎创作者实时 API\n每次获取当天最新的阅读、点赞等汇总数据',
+            desc: '数据是实时更新的，随着今天的阅读量增长，预测结果也会不断变化。建议下午/晚上预测会更准（数据更完整）。',
+          },
+          {
+            name: '训练数据',
+            formula: '每天的汇总指标（阅读、点赞、评论...）→ 当天总收益\n历史 N 天数据 = N 条训练样本',
+            desc: '模型学的是「一天的整体表现 → 当天能赚多少钱」的关系。和 ML 预测标签页的单篇预测不同，这里是全部内容的汇总预测。',
+          },
+          {
+            name: '特征工程',
+            formula:
+              '原始指标: 阅读、曝光、点赞、评论、收藏、分享...\n衍生指标: 点击率=阅读/曝光, 互动率, 赞同流失率\n时间特征: 星期几\n历史: 昨日收益',
+            desc: '赞同流失率（取消赞同/新增赞同）是一个有趣的特征——如果很多人取消赞同，可能说明内容争议性大，这会影响推荐和收益。',
+          },
+        ]}
+      />
     </Flex>
   );
 }
@@ -514,25 +601,22 @@ const METRIC_GROUPS = [
   },
 ];
 
-function HistoryDataSection({ aggrRecords, summaries }: {
+function HistoryDataSection({
+  aggrRecords,
+  summaries,
+}: {
   aggrRecords: RealtimeAggrRecord[];
   summaries: DailySummary[];
 }) {
-  const sorted = useMemo(
-    () => [...aggrRecords].sort((a, b) => a.date.localeCompare(b.date)),
-    [aggrRecords],
-  );
-  const incomeMap = useMemo(
-    () => new Map(summaries.map(s => [s.date, s.totalIncome / 100])),
-    [summaries],
-  );
-  const dates = sorted.map(r => r.date.slice(5));
-  const incomeData = sorted.map(r => incomeMap.get(r.date) ?? null);
+  const sorted = useMemo(() => [...aggrRecords].sort((a, b) => a.date.localeCompare(b.date)), [aggrRecords]);
+  const incomeMap = useMemo(() => new Map(summaries.map((s) => [s.date, s.totalIncome / 100])), [summaries]);
+  const dates = sorted.map((r) => r.date.slice(5));
+  const incomeData = sorted.map((r) => incomeMap.get(r.date) ?? null);
 
   const buildChartOption = (metrics: { key: string; label: string; color: string }[]) => ({
     tooltip: { trigger: 'axis' as const },
     legend: {
-      data: [...metrics.map(m => m.label), '收益'],
+      data: [...metrics.map((m) => m.label), '收益'],
       textStyle: { fontSize: 11 },
       right: 0,
       top: 0,
@@ -546,13 +630,18 @@ function HistoryDataSection({ aggrRecords, summaries }: {
     },
     yAxis: [
       { type: 'value' as const, axisLabel: { fontSize: 10 }, splitNumber: 3, position: 'left' as const },
-      { type: 'value' as const, axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v}` }, splitNumber: 3, position: 'right' as const },
+      {
+        type: 'value' as const,
+        axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v}` },
+        splitNumber: 3,
+        position: 'right' as const,
+      },
     ],
     series: [
-      ...metrics.map(m => ({
+      ...metrics.map((m) => ({
         name: m.label,
         type: 'line' as const,
-        data: sorted.map(r => (r as any)[m.key] ?? 0),
+        data: sorted.map((r) => (r as any)[m.key] ?? 0),
         smooth: true,
         yAxisIndex: 0,
         itemStyle: { color: m.color },
@@ -589,13 +678,18 @@ function HistoryDataSection({ aggrRecords, summaries }: {
     xAxis: { type: 'category' as const, data: dates, axisLabel: { fontSize: 10 }, axisTick: { show: false } },
     yAxis: [
       { type: 'value' as const, axisLabel: { fontSize: 10 }, splitNumber: 3 },
-      { type: 'value' as const, axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v}` }, splitNumber: 3, position: 'right' as const },
+      {
+        type: 'value' as const,
+        axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v}` },
+        splitNumber: 3,
+        position: 'right' as const,
+      },
     ],
     series: [
       {
         name: '阅读量',
         type: 'bar' as const,
-        data: sorted.map(r => r.pv),
+        data: sorted.map((r) => r.pv),
         yAxisIndex: 0,
         itemStyle: { color: 'rgba(91, 122, 157, 0.3)', borderRadius: [3, 3, 0, 0] },
         barMaxWidth: 14,
@@ -613,7 +707,7 @@ function HistoryDataSection({ aggrRecords, summaries }: {
       {
         name: '互动率',
         type: 'line' as const,
-        data: sorted.map(r => r.pv > 0 ? (r.upvote + r.comment + r.collect + r.share) / r.pv : 0),
+        data: sorted.map((r) => (r.pv > 0 ? (r.upvote + r.comment + r.collect + r.share) / r.pv : 0)),
         yAxisIndex: 0,
         itemStyle: { color: themeColors.sage },
         lineStyle: { width: 1.5, type: 'dashed' as const },
@@ -632,12 +726,10 @@ function HistoryDataSection({ aggrRecords, summaries }: {
       </div>
       <Tabs
         size="small"
-        items={METRIC_GROUPS.map(group => ({
+        items={METRIC_GROUPS.map((group) => ({
           key: group.key,
           label: group.label,
-          children: (
-            <ReactECharts option={buildChartOption(group.metrics)} style={{ height: 220 }} />
-          ),
+          children: <ReactECharts option={buildChartOption(group.metrics)} style={{ height: 220 }} />,
         }))}
       />
     </Card>

@@ -5,20 +5,11 @@ export async function upsertContentDailyRecords(records: ContentDailyRecord[]): 
   await db.contentDaily.bulkPut(records);
 }
 
-export async function getContentDailyRecords(
-  userId: string,
-  contentToken: string
-): Promise<ContentDailyRecord[]> {
-  return db.contentDaily
-    .where('[userId+contentToken]')
-    .equals([userId, contentToken])
-    .sortBy('date');
+export async function getContentDailyRecords(userId: string, contentToken: string): Promise<ContentDailyRecord[]> {
+  return db.contentDaily.where('[userId+contentToken]').equals([userId, contentToken]).sortBy('date');
 }
 
-export async function getContentDailyLatestDate(
-  userId: string,
-  contentToken: string
-): Promise<string | null> {
+export async function getContentDailyLatestDate(userId: string, contentToken: string): Promise<string | null> {
   const records = await db.contentDaily
     .where('[userId+contentToken]')
     .equals([userId, contentToken])

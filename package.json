@@ -6,7 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "vitest"
+    "test": "vitest",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write 'src/**/*.{ts,tsx}'",
+    "format:check": "prettier --check 'src/**/*.{ts,tsx}'",
+    "prepare": "husky"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.1",
@@ -25,17 +30,34 @@
     "react-dom": "^18.3.1",
     "xlsx": "^0.18.5"
   },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,css,html}": [
+      "prettier --write"
+    ]
+  },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.0.0-beta.28",
+    "@eslint/js": "^9.39.4",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "fake-indexeddb": "^6.2.5",
     "happy-dom": "^16.6.0",
+    "husky": "^9.1.7",
     "jsdom": "^25.0.1",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.1",
     "typescript": "^5.7.2",
+    "typescript-eslint": "^8.58.0",
     "vite": "^5.4.11",
     "vitest": "^2.1.8"
   }

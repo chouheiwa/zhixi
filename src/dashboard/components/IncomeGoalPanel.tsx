@@ -26,7 +26,9 @@ export function IncomeGoalPanel({ userId, monthIncome, monthDaysElapsed, monthDa
     setLoading(false);
   }, [userId, period]);
 
-  useEffect(() => { loadGoal(); }, [loadGoal]);
+  useEffect(() => {
+    loadGoal();
+  }, [loadGoal]);
 
   const handleSave = async () => {
     if (!inputValue || inputValue <= 0) return;
@@ -61,7 +63,10 @@ export function IncomeGoalPanel({ userId, monthIncome, monthDaysElapsed, monthDa
           title="设定本月收益目标"
           open={modalOpen}
           onOk={handleSave}
-          onCancel={() => { setModalOpen(false); setInputValue(null); }}
+          onCancel={() => {
+            setModalOpen(false);
+            setInputValue(null);
+          }}
           okText="保存"
           cancelText="取消"
         >
@@ -91,26 +96,37 @@ export function IncomeGoalPanel({ userId, monthIncome, monthDaysElapsed, monthDa
   return (
     <Card
       size="small"
-      title={<><TrophyOutlined style={{ color: '#faad14' }} /> 本月目标</>}
+      title={
+        <>
+          <TrophyOutlined style={{ color: '#faad14' }} /> 本月目标
+        </>
+      }
       extra={
         <Flex gap={4}>
           <Button
-            type="text" size="small" icon={<EditOutlined />}
-            onClick={() => { setInputValue(target); setModalOpen(true); }}
+            type="text"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => {
+              setInputValue(target);
+              setModalOpen(true);
+            }}
           />
           <Button type="text" size="small" icon={<DeleteOutlined />} onClick={handleDelete} />
         </Flex>
       }
     >
-      <Progress
-        percent={Math.round(percent)}
-        strokeColor={progressColor}
-        format={() => `${percent.toFixed(1)}%`}
-      />
+      <Progress percent={Math.round(percent)} strokeColor={progressColor} format={() => `${percent.toFixed(1)}%`} />
       <Flex justify="space-between" style={{ marginTop: 8 }}>
         <Statistic title="已达成" value={monthIncome} precision={2} prefix="¥" valueStyle={{ fontSize: 16 }} />
         <Statistic title="目标" value={target} precision={0} prefix="¥" valueStyle={{ fontSize: 16, color: '#999' }} />
-        <Statistic title="月底预计" value={projected} precision={2} prefix="¥" valueStyle={{ fontSize: 16, color: projected >= target ? '#52c41a' : '#fa8c16' }} />
+        <Statistic
+          title="月底预计"
+          value={projected}
+          precision={2}
+          prefix="¥"
+          valueStyle={{ fontSize: 16, color: projected >= target ? '#52c41a' : '#fa8c16' }}
+        />
       </Flex>
       <div style={{ fontSize: 11, color: '#999', marginTop: 4, textAlign: 'center' }}>
         按当前日均 ¥{dailyAvg.toFixed(2)}，还剩 {daysRemaining} 天
@@ -120,7 +136,10 @@ export function IncomeGoalPanel({ userId, monthIncome, monthDaysElapsed, monthDa
         title="修改本月收益目标"
         open={modalOpen}
         onOk={handleSave}
-        onCancel={() => { setModalOpen(false); setInputValue(null); }}
+        onCancel={() => {
+          setModalOpen(false);
+          setInputValue(null);
+        }}
         okText="保存"
         cancelText="取消"
       >

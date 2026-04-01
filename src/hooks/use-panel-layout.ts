@@ -26,18 +26,23 @@ export function usePanelLayout(userId: string) {
     setLoading(false);
   }, [userId]);
 
-  useEffect(() => { loadLayout(); }, [loadLayout]);
+  useEffect(() => {
+    loadLayout();
+  }, [loadLayout]);
 
-  const updateLayout = useCallback((tabs: TabConfig[]) => {
-    if (!userId) return;
-    const newLayout: PanelLayout = { userId, tabs };
-    setLayout(newLayout);
+  const updateLayout = useCallback(
+    (tabs: TabConfig[]) => {
+      if (!userId) return;
+      const newLayout: PanelLayout = { userId, tabs };
+      setLayout(newLayout);
 
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      db.panelLayout.put(newLayout);
-    }, 500);
-  }, [userId]);
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        db.panelLayout.put(newLayout);
+      }, 500);
+    },
+    [userId],
+  );
 
   const resetLayout = useCallback(async () => {
     if (!userId) return;
@@ -50,19 +55,19 @@ export function usePanelLayout(userId: string) {
 }
 
 function mergeWithDefaults(saved: TabConfig[], defaults: TabConfig[]): TabConfig[] {
-  const defaultTabMap = new Map(defaults.map(t => [t.key, t]));
-  const savedTabKeys = new Set(saved.map(t => t.key));
+  const defaultTabMap = new Map(defaults.map((t) => [t.key, t]));
+  const savedTabKeys = new Set(saved.map((t) => t.key));
 
   const merged = saved
-    .filter(t => defaultTabMap.has(t.key))
-    .map(savedTab => {
+    .filter((t) => defaultTabMap.has(t.key))
+    .map((savedTab) => {
       const defaultTab = defaultTabMap.get(savedTab.key)!;
-      const defaultPanelMap = new Map(defaultTab.panels.map(p => [p.key, p]));
-      const savedPanelKeys = new Set(savedTab.panels.map(p => p.key));
+      const defaultPanelMap = new Map(defaultTab.panels.map((p) => [p.key, p]));
+      const savedPanelKeys = new Set(savedTab.panels.map((p) => p.key));
 
       const mergedPanels = [
-        ...savedTab.panels.filter(p => defaultPanelMap.has(p.key)),
-        ...defaultTab.panels.filter(p => !savedPanelKeys.has(p.key)),
+        ...savedTab.panels.filter((p) => defaultPanelMap.has(p.key)),
+        ...defaultTab.panels.filter((p) => !savedPanelKeys.has(p.key)),
       ];
 
       return { ...savedTab, panels: mergedPanels };

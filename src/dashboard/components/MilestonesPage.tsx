@@ -59,7 +59,7 @@ export function MilestonesPage({ allSummaries, allRecords }: Props) {
       return undefined;
     };
 
-    const maxDailyDate = sortedSummaries.find(s => s.totalIncome / 100 === maxDailyIncome)?.date;
+    const maxDailyDate = sortedSummaries.find((s) => s.totalIncome / 100 === maxDailyIncome)?.date;
 
     const result: Milestone[] = [];
 
@@ -68,7 +68,8 @@ export function MilestonesPage({ allSummaries, allRecords }: Props) {
       result.push({
         category: '累计收益',
         name: `累计收益达到 ¥${target}`,
-        target, unit: '元',
+        target,
+        unit: '元',
         achieved: totalIncome >= target,
         achievedDate: date,
         current: totalIncome,
@@ -79,7 +80,8 @@ export function MilestonesPage({ allSummaries, allRecords }: Props) {
       result.push({
         category: '单日最高',
         name: `单日收益突破 ¥${target}`,
-        target, unit: '元',
+        target,
+        unit: '元',
         achieved: maxDailyIncome >= target,
         achievedDate: maxDailyIncome >= target ? maxDailyDate : undefined,
         current: maxDailyIncome,
@@ -90,7 +92,8 @@ export function MilestonesPage({ allSummaries, allRecords }: Props) {
       result.push({
         category: '内容数量',
         name: `产出内容达到 ${target} 篇`,
-        target, unit: '篇',
+        target,
+        unit: '篇',
         achieved: contentCount >= target,
         current: contentCount,
       });
@@ -100,7 +103,8 @@ export function MilestonesPage({ allSummaries, allRecords }: Props) {
       result.push({
         category: '连续收益',
         name: `连续 ${target} 天有收益`,
-        target, unit: '天',
+        target,
+        unit: '天',
         achieved: maxStreak >= target,
         current: maxStreak,
       });
@@ -113,15 +117,24 @@ export function MilestonesPage({ allSummaries, allRecords }: Props) {
 
   return (
     <Flex vertical gap={16}>
-      {categories.map(category => {
-        const items = milestones.filter(m => m.category === category);
-        const achieved = items.filter(m => m.achieved).length;
+      {categories.map((category) => {
+        const items = milestones.filter((m) => m.category === category);
+        const achieved = items.filter((m) => m.achieved).length;
         return (
           <Card
             key={category}
-            title={<><TrophyOutlined style={{ color: '#faad14', marginRight: 8 }} />{category}</>}
+            title={
+              <>
+                <TrophyOutlined style={{ color: '#faad14', marginRight: 8 }} />
+                {category}
+              </>
+            }
             size="small"
-            extra={<Tag color={achieved === items.length ? 'green' : 'default'}>{achieved}/{items.length}</Tag>}
+            extra={
+              <Tag color={achieved === items.length ? 'green' : 'default'}>
+                {achieved}/{items.length}
+              </Tag>
+            }
           >
             <List
               size="small"
@@ -135,15 +148,12 @@ export function MilestonesPage({ allSummaries, allRecords }: Props) {
                       ) : (
                         <LockOutlined style={{ color: '#d9d9d9' }} />
                       )}
-                      <span style={{ color: item.achieved ? undefined : '#999' }}>
-                        {item.name}
-                      </span>
+                      <span style={{ color: item.achieved ? undefined : '#999' }}>{item.name}</span>
                     </Flex>
                     <span style={{ fontSize: 12, color: '#999' }}>
                       {item.achieved
-                        ? item.achievedDate ?? '已达成'
-                        : `还差 ${(item.target - item.current).toFixed(item.unit === '元' ? 2 : 0)} ${item.unit}`
-                      }
+                        ? (item.achievedDate ?? '已达成')
+                        : `还差 ${(item.target - item.current).toFixed(item.unit === '元' ? 2 : 0)} ${item.unit}`}
                     </span>
                   </Flex>
                 </List.Item>

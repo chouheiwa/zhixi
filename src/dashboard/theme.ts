@@ -47,7 +47,8 @@ export const zhixiTheme: ThemeConfig = {
     borderRadiusSM: 4,
 
     // Typography
-    fontFamily: '"Source Han Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
+    fontFamily:
+      '"Source Han Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
     fontSize: 13,
     fontSizeLG: 15,
     fontSizeSM: 12,

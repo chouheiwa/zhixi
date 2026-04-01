@@ -39,7 +39,10 @@ export function ContentComparePage({ initialItems, allContentOptions, onBack }: 
 
       for (const item of selected) {
         const daily = await getContentDailyRecords(user.id, item.contentToken);
-        newDailyMap.set(item.contentId, daily.sort((a, b) => a.date.localeCompare(b.date)));
+        newDailyMap.set(
+          item.contentId,
+          daily.sort((a, b) => a.date.localeCompare(b.date)),
+        );
 
         const income = await db.incomeRecords
           .where('[userId+contentId+recordDate]')
@@ -56,14 +59,14 @@ export function ContentComparePage({ initialItems, allContentOptions, onBack }: 
 
   const handleAdd = (contentId: string) => {
     if (selected.length >= 3) return;
-    const item = allContentOptions.find(o => o.contentId === contentId);
-    if (item && !selected.find(s => s.contentId === contentId)) {
+    const item = allContentOptions.find((o) => o.contentId === contentId);
+    if (item && !selected.find((s) => s.contentId === contentId)) {
       setSelected([...selected, item]);
     }
   };
 
   const handleRemove = (contentId: string) => {
-    setSelected(selected.filter(s => s.contentId !== contentId));
+    setSelected(selected.filter((s) => s.contentId !== contentId));
   };
 
   const allDates = useMemo(() => {
@@ -79,14 +82,14 @@ export function ContentComparePage({ initialItems, allContentOptions, onBack }: 
 
   const makeLineChart = (title: string, getData: (contentId: string, date: string) => number) => ({
     tooltip: { trigger: 'axis' as const },
-    legend: { data: selected.map(s => s.title.slice(0, 15)), textStyle: { fontSize: 10 }, right: 0 },
+    legend: { data: selected.map((s) => s.title.slice(0, 15)), textStyle: { fontSize: 10 }, right: 0 },
     grid: withZoomGrid({ left: 50, right: 20, top: 30, bottom: 25 }),
-    xAxis: { type: 'category' as const, data: allDates.map(d => d.slice(5)), axisLabel: { fontSize: 9 } },
+    xAxis: { type: 'category' as const, data: allDates.map((d) => d.slice(5)), axisLabel: { fontSize: 9 } },
     yAxis: { type: 'value' as const, axisLabel: { fontSize: 10 }, splitNumber: 3 },
     series: selected.map((item, idx) => ({
       name: item.title.slice(0, 15),
       type: 'line',
-      data: allDates.map(d => getData(item.contentId, d)),
+      data: allDates.map((d) => getData(item.contentId, d)),
       smooth: true,
       itemStyle: { color: COLORS[idx] },
       lineStyle: { width: 2 },
@@ -97,30 +100,34 @@ export function ContentComparePage({ initialItems, allContentOptions, onBack }: 
 
   const readChart = makeLineChart('每日阅读', (cid, date) => {
     const records = dailyMap.get(cid);
-    const r = records?.find(r => r.date === date);
+    const r = records?.find((r) => r.date === date);
     return r?.pv ?? 0;
   });
 
   const incomeChart = makeLineChart('每日收益', (cid, date) => {
     const records = incomeMap.get(cid);
-    const r = records?.find(r => r.recordDate === date);
+    const r = records?.find((r) => r.recordDate === date);
     return r ? r.currentIncome / 100 : 0;
   });
 
   const cumulativeChart = (() => {
     return {
       tooltip: { trigger: 'axis' as const },
-      legend: { data: selected.map(s => s.title.slice(0, 15)), textStyle: { fontSize: 10 }, right: 0 },
+      legend: { data: selected.map((s) => s.title.slice(0, 15)), textStyle: { fontSize: 10 }, right: 0 },
       grid: withZoomGrid({ left: 50, right: 20, top: 30, bottom: 25 }),
-      xAxis: { type: 'category' as const, data: allDates.map(d => d.slice(5)), axisLabel: { fontSize: 9 } },
-      yAxis: { type: 'value' as const, axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(0)}` }, splitNumber: 3 },
+      xAxis: { type: 'category' as const, data: allDates.map((d) => d.slice(5)), axisLabel: { fontSize: 9 } },
+      yAxis: {
+        type: 'value' as const,
+        axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(0)}` },
+        splitNumber: 3,
+      },
       series: selected.map((item, idx) => {
         let running = 0;
         return {
           name: item.title.slice(0, 15),
           type: 'line',
-          data: allDates.map(d => {
-            const inc = incomeMap.get(item.contentId)?.find(r => r.recordDate === d);
+          data: allDates.map((d) => {
+            const inc = incomeMap.get(item.contentId)?.find((r) => r.recordDate === d);
             if (inc) running += inc.currentIncome / 100;
             return running;
           }),
@@ -137,7 +144,7 @@ export function ContentComparePage({ initialItems, allContentOptions, onBack }: 
 
   const summaryData = useMemo(() => {
     const metrics = ['总收益', '总阅读', 'RPM', '平均日收益', '互动率'];
-    return metrics.map(metric => {
+    return metrics.map((metric) => {
       const row: Record<string, string | number> = { metric };
       for (const item of selected) {
         const incomes = incomeMap.get(item.contentId) ?? [];
@@ -148,12 +155,23 @@ export function ContentComparePage({ initialItems, allContentOptions, onBack }: 
 
         let value: string;
         switch (metric) {
-          case '总收益': value = `¥${(totalIncome / 100).toFixed(2)}`; break;
-          case '总阅读': value = totalRead.toLocaleString(); break;
-          case 'RPM': value = totalRead > 0 ? `¥${((totalIncome / 100 / totalRead) * 1000).toFixed(2)}` : '-'; break;
-          case '平均日收益': value = days > 0 ? `¥${(totalIncome / 100 / days).toFixed(2)}` : '-'; break;
-          case '互动率': value = totalRead > 0 ? `${((totalInteraction / totalRead) * 100).toFixed(2)}%` : '-'; break;
-          default: value = '-';
+          case '总收益':
+            value = `¥${(totalIncome / 100).toFixed(2)}`;
+            break;
+          case '总阅读':
+            value = totalRead.toLocaleString();
+            break;
+          case 'RPM':
+            value = totalRead > 0 ? `¥${((totalIncome / 100 / totalRead) * 1000).toFixed(2)}` : '-';
+            break;
+          case '平均日收益':
+            value = days > 0 ? `¥${(totalIncome / 100 / days).toFixed(2)}` : '-';
+            break;
+          case '互动率':
+            value = totalRead > 0 ? `${((totalInteraction / totalRead) * 100).toFixed(2)}%` : '-';
+            break;
+          default:
+            value = '-';
         }
         row[item.contentId] = value;
       }
@@ -166,14 +184,17 @@ export function ContentComparePage({ initialItems, allContentOptions, onBack }: 
   const filteredOptions = useMemo(() => {
     if (!searchText) return allContentOptions;
     const lower = searchText.toLowerCase();
-    return allContentOptions.filter(o => o.title.toLowerCase().includes(lower));
+    return allContentOptions.filter((o) => o.title.toLowerCase().includes(lower));
   }, [allContentOptions, searchText]);
 
-  const selectedKeys = useMemo(() => selected.map(s => s.contentId), [selected]);
+  const selectedKeys = useMemo(() => selected.map((s) => s.contentId), [selected]);
 
   const listColumns: ColumnsType<ContentOption> = [
     {
-      title: '内容', dataIndex: 'title', key: 'title', ellipsis: true,
+      title: '内容',
+      dataIndex: 'title',
+      key: 'title',
+      ellipsis: true,
       render: (title: string, row) => (
         <span>
           <Tag color={row.contentType === 'article' ? 'blue' : 'gold'} style={{ marginRight: 4 }}>
@@ -194,12 +215,7 @@ export function ContentComparePage({ initialItems, allContentOptions, onBack }: 
           <Flex gap={8} wrap="wrap" align="center">
             <span style={{ fontSize: 12, color: '#999' }}>已选：</span>
             {selected.map((item, idx) => (
-              <Tag
-                key={item.contentId}
-                color={COLORS[idx]}
-                closable
-                onClose={() => handleRemove(item.contentId)}
-              >
+              <Tag key={item.contentId} color={COLORS[idx]} closable onClose={() => handleRemove(item.contentId)}>
                 {item.title.length > 20 ? item.title.slice(0, 20) + '...' : item.title}
               </Tag>
             ))}
@@ -232,24 +248,25 @@ export function ContentComparePage({ initialItems, allContentOptions, onBack }: 
           rowSelection={{
             selectedRowKeys: selectedKeys,
             onChange: (newKeys) => {
-              const newSelected = allContentOptions.filter(o =>
-                (newKeys as string[]).includes(o.contentId)
-              );
+              const newSelected = allContentOptions.filter((o) => (newKeys as string[]).includes(o.contentId));
               setSelected(newSelected.slice(0, 3));
             },
             getCheckboxProps: (record) => ({
-              disabled: selected.length >= 3 && !selected.find(s => s.contentId === record.contentId),
+              disabled: selected.length >= 3 && !selected.find((s) => s.contentId === record.contentId),
             }),
           }}
           onRow={(record) => ({
             onClick: () => {
-              if (selected.find(s => s.contentId === record.contentId)) {
+              if (selected.find((s) => s.contentId === record.contentId)) {
                 handleRemove(record.contentId);
               } else if (selected.length < 3) {
                 setSelected([...selected, record]);
               }
             },
-            style: { cursor: selected.length >= 3 && !selected.find(s => s.contentId === record.contentId) ? undefined : 'pointer' },
+            style: {
+              cursor:
+                selected.length >= 3 && !selected.find((s) => s.contentId === record.contentId) ? undefined : 'pointer',
+            },
           })}
         />
       </Card>

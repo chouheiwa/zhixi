@@ -3,37 +3,10 @@
  * Supports pagination.
  */
 
+import type { ZhihuCreationsApiResponse } from '@/shared/api-types';
 import { proxyFetch } from './fetch-proxy';
 
 const CREATIONS_API = 'https://www.zhihu.com/api/v4/creators/creations/v2/all';
-
-interface RawCreation {
-  type: string; // 'answer' | 'article' | ...
-  data: {
-    id: string;
-    url_token: string;
-    title: string;
-    sub_type: string;
-    created_time: number;
-    updated_time: number;
-  };
-  reaction: {
-    read_count: number;
-    vote_up_count: number;
-    comment_count: number;
-    like_count: number;
-    collect_count: number;
-    play_count: number;
-  };
-}
-
-interface CreationsResponse {
-  paging: {
-    is_end: boolean;
-    totals: number;
-  };
-  data: RawCreation[];
-}
 
 export interface CreationItem {
   contentId: string;
@@ -65,7 +38,7 @@ export async function fetchAllCreations(
 
   do {
     const url = `${CREATIONS_API}?start=0&end=0&limit=${limit}&offset=${offset}&need_co_creation=1&sort_type=created`;
-    const resp = await proxyFetch<CreationsResponse>(url);
+    const resp = await proxyFetch<ZhihuCreationsApiResponse>(url);
 
     total = resp.paging.totals;
 
@@ -89,7 +62,7 @@ export async function fetchAllCreations(
     if (resp.paging.is_end || resp.data.length === 0) break;
 
     // Small delay between pages
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 500));
   } while (offset < total);
 
   return items;

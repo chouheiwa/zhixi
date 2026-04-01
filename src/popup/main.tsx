@@ -17,5 +17,5 @@ const theme = {
 createRoot(document.getElementById('root')!).render(
   <ConfigProvider theme={theme} locale={zhCN}>
     <Popup />
-  </ConfigProvider>
+  </ConfigProvider>,
 );

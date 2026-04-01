@@ -47,15 +47,18 @@ export function CollectorPanel({ onCollected }: Props) {
         </Flex>
       ) : (
         <div>
-          <div style={{ color: '#666', marginBottom: 8 }}>
-            请设置致知计划开通日期，插件将从该日期开始采集
-          </div>
+          <div style={{ color: '#666', marginBottom: 8 }}>请设置致知计划开通日期，插件将从该日期开始采集</div>
           <Space>
             <DatePicker
               onChange={(date) => setStartDate(date ? date.format('YYYY-MM-DD') : '')}
               placeholder="选择开始日期"
             />
-            <Button type="primary" onClick={handleSync} disabled={status.isCollecting || !startDate} loading={status.isCollecting}>
+            <Button
+              type="primary"
+              onClick={handleSync}
+              disabled={status.isCollecting || !startDate}
+              loading={status.isCollecting}
+            >
               {status.isCollecting ? '同步中...' : '开始同步'}
             </Button>
           </Space>
@@ -79,7 +82,8 @@ export function CollectorPanel({ onCollected }: Props) {
         <Alert
           message={resultMsg}
           type={resultMsg.includes('失败') ? 'error' : 'success'}
-          showIcon closable
+          showIcon
+          closable
           style={{ marginTop: 8 }}
           onClose={() => setResultMsg('')}
         />

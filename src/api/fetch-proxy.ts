@@ -5,7 +5,7 @@
 export async function proxyFetch<T = unknown>(url: string): Promise<T> {
   const response = await fetch(url, {
     credentials: 'include',
-    headers: { 'Accept': 'application/json' },
+    headers: { Accept: 'application/json' },
   });
 
   if (!response.ok) {

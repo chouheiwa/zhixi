@@ -105,14 +105,6 @@ export interface UserSettings {
   lastAutoSyncAt?: number;
 }
 
-/** Message types for chrome.runtime messaging */
-export type MessageAction =
-  | { action: 'fetchProxy'; url: string }
-  | { action: 'syncIncome' }
-  | { action: 'startCollect'; startDate: string; endDate: string }
-  | { action: 'getCollectStatus' }
-  | { action: 'openDashboard' };
-
 /** Panel visibility and order within a tab */
 export interface PanelConfig {
   key: string;

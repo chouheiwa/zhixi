@@ -56,13 +56,12 @@ export function ContentTypeComparisonPanel({ records }: Props) {
       monthMap.set(month, existing);
     }
     const months = Array.from(monthMap.keys()).sort();
-    const monthly = months.map(m => ({ month: m, ...monthMap.get(m)! }));
+    const monthly = months.map((m) => ({ month: m, ...monthMap.get(m)! }));
 
     return { articleStats: article, answerStats: answer, monthlyData: monthly };
   }, [records]);
 
-  const rpm = (income: number, read: number) =>
-    read > 0 ? (income / 100 / read) * 1000 : 0;
+  const rpm = (income: number, read: number) => (read > 0 ? (income / 100 / read) * 1000 : 0);
 
   const chartOption = {
     tooltip: { trigger: 'axis' as const },
@@ -70,7 +69,7 @@ export function ContentTypeComparisonPanel({ records }: Props) {
     grid: { left: 50, right: 20, top: 30, bottom: 25 },
     xAxis: {
       type: 'category' as const,
-      data: monthlyData.map(d => d.month),
+      data: monthlyData.map((d) => d.month),
       axisLabel: { fontSize: 10 },
     },
     yAxis: {
@@ -81,14 +80,14 @@ export function ContentTypeComparisonPanel({ records }: Props) {
       {
         name: '文章',
         type: 'bar',
-        data: monthlyData.map(d => d.articleIncome),
+        data: monthlyData.map((d) => d.articleIncome),
         itemStyle: { color: themeColors.warmBlue, borderRadius: [2, 2, 0, 0] },
         barMaxWidth: 20,
       },
       {
         name: '回答',
         type: 'bar',
-        data: monthlyData.map(d => d.answerIncome),
+        data: monthlyData.map((d) => d.answerIncome),
         itemStyle: { color: themeColors.amberLight, borderRadius: [2, 2, 0, 0] },
         barMaxWidth: 20,
       },
@@ -106,13 +105,31 @@ export function ContentTypeComparisonPanel({ records }: Props) {
             </div>
             <Row gutter={8}>
               <Col span={8}>
-                <Statistic title="总收益" value={articleStats.totalIncome / 100} precision={2} prefix="¥" valueStyle={{ fontSize: 16 }} />
+                <Statistic
+                  title="总收益"
+                  value={articleStats.totalIncome / 100}
+                  precision={2}
+                  prefix="¥"
+                  valueStyle={{ fontSize: 16 }}
+                />
               </Col>
               <Col span={8}>
-                <Statistic title="篇均收益" value={articleStats.count > 0 ? articleStats.totalIncome / 100 / articleStats.count : 0} precision={2} prefix="¥" valueStyle={{ fontSize: 16 }} />
+                <Statistic
+                  title="篇均收益"
+                  value={articleStats.count > 0 ? articleStats.totalIncome / 100 / articleStats.count : 0}
+                  precision={2}
+                  prefix="¥"
+                  valueStyle={{ fontSize: 16 }}
+                />
               </Col>
               <Col span={8}>
-                <Statistic title="RPM" value={rpm(articleStats.totalIncome, articleStats.totalRead)} precision={2} prefix="¥" valueStyle={{ fontSize: 16 }} />
+                <Statistic
+                  title="RPM"
+                  value={rpm(articleStats.totalIncome, articleStats.totalRead)}
+                  precision={2}
+                  prefix="¥"
+                  valueStyle={{ fontSize: 16 }}
+                />
               </Col>
             </Row>
           </Card>
@@ -125,21 +142,37 @@ export function ContentTypeComparisonPanel({ records }: Props) {
             </div>
             <Row gutter={8}>
               <Col span={8}>
-                <Statistic title="总收益" value={answerStats.totalIncome / 100} precision={2} prefix="¥" valueStyle={{ fontSize: 16 }} />
+                <Statistic
+                  title="总收益"
+                  value={answerStats.totalIncome / 100}
+                  precision={2}
+                  prefix="¥"
+                  valueStyle={{ fontSize: 16 }}
+                />
               </Col>
               <Col span={8}>
-                <Statistic title="篇均收益" value={answerStats.count > 0 ? answerStats.totalIncome / 100 / answerStats.count : 0} precision={2} prefix="¥" valueStyle={{ fontSize: 16 }} />
+                <Statistic
+                  title="篇均收益"
+                  value={answerStats.count > 0 ? answerStats.totalIncome / 100 / answerStats.count : 0}
+                  precision={2}
+                  prefix="¥"
+                  valueStyle={{ fontSize: 16 }}
+                />
               </Col>
               <Col span={8}>
-                <Statistic title="RPM" value={rpm(answerStats.totalIncome, answerStats.totalRead)} precision={2} prefix="¥" valueStyle={{ fontSize: 16 }} />
+                <Statistic
+                  title="RPM"
+                  value={rpm(answerStats.totalIncome, answerStats.totalRead)}
+                  precision={2}
+                  prefix="¥"
+                  valueStyle={{ fontSize: 16 }}
+                />
               </Col>
             </Row>
           </Card>
         </Col>
       </Row>
-      {monthlyData.length > 1 && (
-        <ReactECharts option={chartOption} style={{ height: 220 }} />
-      )}
+      {monthlyData.length > 1 && <ReactECharts option={chartOption} style={{ height: 220 }} />}
     </Card>
   );
 }

@@ -13,10 +13,13 @@ const DAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', 
 
 export function PublishTimeAnalysis({ records }: Props) {
   const analysis = useMemo(() => {
-    const contentMap = new Map<string, {
-      publishDate: string;
-      incomes: { date: string; income: number; read: number }[];
-    }>();
+    const contentMap = new Map<
+      string,
+      {
+        publishDate: string;
+        incomes: { date: string; income: number; read: number }[];
+      }
+    >();
 
     for (const r of records) {
       const existing = contentMap.get(r.contentId);
@@ -30,10 +33,11 @@ export function PublishTimeAnalysis({ records }: Props) {
       }
     }
 
-    const dayBuckets: { income: number; read: number; count: number }[] = Array.from(
-      { length: 7 },
-      () => ({ income: 0, read: 0, count: 0 }),
-    );
+    const dayBuckets: { income: number; read: number; count: number }[] = Array.from({ length: 7 }, () => ({
+      income: 0,
+      read: 0,
+      count: 0,
+    }));
 
     for (const [, content] of contentMap) {
       const pubDate = parseDateString(content.publishDate);
@@ -74,7 +78,7 @@ export function PublishTimeAnalysis({ records }: Props) {
     tooltip: {
       trigger: 'axis' as const,
       formatter: (params: any[]) => {
-        const item = analysis.result.find(r => r.label === params[0].name);
+        const item = analysis.result.find((r) => r.label === params[0].name);
         const lines = params.map((p: any) =>
           p.seriesName === '平均首周收益'
             ? `${p.seriesName}: ¥${p.value.toFixed(2)}`
@@ -87,7 +91,7 @@ export function PublishTimeAnalysis({ records }: Props) {
     grid: { left: 50, right: 50, top: 30, bottom: 25 },
     xAxis: {
       type: 'category' as const,
-      data: analysis.result.map(r => r.label),
+      data: analysis.result.map((r) => r.label),
       axisLabel: { fontSize: 11 },
     },
     yAxis: [
@@ -107,7 +111,7 @@ export function PublishTimeAnalysis({ records }: Props) {
       {
         name: '平均首周收益',
         type: 'bar',
-        data: analysis.result.map(r => r.avgIncome),
+        data: analysis.result.map((r) => r.avgIncome),
         yAxisIndex: 0,
         itemStyle: { color: themeColors.warmBlue, borderRadius: [4, 4, 0, 0] },
         barMaxWidth: 30,
@@ -115,7 +119,7 @@ export function PublishTimeAnalysis({ records }: Props) {
       {
         name: '平均首周阅读',
         type: 'line',
-        data: analysis.result.map(r => r.avgRead),
+        data: analysis.result.map((r) => r.avgRead),
         yAxisIndex: 1,
         smooth: true,
         itemStyle: { color: themeColors.sage },
@@ -135,7 +139,8 @@ export function PublishTimeAnalysis({ records }: Props) {
           showIcon
           message={
             <span style={{ fontSize: 12 }}>
-              建议在<b>{analysis.best.label}</b>发布，平均首周收益最高（¥{analysis.best.avgIncome.toFixed(2)}，基于 {analysis.best.count} 篇统计）
+              建议在<b>{analysis.best.label}</b>发布，平均首周收益最高（¥{analysis.best.avgIncome.toFixed(2)}，基于{' '}
+              {analysis.best.count} 篇统计）
             </span>
           }
           style={{ marginTop: 8 }}

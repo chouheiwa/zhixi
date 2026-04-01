@@ -56,12 +56,13 @@ export interface EnsembleResult {
 
 /** Weighted R²: higher-income data points contribute more */
 function calcR2(actual: number[], predicted: number[]): number {
-  const weights = actual.map(v => Math.max(v, 0.01));
+  const weights = actual.map((v) => Math.max(v, 0.01));
   const totalWeight = weights.reduce((a, b) => a + b, 0);
   let wMean = 0;
   for (let i = 0; i < actual.length; i++) wMean += weights[i] * actual[i];
   wMean /= totalWeight;
-  let ssTot = 0, ssRes = 0;
+  let ssTot = 0,
+    ssRes = 0;
   for (let i = 0; i < actual.length; i++) {
     ssTot += weights[i] * (actual[i] - wMean) ** 2;
     ssRes += weights[i] * (actual[i] - predicted[i]) ** 2;
@@ -71,7 +72,7 @@ function calcR2(actual: number[], predicted: number[]): number {
 
 /** Weighted MAE: higher-income data points contribute more */
 function calcMAE(actual: number[], predicted: number[]): number {
-  const weights = actual.map(v => Math.max(v, 0.01));
+  const weights = actual.map((v) => Math.max(v, 0.01));
   const totalWeight = weights.reduce((a, b) => a + b, 0);
   let sum = 0;
   for (let i = 0; i < actual.length; i++) sum += weights[i] * Math.abs(actual[i] - predicted[i]);
@@ -81,7 +82,11 @@ function calcMAE(actual: number[], predicted: number[]): number {
 // ── Random Forest ──
 
 function trainRandomForest(
-  trainX: number[][], trainY: number[], testX: number[][], testY: number[], featureNames: string[],
+  trainX: number[][],
+  trainY: number[],
+  testX: number[][],
+  testY: number[],
+  featureNames: string[],
 ): { result: ModelResult; model: RandomForestRegression } {
   const rf = new RandomForestRegression({
     nEstimators: 200,
@@ -93,23 +98,36 @@ function trainRandomForest(
   const predictions = rf.predict(testX) as number[];
 
   const baseMAE = calcMAE(testY, predictions);
-  const importance = featureNames.map((name, j) => {
-    const shuffled = testX.map(row => [...row]);
-    const vals = shuffled.map(row => row[j]);
-    for (let i = vals.length - 1; i > 0; i--) {
-      const k = Math.floor(Math.random() * (i + 1));
-      [vals[i], vals[k]] = [vals[k], vals[i]];
-    }
-    shuffled.forEach((row, i) => { row[j] = vals[i]; });
-    const shuffledPred = rf.predict(shuffled) as number[];
-    return { name, importance: Math.max(0, calcMAE(testY, shuffledPred) - baseMAE) };
-  }).sort((a, b) => b.importance - a.importance);
+  const importance = featureNames
+    .map((name, j) => {
+      const shuffled = testX.map((row) => [...row]);
+      const vals = shuffled.map((row) => row[j]);
+      for (let i = vals.length - 1; i > 0; i--) {
+        const k = Math.floor(Math.random() * (i + 1));
+        [vals[i], vals[k]] = [vals[k], vals[i]];
+      }
+      shuffled.forEach((row, i) => {
+        row[j] = vals[i];
+      });
+      const shuffledPred = rf.predict(shuffled) as number[];
+      return { name, importance: Math.max(0, calcMAE(testY, shuffledPred) - baseMAE) };
+    })
+    .sort((a, b) => b.importance - a.importance);
 
   const totalImp = importance.reduce((s, i) => s + i.importance, 0);
-  if (totalImp > 0) importance.forEach(i => { i.importance = i.importance / totalImp * 100; });
+  if (totalImp > 0)
+    importance.forEach((i) => {
+      i.importance = (i.importance / totalImp) * 100;
+    });
 
   return {
-    result: { name: '随机森林', predictions, r2: calcR2(testY, predictions), mae: calcMAE(testY, predictions), featureImportance: importance },
+    result: {
+      name: '随机森林',
+      predictions,
+      r2: calcR2(testY, predictions),
+      mae: calcMAE(testY, predictions),
+      featureImportance: importance,
+    },
     model: rf,
   };
 }
@@ -117,8 +135,19 @@ function trainRandomForest(
 // ── MLP Neural Network ──
 
 async function trainMLP(
-  trainX: number[][], trainY: number[], testX: number[][], testY: number[], scaler: Scaler,
-  onEpoch?: (epoch: number, totalEpochs: number, loss: number, valLoss?: number, lossHistory?: number[], valLossHistory?: number[]) => void,
+  trainX: number[][],
+  trainY: number[],
+  testX: number[][],
+  testY: number[],
+  scaler: Scaler,
+  onEpoch?: (
+    epoch: number,
+    totalEpochs: number,
+    loss: number,
+    valLoss?: number,
+    lossHistory?: number[],
+    valLossHistory?: number[],
+  ) => void,
 ): Promise<{ result: ModelResult; labelMean: number; labelStd: number; trainingInfo: MLPTrainingInfo }> {
   const inputDim = trainX[0].length;
   const normTrainX = transformFeatures(trainX, scaler);
@@ -128,7 +157,7 @@ async function trainMLP(
   let labelStd = 0;
   for (const v of trainY) labelStd += (v - labelMean) ** 2;
   labelStd = Math.sqrt(labelStd / trainY.length) || 1;
-  const normTrainY = trainY.map(v => (v - labelMean) / labelStd);
+  const normTrainY = trainY.map((v) => (v - labelMean) / labelStd);
 
   const model = tf.sequential();
   // Layer 1: 128 units + BatchNorm + Dropout
@@ -155,7 +184,7 @@ async function trainMLP(
   model.compile({ optimizer, loss: 'meanSquaredError' });
 
   const xs = tf.tensor2d(normTrainX);
-  const ys = tf.tensor2d(normTrainY.map(v => [v]));
+  const ys = tf.tensor2d(normTrainY.map((v) => [v]));
   const totalEpochs = 300;
   const lossHistory: number[] = [];
   const valLossHistory: number[] = [];
@@ -189,7 +218,7 @@ async function trainMLP(
           bestEpoch = epoch + 1;
           // Save current weights
           bestWeights = await Promise.all(
-            model.getWeights().map(w => w.data().then(d => new Float32Array(d).buffer))
+            model.getWeights().map((w) => w.data().then((d) => new Float32Array(d).buffer)),
           );
         }
       },
@@ -198,27 +227,30 @@ async function trainMLP(
 
   // Restore best weights
   if (bestWeights) {
-    const shapes = model.getWeights().map(w => w.shape);
-    const dtypes = model.getWeights().map(w => w.dtype);
-    const restored = bestWeights.map((buf, i) =>
-      tf.tensor(new Float32Array(buf), shapes[i], dtypes[i] as 'float32')
-    );
+    const shapes = model.getWeights().map((w) => w.shape);
+    const dtypes = model.getWeights().map((w) => w.dtype);
+    const restored = bestWeights.map((buf, i) => tf.tensor(new Float32Array(buf), shapes[i], dtypes[i] as 'float32'));
     model.setWeights(restored);
-    restored.forEach(t => t.dispose());
+    restored.forEach((t) => t.dispose());
   }
 
   const testTensor = tf.tensor2d(normTestX);
   const predTensor = model.predict(testTensor) as tf.Tensor;
-  const predictions = Array.from(predTensor.dataSync()).map(v => Math.max(0, v * labelStd + labelMean));
+  const predictions = Array.from(predTensor.dataSync()).map((v) => Math.max(0, v * labelStd + labelMean));
 
   // Save MLP (with best weights) to indexeddb
   await model.save(MLP_MODEL_PATH);
 
-  xs.dispose(); ys.dispose(); testTensor.dispose(); predTensor.dispose(); model.dispose();
+  xs.dispose();
+  ys.dispose();
+  testTensor.dispose();
+  predTensor.dispose();
+  model.dispose();
 
   return {
     result: { name: '神经网络 (MLP)', predictions, r2: calcR2(testY, predictions), mae: calcMAE(testY, predictions) },
-    labelMean, labelStd,
+    labelMean,
+    labelStd,
     trainingInfo: {
       totalEpochs,
       actualEpochs: lossHistory.length,
@@ -233,31 +265,46 @@ async function trainMLP(
 // ── Ridge Regression ──
 
 function trainRidge(
-  trainX: number[][], trainY: number[], testX: number[][], testY: number[], featureNames: string[],
+  trainX: number[][],
+  trainY: number[],
+  testX: number[][],
+  testY: number[],
+  featureNames: string[],
 ): { result: ModelResult; coefficients: number[] } {
   const d = trainX[0].length;
-  const xs = Array.from({ length: d }, (_, j) => trainX.map(row => row[j]));
+  const xs = Array.from({ length: d }, (_, j) => trainX.map((row) => row[j]));
   const reg = ridgeRegression(xs, trainY, 0.1);
 
-  const predictions = testX.map(row => {
+  const predictions = testX.map((row) => {
     let pred = reg.coefficients[0];
     for (let j = 0; j < d; j++) pred += reg.coefficients[j + 1] * row[j];
     return Math.max(0, pred);
   });
 
-  const importance = featureNames.map((name, j) => {
-    const vals = trainX.map(row => row[j]);
-    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-    let std = 0;
-    for (const v of vals) std += (v - mean) ** 2;
-    std = Math.sqrt(std / vals.length) || 1;
-    return { name, importance: Math.abs(reg.coefficients[j + 1]) * std };
-  }).sort((a, b) => b.importance - a.importance);
+  const importance = featureNames
+    .map((name, j) => {
+      const vals = trainX.map((row) => row[j]);
+      const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+      let std = 0;
+      for (const v of vals) std += (v - mean) ** 2;
+      std = Math.sqrt(std / vals.length) || 1;
+      return { name, importance: Math.abs(reg.coefficients[j + 1]) * std };
+    })
+    .sort((a, b) => b.importance - a.importance);
   const totalImp = importance.reduce((s, i) => s + i.importance, 0);
-  if (totalImp > 0) importance.forEach(i => { i.importance = i.importance / totalImp * 100; });
+  if (totalImp > 0)
+    importance.forEach((i) => {
+      i.importance = (i.importance / totalImp) * 100;
+    });
 
   return {
-    result: { name: '岭回归', predictions, r2: calcR2(testY, predictions), mae: calcMAE(testY, predictions), featureImportance: importance },
+    result: {
+      name: '岭回归',
+      predictions,
+      r2: calcR2(testY, predictions),
+      mae: calcMAE(testY, predictions),
+      featureImportance: importance,
+    },
     coefficients: reg.coefficients,
   };
 }
@@ -268,11 +315,11 @@ function splitData(rows: FeatureRow[], testRatio = 0.2) {
   const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
   const splitIdx = Math.floor(sorted.length * (1 - testRatio));
   return {
-    trainX: sorted.slice(0, splitIdx).map(r => r.features),
-    trainY: sorted.slice(0, splitIdx).map(r => r.label),
-    testX: sorted.slice(splitIdx).map(r => r.features),
-    testY: sorted.slice(splitIdx).map(r => r.label),
-    testDates: sorted.slice(splitIdx).map(r => r.date),
+    trainX: sorted.slice(0, splitIdx).map((r) => r.features),
+    trainY: sorted.slice(0, splitIdx).map((r) => r.label),
+    testX: sorted.slice(splitIdx).map((r) => r.features),
+    testY: sorted.slice(splitIdx).map((r) => r.label),
+    testDates: sorted.slice(splitIdx).map((r) => r.date),
   };
 }
 
@@ -297,22 +344,34 @@ export type TrainingStep = {
 };
 
 export async function trainEnsemble(
-  rows: FeatureRow[], featureNames: string[], userId: string,
+  rows: FeatureRow[],
+  featureNames: string[],
+  userId: string,
   onProgress?: (step: TrainingStep) => void,
 ): Promise<EnsembleResult | null> {
   if (rows.length < 10) return null;
 
   // Yield to let UI render between synchronous steps
-  const yieldUI = () => new Promise<void>(r => setTimeout(r, 0));
+  const yieldUI = () => new Promise<void>((r) => setTimeout(r, 0));
 
-  onProgress?.({ step: 1, total: 6, label: '准备数据', detail: `共 ${rows.length} 条记录，按时间切分为训练集和测试集` });
+  onProgress?.({
+    step: 1,
+    total: 6,
+    label: '准备数据',
+    detail: `共 ${rows.length} 条记录，按时间切分为训练集和测试集`,
+  });
   await yieldUI();
   const { trainX, trainY, testX, testY, testDates } = splitData(rows);
   if (trainX.length < 5 || testX.length < 3) return null;
 
   const scaler = fitScaler(trainX);
 
-  onProgress?.({ step: 2, total: 6, label: '训练随机森林', detail: `使用 ${trainX.length} 条数据训练 200 棵决策树，请稍候...` });
+  onProgress?.({
+    step: 2,
+    total: 6,
+    label: '训练随机森林',
+    detail: `使用 ${trainX.length} 条数据训练 200 棵决策树，请稍候...`,
+  });
   await yieldUI();
   const { result: rfResult, model: rfModel } = trainRandomForest(trainX, trainY, testX, testY, featureNames);
 
@@ -320,11 +379,26 @@ export async function trainEnsemble(
   await yieldUI();
   const { result: ridgeResult, coefficients: ridgeCoeffs } = trainRidge(trainX, trainY, testX, testY, featureNames);
 
-  onProgress?.({ step: 4, total: 6, label: '训练神经网络', detail: `训练 300 轮，完成后自动采用验证 loss 最低的轮次权重` });
+  onProgress?.({
+    step: 4,
+    total: 6,
+    label: '训练神经网络',
+    detail: `训练 300 轮，完成后自动采用验证 loss 最低的轮次权重`,
+  });
   await yieldUI();
   let mlpBestEpoch = 0;
   let mlpStoppedEarly = false;
-  const { result: mlpResult, labelMean, labelStd, trainingInfo: mlpTrainingInfo } = await trainMLP(trainX, trainY, testX, testY, scaler,
+  const {
+    result: mlpResult,
+    labelMean,
+    labelStd,
+    trainingInfo: mlpTrainingInfo,
+  } = await trainMLP(
+    trainX,
+    trainY,
+    testX,
+    testY,
+    scaler,
     (epoch, totalEpochs, loss, valLoss, lossHistory, valLossHistory) => {
       // Track best epoch from valLossHistory
       const vlh = valLossHistory ?? [];
@@ -335,10 +409,14 @@ export async function trainEnsemble(
       mlpStoppedEarly = epoch < totalEpochs && (lossHistory?.length ?? 0) === epoch;
 
       onProgress?.({
-        step: 4, total: 6, label: '训练神经网络',
+        step: 4,
+        total: 6,
+        label: '训练神经网络',
         detail: `第 ${epoch}/${totalEpochs} 轮 · loss: ${loss.toFixed(4)}${valLoss !== undefined ? ` · val_loss: ${valLoss.toFixed(4)}` : ''}`,
         mlpProgress: {
-          epoch, totalEpochs, loss,
+          epoch,
+          totalEpochs,
+          loss,
           valLoss,
           lossHistory: lossHistory ?? [],
           valLossHistory: valLossHistory ?? [],
@@ -352,9 +430,9 @@ export async function trainEnsemble(
 
   const models = [rfResult, ridgeResult, mlpResult];
 
-  const invMAEs = models.map(m => 1 / (m.mae + 0.01));
+  const invMAEs = models.map((m) => 1 / (m.mae + 0.01));
   const totalInvMAE = invMAEs.reduce((a, b) => a + b, 0);
-  const weights = invMAEs.map(v => v / totalInvMAE);
+  const weights = invMAEs.map((v) => v / totalInvMAE);
 
   const ensemblePred = testY.map((_, i) => {
     let pred = 0;
@@ -423,9 +501,7 @@ export async function loadSavedModel(userId: string): Promise<{
 
 // ── Predict with saved model ──
 
-export async function predictWithSavedModel(
-  userId: string, features: number[][],
-): Promise<number[] | null> {
+export async function predictWithSavedModel(userId: string, features: number[][]): Promise<number[] | null> {
   const saved = await db.mlModels.get(userId);
   if (!saved) return null;
 
@@ -435,7 +511,7 @@ export async function predictWithSavedModel(
     const rfPred = rfModel.predict(features) as number[];
 
     // Load Ridge
-    const ridgePred = features.map(row => {
+    const ridgePred = features.map((row) => {
       let pred = saved.ridgeCoefficients[0];
       for (let j = 0; j < row.length; j++) pred += saved.ridgeCoefficients[j + 1] * row[j];
       return Math.max(0, pred);
@@ -448,10 +524,12 @@ export async function predictWithSavedModel(
       const normFeatures = transformFeatures(features, saved.scaler);
       const tensor = tf.tensor2d(normFeatures);
       const predTensor = mlpModel.predict(tensor) as tf.Tensor;
-      mlpPred = Array.from(predTensor.dataSync()).map(v =>
-        Math.max(0, v * saved.labelScaler.std + saved.labelScaler.mean)
+      mlpPred = Array.from(predTensor.dataSync()).map((v) =>
+        Math.max(0, v * saved.labelScaler.std + saved.labelScaler.mean),
       );
-      tensor.dispose(); predTensor.dispose(); mlpModel.dispose();
+      tensor.dispose();
+      predTensor.dispose();
+      mlpModel.dispose();
     } catch {
       // MLP failed to load, use average of other two
       mlpPred = rfPred.map((v, i) => (v + ridgePred[i]) / 2);
@@ -459,9 +537,7 @@ export async function predictWithSavedModel(
 
     // Ensemble
     const w = saved.ensembleWeights;
-    return features.map((_, i) =>
-      Math.max(0, w[0] * rfPred[i] + w[1] * ridgePred[i] + w[2] * mlpPred[i])
-    );
+    return features.map((_, i) => Math.max(0, w[0] * rfPred[i] + w[1] * ridgePred[i] + w[2] * mlpPred[i]));
   } catch {
     return null;
   }

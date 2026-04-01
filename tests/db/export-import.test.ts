@@ -48,8 +48,34 @@ describe('importFromJSON', () => {
     });
     const result = await importFromJSON(importData);
     expect(result.imported).toBe(1);
+    expect(result.skipped).toBe(0);
+    expect(result.errors).toEqual([]);
     const count = await db.incomeRecords.count();
     expect(count).toBe(2);
+  });
+
+  it('skips invalid records and returns validation errors', async () => {
+    const invalidRecord = {
+      ...makeRecord('3', '2026-03-28'),
+      currentIncome: -1,
+    };
+    const importData = JSON.stringify({
+      version: 1,
+      exportedAt: Date.now(),
+      records: [makeRecord('2', '2026-03-27'), invalidRecord],
+    });
+
+    const result = await importFromJSON(importData);
+
+    expect(result.imported).toBe(1);
+    expect(result.skipped).toBe(1);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain('第 2 条记录');
+    expect(result.errors[0]).toContain('currentIncome');
+
+    const records = await db.incomeRecords.toArray();
+    expect(records).toHaveLength(1);
+    expect(records[0].contentId).toBe('2');
   });
 
   it('throws on invalid JSON', async () => {
@@ -57,8 +83,6 @@ describe('importFromJSON', () => {
   });
 
   it('throws on wrong version', async () => {
-    await expect(
-      importFromJSON(JSON.stringify({ version: 999, records: [] }))
-    ).rejects.toThrow('不支持的数据版本');
+    await expect(importFromJSON(JSON.stringify({ version: 999, records: [] }))).rejects.toThrow('不支持的数据版本');
   });
 });

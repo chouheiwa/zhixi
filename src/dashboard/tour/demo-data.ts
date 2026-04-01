@@ -37,11 +37,35 @@ function generateDemoSummaries(): DailySummary[] {
 }
 
 const DEMO_CONTENTS = [
-  { id: 'demo-1', token: 'demo-token-1', type: 'article', title: '如何高效学习编程：从零到一的实践指南', publishDate: daysAgo(60) },
+  {
+    id: 'demo-1',
+    token: 'demo-token-1',
+    type: 'article',
+    title: '如何高效学习编程：从零到一的实践指南',
+    publishDate: daysAgo(60),
+  },
   { id: 'demo-2', token: 'demo-token-2', type: 'answer', title: '程序员如何提高工作效率？', publishDate: daysAgo(45) },
-  { id: 'demo-3', token: 'demo-token-3', type: 'article', title: '深入理解 JavaScript 异步编程模型', publishDate: daysAgo(30) },
-  { id: 'demo-4', token: 'demo-token-4', type: 'answer', title: '前端开发中有哪些常见的性能优化技巧？', publishDate: daysAgo(20) },
-  { id: 'demo-5', token: 'demo-token-5', type: 'article', title: 'React 18 新特性全面解析与实战', publishDate: daysAgo(10) },
+  {
+    id: 'demo-3',
+    token: 'demo-token-3',
+    type: 'article',
+    title: '深入理解 JavaScript 异步编程模型',
+    publishDate: daysAgo(30),
+  },
+  {
+    id: 'demo-4',
+    token: 'demo-token-4',
+    type: 'answer',
+    title: '前端开发中有哪些常见的性能优化技巧？',
+    publishDate: daysAgo(20),
+  },
+  {
+    id: 'demo-5',
+    token: 'demo-token-5',
+    type: 'article',
+    title: 'React 18 新特性全面解析与实战',
+    publishDate: daysAgo(10),
+  },
 ];
 
 function generateDemoRecords(): IncomeRecord[] {

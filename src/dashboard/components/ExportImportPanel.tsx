@@ -7,8 +7,14 @@ interface Props {
   onImported: () => void;
 }
 
+interface ImportFeedback {
+  type: 'success' | 'error';
+  message: string;
+  description?: string;
+}
+
 export function ExportImportPanel({ onImported }: Props) {
-  const [msg, setMsg] = useState('');
+  const [feedback, setFeedback] = useState<ImportFeedback | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = async () => {
@@ -21,9 +27,12 @@ export function ExportImportPanel({ onImported }: Props) {
       a.download = `zhixi-backup-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      setMsg('导出成功');
+      setFeedback({ type: 'success', message: '导出成功' });
     } catch (err) {
-      setMsg(`导出失败: ${err instanceof Error ? err.message : '未知错误'}`);
+      setFeedback({
+        type: 'error',
+        message: `导出失败: ${err instanceof Error ? err.message : '未知错误'}`,
+      });
     }
   };
 
@@ -33,10 +42,25 @@ export function ExportImportPanel({ onImported }: Props) {
     try {
       const text = await file.text();
       const result = await importFromJSON(text);
-      setMsg(`导入成功，共 ${result.imported} 条记录`);
+      const errorSummary =
+        result.skipped > 0
+          ? `${result.errors.slice(0, 3).join('；')}${result.errors.length > 3 ? `；另有 ${result.errors.length - 3} 条错误` : ''}`
+          : undefined;
+
+      setFeedback({
+        type: 'success',
+        message:
+          result.skipped > 0
+            ? `导入完成，成功 ${result.imported} 条，跳过 ${result.skipped} 条记录`
+            : `导入成功，共 ${result.imported} 条记录`,
+        description: errorSummary,
+      });
       onImported();
     } catch (err) {
-      setMsg(`导入失败: ${err instanceof Error ? err.message : '未知错误'}`);
+      setFeedback({
+        type: 'error',
+        message: `导入失败: ${err instanceof Error ? err.message : '未知错误'}`,
+      });
     }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -44,17 +68,23 @@ export function ExportImportPanel({ onImported }: Props) {
   return (
     <Card title="数据备份" size="small">
       <Space>
-        <Button icon={<DownloadOutlined />} onClick={handleExport}>导出数据</Button>
-        <Button icon={<UploadOutlined />} onClick={() => fileInputRef.current?.click()}>导入数据</Button>
+        <Button icon={<DownloadOutlined />} onClick={handleExport}>
+          导出数据
+        </Button>
+        <Button icon={<UploadOutlined />} onClick={() => fileInputRef.current?.click()}>
+          导入数据
+        </Button>
         <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} style={{ display: 'none' }} />
       </Space>
-      {msg && (
+      {feedback && (
         <Alert
-          message={msg}
-          type={msg.includes('失败') ? 'error' : 'success'}
-          showIcon closable
+          message={feedback.message}
+          description={feedback.description}
+          type={feedback.type}
+          showIcon
+          closable
           style={{ marginTop: 8 }}
-          onClose={() => setMsg('')}
+          onClose={() => setFeedback(null)}
         />
       )}
     </Card>

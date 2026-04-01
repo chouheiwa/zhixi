@@ -61,38 +61,42 @@ export function LayoutCustomizer({ open, onClose, tabs, onUpdate, onReset }: Pro
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const oldIndex = sortedTabs.findIndex(t => t.key === active.id);
-    const newIndex = sortedTabs.findIndex(t => t.key === over.id);
+    const oldIndex = sortedTabs.findIndex((t) => t.key === active.id);
+    const newIndex = sortedTabs.findIndex((t) => t.key === over.id);
     const reordered = arrayMove(sortedTabs, oldIndex, newIndex).map((t, i) => ({ ...t, order: i }));
     onUpdate(reordered);
   };
 
   const handleTabVisibility = (tabKey: string, visible: boolean) => {
-    onUpdate(tabs.map(t => t.key === tabKey ? { ...t, visible } : t));
+    onUpdate(tabs.map((t) => (t.key === tabKey ? { ...t, visible } : t)));
   };
 
   const handlePanelDragEnd = (tabKey: string, event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    onUpdate(tabs.map(t => {
-      if (t.key !== tabKey) return t;
-      const sortedPanels = [...t.panels].sort((a, b) => a.order - b.order);
-      const oldIndex = sortedPanels.findIndex(p => p.key === active.id);
-      const newIndex = sortedPanels.findIndex(p => p.key === over.id);
-      const reordered = arrayMove(sortedPanels, oldIndex, newIndex).map((p, i) => ({ ...p, order: i }));
-      return { ...t, panels: reordered };
-    }));
+    onUpdate(
+      tabs.map((t) => {
+        if (t.key !== tabKey) return t;
+        const sortedPanels = [...t.panels].sort((a, b) => a.order - b.order);
+        const oldIndex = sortedPanels.findIndex((p) => p.key === active.id);
+        const newIndex = sortedPanels.findIndex((p) => p.key === over.id);
+        const reordered = arrayMove(sortedPanels, oldIndex, newIndex).map((p, i) => ({ ...p, order: i }));
+        return { ...t, panels: reordered };
+      }),
+    );
   };
 
   const handlePanelVisibility = (tabKey: string, panelKey: string, visible: boolean) => {
-    onUpdate(tabs.map(t => {
-      if (t.key !== tabKey) return t;
-      return {
-        ...t,
-        panels: t.panels.map(p => p.key === panelKey ? { ...p, visible } : p),
-      };
-    }));
+    onUpdate(
+      tabs.map((t) => {
+        if (t.key !== tabKey) return t;
+        return {
+          ...t,
+          panels: t.panels.map((p) => (p.key === panelKey ? { ...p, visible } : p)),
+        };
+      }),
+    );
   };
 
   return (
@@ -103,7 +107,9 @@ export function LayoutCustomizer({ open, onClose, tabs, onUpdate, onReset }: Pro
       width={360}
       footer={
         <Flex justify="center">
-          <Button icon={<UndoOutlined />} onClick={onReset}>恢复默认</Button>
+          <Button icon={<UndoOutlined />} onClick={onReset}>
+            恢复默认
+          </Button>
         </Flex>
       }
     >
@@ -111,11 +117,13 @@ export function LayoutCustomizer({ open, onClose, tabs, onUpdate, onReset }: Pro
         拖拽调整顺序，开关控制显示/隐藏
       </Text>
 
-      <Divider orientation="left" plain style={{ fontSize: 12 }}>标签页</Divider>
+      <Divider orientation="left" plain style={{ fontSize: 12 }}>
+        标签页
+      </Divider>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleTabDragEnd}>
-        <SortableContext items={sortedTabs.map(t => t.key)} strategy={verticalListSortingStrategy}>
-          {sortedTabs.map(tab => (
+        <SortableContext items={sortedTabs.map((t) => t.key)} strategy={verticalListSortingStrategy}>
+          {sortedTabs.map((tab) => (
             <SortableItem key={tab.key} id={tab.key}>
               <Flex justify="space-between" align="center" style={{ flex: 1 }}>
                 <span
@@ -135,42 +143,43 @@ export function LayoutCustomizer({ open, onClose, tabs, onUpdate, onReset }: Pro
         </SortableContext>
       </DndContext>
 
-      {expandedTab && (() => {
-        const tab = tabs.find(t => t.key === expandedTab);
-        if (!tab || tab.panels.length === 0) return null;
-        const sortedPanels = [...tab.panels].sort((a, b) => a.order - b.order);
+      {expandedTab &&
+        (() => {
+          const tab = tabs.find((t) => t.key === expandedTab);
+          if (!tab || tab.panels.length === 0) return null;
+          const sortedPanels = [...tab.panels].sort((a, b) => a.order - b.order);
 
-        return (
-          <>
-            <Divider orientation="left" plain style={{ fontSize: 12 }}>
-              「{tab.label}」内面板
-            </Divider>
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={(e) => handlePanelDragEnd(expandedTab, e)}
-            >
-              <SortableContext items={sortedPanels.map(p => p.key)} strategy={verticalListSortingStrategy}>
-                {sortedPanels.map(panel => {
-                  const meta = getPanelMeta(panel.key);
-                  return (
-                    <SortableItem key={panel.key} id={panel.key}>
-                      <Flex justify="space-between" align="center" style={{ flex: 1 }}>
-                        <span style={{ fontSize: 13 }}>{meta?.label ?? panel.key}</span>
-                        <Switch
-                          size="small"
-                          checked={panel.visible}
-                          onChange={(checked) => handlePanelVisibility(expandedTab, panel.key, checked)}
-                        />
-                      </Flex>
-                    </SortableItem>
-                  );
-                })}
-              </SortableContext>
-            </DndContext>
-          </>
-        );
-      })()}
+          return (
+            <>
+              <Divider orientation="left" plain style={{ fontSize: 12 }}>
+                「{tab.label}」内面板
+              </Divider>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(e) => handlePanelDragEnd(expandedTab, e)}
+              >
+                <SortableContext items={sortedPanels.map((p) => p.key)} strategy={verticalListSortingStrategy}>
+                  {sortedPanels.map((panel) => {
+                    const meta = getPanelMeta(panel.key);
+                    return (
+                      <SortableItem key={panel.key} id={panel.key}>
+                        <Flex justify="space-between" align="center" style={{ flex: 1 }}>
+                          <span style={{ fontSize: 13 }}>{meta?.label ?? panel.key}</span>
+                          <Switch
+                            size="small"
+                            checked={panel.visible}
+                            onChange={(checked) => handlePanelVisibility(expandedTab, panel.key, checked)}
+                          />
+                        </Flex>
+                      </SortableItem>
+                    );
+                  })}
+                </SortableContext>
+              </DndContext>
+            </>
+          );
+        })()}
     </Drawer>
   );
 }

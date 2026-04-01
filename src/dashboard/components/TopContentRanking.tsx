@@ -16,7 +16,9 @@ export function TopContentRanking({ records }: Props) {
       if (existing) existing.income += r.currentIncome;
       else map.set(r.contentId, { title: r.title, income: r.currentIncome, type: r.contentType });
     }
-    return Array.from(map.values()).sort((a, b) => b.income - a.income).slice(0, 10);
+    return Array.from(map.values())
+      .sort((a, b) => b.income - a.income)
+      .slice(0, 10);
   }, [records]);
 
   const option = {
@@ -27,25 +29,32 @@ export function TopContentRanking({ records }: Props) {
     xAxis: { type: 'value' as const, show: false },
     yAxis: {
       type: 'category' as const,
-      data: top10.map((item) => {
-        const label = item.title.length > 20 ? item.title.slice(0, 20) + '...' : item.title;
-        return label;
-      }).reverse(),
+      data: top10
+        .map((item) => {
+          const label = item.title.length > 20 ? item.title.slice(0, 20) + '...' : item.title;
+          return label;
+        })
+        .reverse(),
       axisLabel: { fontSize: 11, width: 180, overflow: 'truncate' as const },
     },
-    series: [{
-      type: 'bar',
-      data: top10.map((item) => ({
-        value: item.income / 100,
-        itemStyle: { color: item.type === 'article' ? themeColors.warmBlue : themeColors.amberLight },
-      })).reverse(),
-      barMaxWidth: 20,
-      label: {
-        show: true, position: 'right' as const,
-        formatter: (params: any) => `¥${params.value.toFixed(2)}`,
-        fontSize: 11,
+    series: [
+      {
+        type: 'bar',
+        data: top10
+          .map((item) => ({
+            value: item.income / 100,
+            itemStyle: { color: item.type === 'article' ? themeColors.warmBlue : themeColors.amberLight },
+          }))
+          .reverse(),
+        barMaxWidth: 20,
+        label: {
+          show: true,
+          position: 'right' as const,
+          formatter: (params: any) => `¥${params.value.toFixed(2)}`,
+          fontSize: 11,
+        },
       },
-    }],
+    ],
   };
 
   return (

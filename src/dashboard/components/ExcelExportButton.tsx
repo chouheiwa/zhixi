@@ -22,17 +22,25 @@ export function generateExcelReport({ userName, allSummaries, allRecords }: Expo
       existing.read += r.currentRead;
       existing.interaction += r.currentInteraction;
     } else {
-      contentMap.set(r.contentId, { type: r.contentType, income: r.currentIncome, read: r.currentRead, interaction: r.currentInteraction });
+      contentMap.set(r.contentId, {
+        type: r.contentType,
+        income: r.currentIncome,
+        read: r.currentRead,
+        interaction: r.currentInteraction,
+      });
     }
   }
   const contentCount = contentMap.size;
-  const articleCount = Array.from(contentMap.values()).filter(c => c.type === 'article').length;
+  const articleCount = Array.from(contentMap.values()).filter((c) => c.type === 'article').length;
   const answerCount = contentCount - articleCount;
 
   // Sheet 1: Summary
   const summaryData = [
     ['指标', '值'],
-    ['数据范围', allSummaries.length > 0 ? `${allSummaries[0].date} ~ ${allSummaries[allSummaries.length - 1].date}` : '-'],
+    [
+      '数据范围',
+      allSummaries.length > 0 ? `${allSummaries[0].date} ~ ${allSummaries[allSummaries.length - 1].date}` : '-',
+    ],
     ['总收益', `¥${totalIncome.toFixed(2)}`],
     ['总阅读量', totalRead],
     ['平均RPM', totalRead > 0 ? `¥${((totalIncome / totalRead) * 1000).toFixed(2)}` : '-'],
@@ -48,7 +56,7 @@ export function generateExcelReport({ userName, allSummaries, allRecords }: Expo
 
   // Sheet 2: Daily Summary
   const dailyHeader = ['日期', '收益(元)', '阅读量', '互动量', '内容篇数', 'RPM'];
-  const dailyRows = allSummaries.map(s => [
+  const dailyRows = allSummaries.map((s) => [
     s.date,
     +(s.totalIncome / 100).toFixed(2),
     s.totalRead,
@@ -62,10 +70,17 @@ export function generateExcelReport({ userName, allSummaries, allRecords }: Expo
 
   // Sheet 3: Content Details
   const contentHeader = ['标题', '类型', '发布日期', '总收益(元)', '总阅读', '总互动', 'RPM'];
-  const contentAgg = new Map<string, {
-    title: string; type: string; publishDate: string;
-    income: number; read: number; interaction: number;
-  }>();
+  const contentAgg = new Map<
+    string,
+    {
+      title: string;
+      type: string;
+      publishDate: string;
+      income: number;
+      read: number;
+      interaction: number;
+    }
+  >();
   for (const r of allRecords) {
     const existing = contentAgg.get(r.contentId);
     if (existing) {
@@ -85,9 +100,13 @@ export function generateExcelReport({ userName, allSummaries, allRecords }: Expo
   }
   const contentRows = Array.from(contentAgg.values())
     .sort((a, b) => b.income - a.income)
-    .map(c => [
-      c.title, c.type, c.publishDate,
-      +(c.income / 100).toFixed(2), c.read, c.interaction,
+    .map((c) => [
+      c.title,
+      c.type,
+      c.publishDate,
+      +(c.income / 100).toFixed(2),
+      c.read,
+      c.interaction,
       c.read > 0 ? +((c.income / 100 / c.read) * 1000).toFixed(2) : 0,
     ]);
   const ws3 = XLSX.utils.aoa_to_sheet([contentHeader, ...contentRows]);

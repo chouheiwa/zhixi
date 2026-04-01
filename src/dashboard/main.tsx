@@ -8,5 +8,5 @@ import { zhixiTheme } from './theme';
 createRoot(document.getElementById('root')!).render(
   <ConfigProvider theme={zhixiTheme} locale={zhCN}>
     <Dashboard />
-  </ConfigProvider>
+  </ConfigProvider>,
 );

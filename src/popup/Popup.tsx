@@ -43,7 +43,9 @@ export function Popup() {
     setResultMsg('');
     try {
       const result = await sync();
-      setResultMsg(result.synced === 0 ? '数据已是最新' : `同步完成，补全 ${result.synced} 天，共 ${result.count} 条记录`);
+      setResultMsg(
+        result.synced === 0 ? '数据已是最新' : `同步完成，补全 ${result.synced} 天，共 ${result.count} 条记录`,
+      );
       refresh();
     } catch (err) {
       setResultMsg(`同步失败: ${err instanceof Error ? err.message : '未知错误'}`);
@@ -83,16 +85,24 @@ export function Popup() {
       <Flex justify="space-between" align="center" style={{ marginBottom: 8 }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700 }}>知析</div>
-          {user && <Text type="secondary" style={{ fontSize: 11 }}>{user.name}</Text>}
+          {user && (
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {user.name}
+            </Text>
+          )}
         </div>
-        <Button size="small" onClick={openDashboard} icon={<ArrowRightOutlined />}>详细分析</Button>
+        <Button size="small" onClick={openDashboard} icon={<ArrowRightOutlined />}>
+          详细分析
+        </Button>
       </Flex>
 
       {hasSetup && (
         <>
           <TodaySummary summary={yesterdaySummary} loading={loading} />
           <div style={{ marginTop: 8 }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>近 7 天收益趋势</Text>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              近 7 天收益趋势
+            </Text>
             <WeekSparkline summaries={summaries} />
           </div>
         </>
@@ -101,27 +111,41 @@ export function Popup() {
       <Card size="small" style={{ marginTop: 10 }}>
         {hasSetup ? (
           <Flex justify="space-between" align="center">
-            <Text type="secondary" style={{ fontSize: 12 }}>数据范围：{settings!.collectStartDate} 起</Text>
-            <Button type="primary" size="small" icon={<SyncOutlined />} onClick={handleSync} loading={status.isCollecting}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              数据范围：{settings!.collectStartDate} 起
+            </Text>
+            <Button
+              type="primary"
+              size="small"
+              icon={<SyncOutlined />}
+              onClick={handleSync}
+              loading={status.isCollecting}
+            >
               {status.isCollecting ? '同步中' : '同步数据'}
             </Button>
           </Flex>
         ) : (
           <div>
-            <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>首次使用：设置致知计划开通日期</Text>
+            <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
+              首次使用：设置致知计划开通日期
+            </Text>
             <Space>
               <DatePicker
                 size="small"
                 onChange={(date) => setStartDate(date ? date.format('YYYY-MM-DD') : '')}
                 placeholder="选择开始日期"
               />
-              <Button type="primary" size="small" onClick={handleSetupAndSync} disabled={!startDate} loading={status.isCollecting}>
+              <Button
+                type="primary"
+                size="small"
+                onClick={handleSetupAndSync}
+                disabled={!startDate}
+                loading={status.isCollecting}
+              >
                 {status.isCollecting ? '同步中' : '开始同步'}
               </Button>
             </Space>
-            <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>
-              选择你开通致知计划的大致日期
-            </div>
+            <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>选择你开通致知计划的大致日期</div>
           </div>
         )}
 

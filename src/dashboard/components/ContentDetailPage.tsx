@@ -20,7 +20,13 @@ interface Props {
   title: string;
   publishDate: string;
   onBack: () => void;
-  onCompare?: (item: { contentId: string; contentToken: string; contentType: string; title: string; publishDate: string }) => void;
+  onCompare?: (item: {
+    contentId: string;
+    contentToken: string;
+    contentType: string;
+    title: string;
+    publishDate: string;
+  }) => void;
 }
 
 type Metric = 'pv' | 'show' | 'upvote' | 'comment' | 'collect' | 'share';
@@ -34,7 +40,15 @@ const ALL_METRICS: { key: Metric; label: string; color: string }[] = [
   { key: 'share', label: '分享', color: '#8b7bb5' },
 ];
 
-export function ContentDetailPage({ contentId, contentToken, contentType, title, publishDate, onBack, onCompare }: Props) {
+export function ContentDetailPage({
+  contentId,
+  contentToken,
+  contentType,
+  title,
+  publishDate,
+  onBack,
+  onCompare,
+}: Props) {
   const { user } = useCurrentUser();
   const { status } = useCollector();
   const [dailyRecords, setDailyRecords] = useState<ContentDailyRecord[]>([]);
@@ -52,7 +66,9 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
       .then(setIncomeRecords);
   };
 
-  useEffect(() => { loadData(); }, [user, contentToken, contentId]);
+  useEffect(() => {
+    loadData();
+  }, [user, contentToken, contentId]);
 
   // Reload when collection finishes
   const prevCollecting = React.useRef(status.isCollecting);
@@ -63,7 +79,9 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
 
   // Income summary
   const incomeSummary = useMemo(() => {
-    let totalIncome = 0, totalRead = 0, totalInteraction = 0;
+    let totalIncome = 0,
+      totalRead = 0,
+      totalInteraction = 0;
     for (const r of incomeRecords) {
       totalIncome += r.currentIncome;
       totalRead += r.currentRead;
@@ -75,10 +93,19 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
 
   // Daily summary from daily records
   const dailySummary = useMemo(() => {
-    let totalPv = 0, totalUpvote = 0, totalComment = 0, totalCollect = 0, totalShare = 0, totalShow = 0;
+    let totalPv = 0,
+      totalUpvote = 0,
+      totalComment = 0,
+      totalCollect = 0,
+      totalShare = 0,
+      totalShow = 0;
     for (const r of dailyRecords) {
-      totalPv += r.pv; totalUpvote += r.upvote; totalComment += r.comment;
-      totalCollect += r.collect; totalShare += r.share; totalShow += r.show;
+      totalPv += r.pv;
+      totalUpvote += r.upvote;
+      totalComment += r.comment;
+      totalCollect += r.collect;
+      totalShare += r.share;
+      totalShow += r.show;
     }
     return { totalPv, totalUpvote, totalComment, totalCollect, totalShare, totalShow };
   }, [dailyRecords]);
@@ -90,9 +117,12 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
         chrome.runtime.sendMessage(
           { action: 'fetchContentDaily', items: [{ contentId, contentToken, contentType, title, publishDate }] },
           (resp) => {
-            if (chrome.runtime.lastError) { reject(new Error(chrome.runtime.lastError.message)); return; }
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+              return;
+            }
             resolve(resp);
-          }
+          },
         );
       });
       if (response.ok) {
@@ -111,17 +141,22 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
     if (incomeRecords.length === 0) return null;
     const sorted = [...incomeRecords].sort((a, b) => a.recordDate.localeCompare(b.recordDate));
     return {
-      tooltip: { trigger: 'axis' as const, formatter: (params: any[]) => `${params[0].name}<br/>¥${(params[0].value / 100).toFixed(2)}` },
+      tooltip: {
+        trigger: 'axis' as const,
+        formatter: (params: any[]) => `${params[0].name}<br/>¥${(params[0].value / 100).toFixed(2)}`,
+      },
       grid: withZoomGrid({ left: 50, right: 30, top: 20, bottom: 30 }),
-      xAxis: { type: 'category' as const, data: sorted.map(r => r.recordDate.slice(5)), axisLabel: { fontSize: 11 } },
+      xAxis: { type: 'category' as const, data: sorted.map((r) => r.recordDate.slice(5)), axisLabel: { fontSize: 11 } },
       yAxis: { type: 'value' as const, axisLabel: { formatter: (v: number) => `¥${(v / 100).toFixed(0)}` } },
-      series: [{
-        type: 'bar',
-        data: sorted.map(r => r.currentIncome),
-        itemStyle: { color: themeColors.warmBlue, borderRadius: [3, 3, 0, 0] },
-        barMaxWidth: 20,
-      }],
-    ...timeSeriesZoom,
+      series: [
+        {
+          type: 'bar',
+          data: sorted.map((r) => r.currentIncome),
+          itemStyle: { color: themeColors.warmBlue, borderRadius: [3, 3, 0, 0] },
+          barMaxWidth: 20,
+        },
+      ],
+      ...timeSeriesZoom,
     };
   }, [incomeRecords]);
 
@@ -132,9 +167,7 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
         <div style={{ flex: 1 }}>
           <h2 style={{ fontSize: 16, margin: 0 }}>{title}</h2>
           <Flex align="center" gap={8} style={{ marginTop: 4 }}>
-            <Tag color={contentType === 'article' ? 'blue' : 'gold'}>
-              {contentType === 'article' ? '文章' : '回答'}
-            </Tag>
+            <Tag color={contentType === 'article' ? 'blue' : 'gold'}>{contentType === 'article' ? '文章' : '回答'}</Tag>
             <span style={{ fontSize: 12, color: '#999' }}>发布于 {publishDate}</span>
           </Flex>
         </div>
@@ -151,14 +184,44 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
 
       {/* Summary stats */}
       <Row gutter={[10, 10]} style={{ marginBottom: 20 }}>
-        <Col span={4}><Card size="small"><Statistic title="总收益" value={(incomeSummary.totalIncome / 100)} precision={2} prefix="¥" valueStyle={{ color: themeColors.warmBlue, fontWeight: 700 }} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic title="千次阅读收益" value={incomeSummary.rpm} precision={2} prefix="¥" /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic title="总阅读" value={incomeSummary.totalRead} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic title="总互动" value={incomeSummary.totalInteraction} /></Card></Col>
+        <Col span={4}>
+          <Card size="small">
+            <Statistic
+              title="总收益"
+              value={incomeSummary.totalIncome / 100}
+              precision={2}
+              prefix="¥"
+              valueStyle={{ color: themeColors.warmBlue, fontWeight: 700 }}
+            />
+          </Card>
+        </Col>
+        <Col span={4}>
+          <Card size="small">
+            <Statistic title="千次阅读收益" value={incomeSummary.rpm} precision={2} prefix="¥" />
+          </Card>
+        </Col>
+        <Col span={4}>
+          <Card size="small">
+            <Statistic title="总阅读" value={incomeSummary.totalRead} />
+          </Card>
+        </Col>
+        <Col span={4}>
+          <Card size="small">
+            <Statistic title="总互动" value={incomeSummary.totalInteraction} />
+          </Card>
+        </Col>
         {dailyRecords.length > 0 && (
           <>
-            <Col span={4}><Card size="small"><Statistic title="总点赞" value={dailySummary.totalUpvote} /></Card></Col>
-            <Col span={4}><Card size="small"><Statistic title="总评论" value={dailySummary.totalComment} /></Card></Col>
+            <Col span={4}>
+              <Card size="small">
+                <Statistic title="总点赞" value={dailySummary.totalUpvote} />
+              </Card>
+            </Col>
+            <Col span={4}>
+              <Card size="small">
+                <Statistic title="总评论" value={dailySummary.totalComment} />
+              </Card>
+            </Col>
           </>
         )}
       </Row>
@@ -198,7 +261,13 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
                       </span>
                     )}
                   </div>
-                  <Button type="primary" size="small" icon={<ReloadOutlined />} onClick={handleFetchDaily} loading={status.isCollecting}>
+                  <Button
+                    type="primary"
+                    size="small"
+                    icon={<ReloadOutlined />}
+                    onClick={handleFetchDaily}
+                    loading={status.isCollecting}
+                  >
                     {status.isCollecting ? '拉取中...' : dailyRecords.length > 0 ? '更新数据' : '拉取数据'}
                   </Button>
                 </Flex>
@@ -207,7 +276,8 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
                   <Alert
                     message={fetchMsg}
                     type={fetchMsg.includes('失败') ? 'error' : 'success'}
-                    showIcon closable
+                    showIcon
+                    closable
                     style={{ marginBottom: 12 }}
                     onClose={() => setFetchMsg('')}
                   />
@@ -216,15 +286,18 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
                 {dailyRecords.length > 0 ? (
                   <Row gutter={[16, 16]}>
                     {ALL_METRICS.map(({ key, label, color }) => {
-                      const dates = dailyRecords.map(r => r.date);
-                      const incomeMap = new Map(incomeRecords.map(r => [r.recordDate, r.currentIncome]));
-                      const incomeData = dates.map(d => (incomeMap.get(d) ?? 0) / 100);
+                      const dates = dailyRecords.map((r) => r.date);
+                      const incomeMap = new Map(incomeRecords.map((r) => [r.recordDate, r.currentIncome]));
+                      const incomeData = dates.map((d) => (incomeMap.get(d) ?? 0) / 100);
                       return (
                         <Col span={12} key={key}>
-                          <MetricChart label={label} color={color}
-                            data={dailyRecords.map(r => r[key])}
+                          <MetricChart
+                            label={label}
+                            color={color}
+                            data={dailyRecords.map((r) => r[key])}
                             incomeData={incomeData}
-                            dates={dates.map(d => d.slice(5))} />
+                            dates={dates.map((d) => d.slice(5))}
+                          />
                         </Col>
                       );
                     })}
@@ -243,8 +316,18 @@ export function ContentDetailPage({ contentId, contentToken, contentType, title,
   );
 }
 
-function MetricChart({ label, color, data, incomeData, dates }: {
-  label: string; color: string; data: number[]; incomeData: number[]; dates: string[];
+function MetricChart({
+  label,
+  color,
+  data,
+  incomeData,
+  dates,
+}: {
+  label: string;
+  color: string;
+  data: number[];
+  incomeData: number[];
+  dates: string[];
 }) {
   const option = {
     tooltip: { trigger: 'axis' as const },
@@ -254,7 +337,12 @@ function MetricChart({ label, color, data, incomeData, dates }: {
     xAxis: { type: 'category' as const, data: dates, axisLabel: { fontSize: 10 }, axisTick: { show: false } },
     yAxis: [
       { type: 'value' as const, axisLabel: { fontSize: 10 }, splitNumber: 3, position: 'left' as const },
-      { type: 'value' as const, axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v}` }, splitNumber: 3, position: 'right' as const },
+      {
+        type: 'value' as const,
+        axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v}` },
+        splitNumber: 3,
+        position: 'right' as const,
+      },
     ],
     series: [
       {
@@ -276,7 +364,7 @@ function MetricChart({ label, color, data, incomeData, dates }: {
         barMaxWidth: 8,
       },
     ],
-  ...timeSeriesZoom,
+    ...timeSeriesZoom,
   };
   return (
     <div style={{ background: '#fafafa', borderRadius: 8, padding: '8px 8px 0' }}>
@@ -284,4 +372,3 @@ function MetricChart({ label, color, data, incomeData, dates }: {
     </div>
   );
 }
-

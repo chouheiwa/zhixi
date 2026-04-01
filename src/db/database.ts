@@ -1,5 +1,12 @@
 import Dexie, { type Table } from 'dexie';
-import type { IncomeRecord, UserSettings, ContentDailyRecord, RealtimeAggrRecord, PanelLayout, TourState } from '@/shared/types';
+import type {
+  IncomeRecord,
+  UserSettings,
+  ContentDailyRecord,
+  RealtimeAggrRecord,
+  PanelLayout,
+  TourState,
+} from '@/shared/types';
 
 export interface SyncedDate {
   userId: string;
