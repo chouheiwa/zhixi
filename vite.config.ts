@@ -29,5 +29,11 @@ export default defineConfig({
     globals: true,
     environment: 'happy-dom',
     setupFiles: ['tests/setup/chrome-mock.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'text-summary', 'lcov'],
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.d.ts', 'src/manifest.ts'],
+    },
   },
 });

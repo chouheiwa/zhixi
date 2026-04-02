@@ -27,15 +27,15 @@ function describeAnomaly(z: number, value: number, mean: number): string {
 }
 
 export function AnomalyDetectionPanel({ summaries, startDate, endDate }: Props) {
-  const days = eachDayInRange(startDate, endDate);
-  const summaryMap = new Map(summaries.map((s) => [s.date, s]));
+  const days = useMemo(() => eachDayInRange(startDate, endDate), [startDate, endDate]);
+  const summaryMap = useMemo(() => new Map(summaries.map((s) => [s.date, s])), [summaries]);
 
   const analysis = useMemo(() => {
     const incomes = days.map((d) => (summaryMap.get(d)?.totalIncome ?? 0) / 100);
     const mean = incomes.reduce((a, b) => a + b, 0) / (incomes.length || 1);
     const incomeAnomalies = detectAnomalies(incomes, 2.0, days);
     return { incomes, mean, incomeAnomalies };
-  }, [summaries, startDate, endDate]);
+  }, [days, summaryMap]);
 
   const dates = days.map((d) => d.slice(5));
 

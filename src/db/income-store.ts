@@ -40,7 +40,11 @@ export async function getDailySummaries(userId: string, startDate: string, endDa
 
 /** Get ALL daily summaries for a user (no date filter) */
 export async function getAllDailySummaries(userId: string): Promise<DailySummary[]> {
-  const records = await db.incomeRecords.where('userId').equals(userId).toArray();
+  // Use compound index [userId+recordDate] for pre-sorted iteration, avoiding post-sort
+  const records = await db.incomeRecords
+    .where('[userId+recordDate]')
+    .between([userId, ''], [userId, '\uffff'])
+    .toArray();
   const byDate = new Map<string, { income: number; read: number; interaction: number; count: number }>();
   for (const r of records) {
     const existing = byDate.get(r.recordDate) ?? { income: 0, read: 0, interaction: 0, count: 0 };
@@ -50,15 +54,14 @@ export async function getAllDailySummaries(userId: string): Promise<DailySummary
     existing.count += 1;
     byDate.set(r.recordDate, existing);
   }
-  return Array.from(byDate.entries())
-    .map(([date, agg]) => ({
-      date,
-      totalIncome: agg.income,
-      totalRead: agg.read,
-      totalInteraction: agg.interaction,
-      contentCount: agg.count,
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  // Records are already sorted by recordDate from the compound index, so Map preserves order
+  return Array.from(byDate.entries()).map(([date, agg]) => ({
+    date,
+    totalIncome: agg.income,
+    totalRead: agg.read,
+    totalInteraction: agg.interaction,
+    contentCount: agg.count,
+  }));
 }
 
 /** Check if records exist for a specific user+date */

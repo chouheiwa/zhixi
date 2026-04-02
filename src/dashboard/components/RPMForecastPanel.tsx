@@ -22,8 +22,8 @@ interface Props {
 }
 
 export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
-  const days = eachDayInRange(startDate, endDate);
-  const summaryMap = new Map(summaries.map((s) => [s.date, s]));
+  const days = useMemo(() => eachDayInRange(startDate, endDate), [startDate, endDate]);
+  const summaryMap = useMemo(() => new Map(summaries.map((s) => [s.date, s])), [summaries]);
 
   const analysis = useMemo(() => {
     const incomes = days.map((d) => (summaryMap.get(d)?.totalIncome ?? 0) / 100);
@@ -46,7 +46,7 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
     const rpmTrend = prevRpm > 0 ? ((latestRpm - prevRpm) / prevRpm) * 100 : 0;
 
     return { incomes, rpms, rpmEma, holtSmoothed, forecast, forecastDates, forecast7Total, latestRpm, rpmTrend };
-  }, [summaries, startDate, endDate]);
+  }, [days, summaryMap, endDate]);
 
   const dates = days.map((d) => d.slice(5));
 
