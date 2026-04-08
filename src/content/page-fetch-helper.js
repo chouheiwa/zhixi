@@ -1,3 +1,4 @@
+/* global window, fetch, CustomEvent */
 (function() {
   'use strict';
   window.addEventListener('__zhihu_analyzer_fetch_request', async function(e) {

@@ -13,8 +13,7 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      // TODO: upgrade to 'error' after eliminating all any types (Phase 2)
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       // TODO: fix these during Dashboard decomposition (Phase 6) and perf optimization (Phase 7)
       'react-hooks/preserve-manual-memoization': 'warn',
