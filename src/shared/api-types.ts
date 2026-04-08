@@ -65,14 +65,25 @@ export interface ZhihuRealtimeAggrResponse extends ZhihuRealtimeAggrItem {
   updated: string;
 }
 
+/** Zhihu pin content block (text or image) */
+export interface ZhihuPinContentBlock {
+  type: 'text' | 'image';
+  content?: string;
+  own_text?: string;
+  url?: string;
+}
+
 /** Zhihu creation item core data */
 export interface ZhihuCreationData {
   id: string;
   url_token: string;
-  title: string;
-  sub_type: string;
+  title?: string;
+  sub_type?: string;
   created_time: number;
   updated_time: number;
+  /** Pin-specific: content blocks instead of title */
+  content?: ZhihuPinContentBlock[];
+  excerpt?: string;
 }
 
 /** Zhihu creation item reaction data */

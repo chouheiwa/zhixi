@@ -12,6 +12,7 @@ import { useCollector } from '@/hooks/use-collector';
 import { LifecycleAnalysis } from './LifecycleAnalysis';
 import { ResidualChart } from './ResidualChart';
 import { computeRPM, percentileRanks } from '@/shared/stats';
+import { contentTypeLabel, contentTypeColor } from '@/shared/content-type';
 import { themeColors } from '../theme';
 
 interface Props {
@@ -167,7 +168,7 @@ export function ContentDetailPage({
         <div style={{ flex: 1 }}>
           <h2 style={{ fontSize: 16, margin: 0 }}>{title}</h2>
           <Flex align="center" gap={8} style={{ marginTop: 4 }}>
-            <Tag color={contentType === 'article' ? 'blue' : 'gold'}>{contentType === 'article' ? '文章' : '回答'}</Tag>
+            <Tag color={contentTypeColor(contentType)}>{contentTypeLabel(contentType)}</Tag>
             <span style={{ fontSize: 12, color: '#999' }}>发布于 {publishDate}</span>
           </Flex>
         </div>

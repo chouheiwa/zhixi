@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { Table, Tag, Button, Space, Alert, Progress } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { IncomeRecord } from '@/shared/types';
+import { contentTypeLabel, contentTypeColor, CONTENT_TYPE_FILTERS } from '@/shared/content-type';
 import { useCollector } from '@/hooks/use-collector';
 import { themeColors } from '../theme';
 
@@ -97,13 +98,8 @@ export function ContentTable({ records, onContentClick, onCompare }: Props) {
       dataIndex: 'contentType',
       key: 'contentType',
       width: 80,
-      render: (type: string) => (
-        <Tag color={type === 'article' ? 'blue' : 'gold'}>{type === 'article' ? '文章' : '回答'}</Tag>
-      ),
-      filters: [
-        { text: '文章', value: 'article' },
-        { text: '回答', value: 'answer' },
-      ],
+      render: (type: string) => <Tag color={contentTypeColor(type)}>{contentTypeLabel(type)}</Tag>,
+      filters: CONTENT_TYPE_FILTERS,
       onFilter: (value, record) => record.contentType === value,
     },
     {

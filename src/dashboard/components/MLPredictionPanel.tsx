@@ -23,6 +23,7 @@ import {
   type TrainingStep,
 } from '@/shared/ml-models';
 import { FormulaBlock } from './FormulaHelp';
+import { contentTypeShortLabel, contentTypeColor } from '@/shared/content-type';
 import { themeColors } from '../theme';
 
 interface Props {
@@ -500,8 +501,8 @@ export function MLPredictionPanel({ records }: Props) {
       ellipsis: true,
       render: (title: string, row) => (
         <span>
-          <Tag color={row.contentType === 'article' ? 'blue' : 'gold'} style={{ marginRight: 4 }}>
-            {row.contentType === 'article' ? '文' : '答'}
+          <Tag color={contentTypeColor(row.contentType)} style={{ marginRight: 4 }}>
+            {contentTypeShortLabel(row.contentType)}
           </Tag>
           {title}
         </span>

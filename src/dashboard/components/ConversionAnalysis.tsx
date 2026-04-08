@@ -5,6 +5,7 @@ import { scatterZoomToolbox } from './chartConfig';
 import type { IncomeRecord } from '@/shared/types';
 import { efficiencyFrontier, computeRPM } from '@/shared/stats';
 import { FormulaBlock } from './FormulaHelp';
+import { contentTypeChartColor } from '@/shared/content-type';
 import { themeColors } from '../theme';
 
 interface ScatterTooltipParam {
@@ -39,7 +40,7 @@ export function ConversionAnalysis({ records }: Props) {
       scatterData: items.map((item) => ({
         value: [item.read, item.income / 100],
         name: item.title,
-        itemStyle: { color: item.type === 'article' ? themeColors.warmBlue : themeColors.amberLight },
+        itemStyle: { color: contentTypeChartColor(item.type) },
       })),
       frontierLine: efficiencyFrontier(reads, incomes),
       avgRPM: computeRPM(totalIncome, totalReads),

@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import type { DailySummary, IncomeRecord } from '@/shared/types';
+import { contentTypeLabel } from '@/shared/content-type';
 
 interface ExportParams {
   userName: string;
@@ -31,11 +32,13 @@ export function generateExcelReport({ userName, allSummaries, allRecords }: Expo
     }
   }
   const contentCount = contentMap.size;
-  const articleCount = Array.from(contentMap.values()).filter((c) => c.type === 'article').length;
-  const answerCount = contentCount - articleCount;
+  const typeCounts = new Map<string, number>();
+  for (const c of contentMap.values()) {
+    typeCounts.set(c.type, (typeCounts.get(c.type) ?? 0) + 1);
+  }
 
   // Sheet 1: Summary
-  const summaryData = [
+  const summaryData: (string | number)[][] = [
     ['指标', '值'],
     [
       '数据范围',
@@ -45,8 +48,7 @@ export function generateExcelReport({ userName, allSummaries, allRecords }: Expo
     ['总阅读量', totalRead],
     ['平均RPM', totalRead > 0 ? `¥${((totalIncome / totalRead) * 1000).toFixed(2)}` : '-'],
     ['内容总数', `${contentCount}篇`],
-    ['文章数', `${articleCount}篇`],
-    ['回答数', `${answerCount}篇`],
+    ...Array.from(typeCounts.entries()).map(([type, count]) => [`${contentTypeLabel(type)}数`, `${count}篇`]),
     ['日均收益', days > 0 ? `¥${(totalIncome / days).toFixed(2)}` : '-'],
     ['采集天数', `${days}天`],
   ];
@@ -90,7 +92,7 @@ export function generateExcelReport({ userName, allSummaries, allRecords }: Expo
     } else {
       contentAgg.set(r.contentId, {
         title: r.title,
-        type: r.contentType === 'article' ? '文章' : '回答',
+        type: contentTypeLabel(r.contentType),
         publishDate: r.publishDate,
         income: r.currentIncome,
         read: r.currentRead,

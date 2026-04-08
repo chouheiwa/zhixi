@@ -7,6 +7,7 @@ import type { ContentDailyRecord, IncomeRecord } from '@/shared/types';
 import { getContentDailyRecords } from '@/db/content-daily-store';
 import { db } from '@/db/database';
 import { useCurrentUser } from '@/hooks/use-current-user';
+import { contentTypeLabel, contentTypeColor } from '@/shared/content-type';
 import { themeColors } from '../theme';
 
 interface ContentOption {
@@ -197,8 +198,8 @@ export function ContentComparePage({ initialItems, allContentOptions, onBack }: 
       ellipsis: true,
       render: (title: string, row) => (
         <span>
-          <Tag color={row.contentType === 'article' ? 'blue' : 'gold'} style={{ marginRight: 4 }}>
-            {row.contentType === 'article' ? '文章' : '回答'}
+          <Tag color={contentTypeColor(row.contentType)} style={{ marginRight: 4 }}>
+            {contentTypeLabel(row.contentType)}
           </Tag>
           {title}
         </span>
@@ -302,7 +303,7 @@ export function ContentComparePage({ initialItems, allContentOptions, onBack }: 
                   title: (
                     <span>
                       <Tag color={COLORS[idx]} style={{ marginRight: 4 }}>
-                        {item.contentType === 'article' ? '文章' : '回答'}
+                        {contentTypeLabel(item.contentType)}
                       </Tag>
                       {item.title.length > 12 ? item.title.slice(0, 12) + '...' : item.title}
                     </span>

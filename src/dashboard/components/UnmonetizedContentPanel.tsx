@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Card, Button, Table, Tag, Flex, Alert, Empty } from 'antd';
 import { FileSearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { CreationItem } from '@/api/zhihu-creations';
+import { contentTypeLabel, contentTypeColor } from '@/shared/content-type';
 
 interface Props {
   /** Content tokens (url_token) that have income records */
@@ -83,8 +84,8 @@ export function UnmonetizedContentPanel({ monetizedContentTokens }: Props) {
                 ellipsis: true,
                 render: (title: string, row) => (
                   <span>
-                    <Tag color={row.contentType === 'article' ? 'blue' : 'gold'} style={{ marginRight: 4 }}>
-                      {row.contentType === 'article' ? '文章' : '回答'}
+                    <Tag color={contentTypeColor(row.contentType)} style={{ marginRight: 4 }}>
+                      {contentTypeLabel(row.contentType)}
                     </Tag>
                     {title}
                   </span>

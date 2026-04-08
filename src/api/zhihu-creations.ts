@@ -2,7 +2,8 @@
  * Fetch all user-published content from Zhihu creator API.
  * Supports pagination.
  */
-import type { ZhihuCreationsApiResponse } from '@/shared/api-types';
+import type { ZhihuCreationsApiResponse, ZhihuCreationData } from '@/shared/api-types';
+import type { ContentType } from '@/shared/content-type';
 import { REQUEST_INTERVAL_MIN, REQUEST_INTERVAL_MAX } from '@/shared/constants';
 import { randomDelay } from '@/shared/utils';
 import { fetchWithRetry } from './fetch-proxy';
@@ -26,6 +27,25 @@ function formatTimestamp(ts: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function resolveContentType(apiType: string): ContentType {
+  if (apiType === 'article') return 'article';
+  if (apiType === 'pin') return 'pin';
+  return 'answer';
+}
+
+function resolveTitle(apiType: string, data: ZhihuCreationData): string {
+  if (apiType === 'pin') {
+    // Extract text from pin content blocks
+    const textBlocks = data.content?.filter((b) => b.type === 'text') ?? [];
+    const text = textBlocks
+      .map((b) => b.own_text || b.content || '')
+      .join(' ')
+      .trim();
+    return text || data.excerpt || '(无文字想法)';
+  }
+  return data.title ?? '';
+}
+
 /**
  * Fetch all creations with pagination.
  */
@@ -47,8 +67,8 @@ export async function fetchAllCreations(
       items.push({
         contentId: item.data.id,
         contentToken: item.data.url_token,
-        contentType: item.type === 'article' ? 'article' : 'answer',
-        title: item.data.title,
+        contentType: resolveContentType(item.type),
+        title: resolveTitle(item.type, item.data),
         publishDate: formatTimestamp(item.data.created_time),
         readCount: item.reaction?.read_count ?? 0,
         upvoteCount: item.reaction?.vote_up_count ?? 0,

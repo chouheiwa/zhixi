@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Card } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import type { IncomeRecord } from '@/shared/types';
+import { contentTypeChartColor } from '@/shared/content-type';
 import { themeColors } from '../theme';
 
 interface RankTooltipParam {
@@ -48,7 +49,7 @@ function TopContentRankingInner({ records }: Props) {
         data: top10
           .map((item) => ({
             value: item.income / 100,
-            itemStyle: { color: item.type === 'article' ? themeColors.warmBlue : themeColors.amberLight },
+            itemStyle: { color: contentTypeChartColor(item.type) },
           }))
           .reverse(),
         barMaxWidth: 20,

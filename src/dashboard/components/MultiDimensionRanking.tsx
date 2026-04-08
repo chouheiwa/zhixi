@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Card, Segmented, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { IncomeRecord } from '@/shared/types';
+import { contentTypeLabel, contentTypeColor } from '@/shared/content-type';
 import { themeColors } from '../theme';
 
 interface Props {
@@ -187,8 +188,8 @@ export function MultiDimensionRanking({ records, onContentClick }: Props) {
       ellipsis: true,
       render: (title: string, row) => (
         <span>
-          <Tag color={row.contentType === 'article' ? 'blue' : 'gold'} style={{ marginRight: 4 }}>
-            {row.contentType === 'article' ? '文章' : '回答'}
+          <Tag color={contentTypeColor(row.contentType)} style={{ marginRight: 4 }}>
+            {contentTypeLabel(row.contentType)}
           </Tag>
           {title}
         </span>
