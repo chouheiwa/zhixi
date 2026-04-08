@@ -337,7 +337,6 @@ async function runFetchTodayRealtime(): Promise<{ today: TodayRealtimeSnapshot |
     {
       userId: user.id,
       date: today,
-      updatedAt: result.today.updatedAt,
       ...result.today,
       collectedAt: Date.now(),
     },
@@ -445,78 +444,80 @@ async function runFetchTodayContentDaily(): Promise<{ count: number; cached: num
 
 // ============ Message Handling ============
 
-chrome.runtime.onMessage.addListener((message: Request, _sender, sendResponse) => {
-  switch (message.action) {
-    case 'openDashboard': {
-      const respond = sendResponse as (response?: OpenDashboardResponse) => void;
-      chrome.tabs.create({
-        url: chrome.runtime.getURL('src/dashboard/index.html'),
-      });
-      respond();
-      return;
-    }
+chrome.runtime.onMessage.addListener(
+  (message: Request, _sender: unknown, sendResponse: (response: unknown) => void) => {
+    switch (message.action) {
+      case 'openDashboard': {
+        const respond = sendResponse as (response?: OpenDashboardResponse) => void;
+        chrome.tabs.create({
+          url: chrome.runtime.getURL('src/dashboard/index.html'),
+        });
+        respond();
+        return;
+      }
 
-    case 'syncIncome': {
-      const respond = sendResponse as (response: SyncIncomeResponse) => void;
-      runSync(message.startDate)
-        .then((result) => respond({ ok: true, ...result }))
-        .catch((err: Error) => respond({ ok: false, error: err.message }));
-      return true;
-    }
+      case 'syncIncome': {
+        const respond = sendResponse as (response: SyncIncomeResponse) => void;
+        runSync(message.startDate)
+          .then((result) => respond({ ok: true, ...result }))
+          .catch((err: Error) => respond({ ok: false, error: err.message }));
+        return true;
+      }
 
-    case 'fetchContentDaily': {
-      const respond = sendResponse as (response: FetchContentDailyResponse) => void;
-      runFetchContentDaily(message.items)
-        .then((result) => respond({ ok: true, ...result }))
-        .catch((err: Error) => respond({ ok: false, error: err.message }));
-      return true;
-    }
+      case 'fetchContentDaily': {
+        const respond = sendResponse as (response: FetchContentDailyResponse) => void;
+        runFetchContentDaily(message.items)
+          .then((result) => respond({ ok: true, ...result }))
+          .catch((err: Error) => respond({ ok: false, error: err.message }));
+        return true;
+      }
 
-    case 'fetchAllCreations': {
-      const respond = sendResponse as (response: FetchAllCreationsResponse) => void;
-      addLog('正在获取全部已发表内容...');
-      fetchAllCreations((fetched, total) => {
-        addLog(`已获取 ${fetched}/${total} 篇`);
-      })
-        .then((items) => {
-          addLog(`获取完成，共 ${items.length} 篇内容`);
-          respond({ ok: true, items });
+      case 'fetchAllCreations': {
+        const respond = sendResponse as (response: FetchAllCreationsResponse) => void;
+        addLog('正在获取全部已发表内容...');
+        fetchAllCreations((fetched, total) => {
+          addLog(`已获取 ${fetched}/${total} 篇`);
         })
-        .catch((err: Error) => respond({ ok: false, error: err.message }));
-      return true;
-    }
+          .then((items) => {
+            addLog(`获取完成，共 ${items.length} 篇内容`);
+            respond({ ok: true, items });
+          })
+          .catch((err: Error) => respond({ ok: false, error: err.message }));
+        return true;
+      }
 
-    case 'fetchTodayContentDaily': {
-      const respond = sendResponse as (response: FetchTodayContentDailyResponse) => void;
-      runFetchTodayContentDaily()
-        .then((result) => respond({ ok: true, ...result }))
-        .catch((err: Error) => respond({ ok: false, error: err.message }));
-      return true;
-    }
+      case 'fetchTodayContentDaily': {
+        const respond = sendResponse as (response: FetchTodayContentDailyResponse) => void;
+        runFetchTodayContentDaily()
+          .then((result) => respond({ ok: true, ...result }))
+          .catch((err: Error) => respond({ ok: false, error: err.message }));
+        return true;
+      }
 
-    case 'syncRealtimeAggr': {
-      const respond = sendResponse as (response: SyncRealtimeAggrResponse) => void;
-      runSyncRealtimeAggr()
-        .then((result) => respond({ ok: true, ...result }))
-        .catch((err: Error) => respond({ ok: false, error: err.message }));
-      return true;
-    }
+      case 'syncRealtimeAggr': {
+        const respond = sendResponse as (response: SyncRealtimeAggrResponse) => void;
+        runSyncRealtimeAggr()
+          .then((result) => respond({ ok: true, ...result }))
+          .catch((err: Error) => respond({ ok: false, error: err.message }));
+        return true;
+      }
 
-    case 'fetchTodayRealtime': {
-      const respond = sendResponse as (response: FetchTodayRealtimeResponse) => void;
-      runFetchTodayRealtime()
-        .then((result) => respond({ ok: true, ...result }))
-        .catch((err: Error) => respond({ ok: false, error: err.message }));
-      return true;
-    }
+      case 'fetchTodayRealtime': {
+        const respond = sendResponse as (response: FetchTodayRealtimeResponse) => void;
+        runFetchTodayRealtime()
+          .then((result) => respond({ ok: true, ...result }))
+          .catch((err: Error) => respond({ ok: false, error: err.message }));
+        return true;
+      }
 
-    case 'getCollectStatus': {
-      const respond = sendResponse as (response: GetCollectStatusResponse) => void;
-      respond({ ...collectionStatus, logs: [...recentLogs] });
-      return;
+      case 'getCollectStatus': {
+        const respond = sendResponse as (response: GetCollectStatusResponse) => void;
+        respond({ ...collectionStatus, logs: [...recentLogs] });
+        return;
+      }
     }
-  }
-});
+  },
+);
 
 // ============ Income Anomaly Notification ============
 
@@ -557,7 +558,7 @@ async function checkIncomeAnomalyAndNotify(userId: string): Promise<void> {
 }
 
 // Open dashboard when notification clicked
-chrome.notifications.onClicked.addListener((notificationId) => {
+chrome.notifications.onClicked.addListener((notificationId: string) => {
   if (notificationId === 'income-anomaly') {
     chrome.tabs.create({ url: chrome.runtime.getURL('src/dashboard/index.html') });
     chrome.notifications.clear(notificationId);
@@ -566,7 +567,7 @@ chrome.notifications.onClicked.addListener((notificationId) => {
 
 // ============ Auto-sync on Zhihu visit ============
 
-chrome.tabs.onUpdated.addListener(async (_tabId, changeInfo, tab) => {
+chrome.tabs.onUpdated.addListener(async (_tabId: number, changeInfo: { status?: string }, tab: { url?: string }) => {
   if (changeInfo.status !== 'complete') return;
   if (!tab.url?.startsWith('https://www.zhihu.com/')) return;
 
@@ -597,7 +598,7 @@ chrome.runtime.onStartup.addListener(() => {
   setupAutoSyncAlarm();
 });
 
-chrome.alarms.onAlarm.addListener(async (alarm) => {
+chrome.alarms.onAlarm.addListener(async (alarm: { name: string }) => {
   if (alarm.name !== 'autoSync') return;
 
   try {

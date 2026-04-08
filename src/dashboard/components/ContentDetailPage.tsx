@@ -117,7 +117,7 @@ export function ContentDetailPage({
       const response = await new Promise<{ ok: boolean; count?: number; error?: string }>((resolve, reject) => {
         chrome.runtime.sendMessage(
           { action: 'fetchContentDaily', items: [{ contentId, contentToken, contentType, title, publishDate }] },
-          (resp) => {
+          (resp: { ok: boolean; count?: number; error?: string }) => {
             if (chrome.runtime.lastError) {
               reject(new Error(chrome.runtime.lastError.message));
               return;

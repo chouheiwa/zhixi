@@ -170,13 +170,16 @@ export function MLPredictionPanel({ records }: Props) {
       // 1. Trigger today's data fetch (service worker handles cache check)
       const resp = await new Promise<{ ok: boolean; count?: number; cached?: number; error?: string }>(
         (resolve, reject) => {
-          chrome.runtime.sendMessage({ action: 'fetchTodayContentDaily' }, (r) => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-              return;
-            }
-            resolve(r);
-          });
+          chrome.runtime.sendMessage(
+            { action: 'fetchTodayContentDaily' },
+            (r: { ok: boolean; count?: number; cached?: number; error?: string }) => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+              }
+              resolve(r);
+            },
+          );
         },
       );
 

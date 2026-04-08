@@ -117,7 +117,7 @@ export function LayoutCustomizer({ open, onClose, tabs, onUpdate, onReset }: Pro
         拖拽调整顺序，开关控制显示/隐藏
       </Text>
 
-      <Divider orientation="left" plain style={{ fontSize: 12 }}>
+      <Divider titlePlacement="left" plain style={{ fontSize: 12 }}>
         标签页
       </Divider>
 
@@ -151,7 +151,7 @@ export function LayoutCustomizer({ open, onClose, tabs, onUpdate, onReset }: Pro
 
           return (
             <>
-              <Divider orientation="left" plain style={{ fontSize: 12 }}>
+              <Divider titlePlacement="left" plain style={{ fontSize: 12 }}>
                 「{tab.label}」内面板
               </Divider>
               <DndContext

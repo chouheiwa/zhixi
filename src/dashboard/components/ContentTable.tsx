@@ -66,13 +66,16 @@ export function ContentTable({ records, onContentClick, onCompare }: Props) {
     setFetchMsg('');
     try {
       const response = await new Promise<{ ok: boolean; count?: number; error?: string }>((resolve, reject) => {
-        chrome.runtime.sendMessage({ action: 'fetchContentDaily', items }, (resp) => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-            return;
-          }
-          resolve(resp);
-        });
+        chrome.runtime.sendMessage(
+          { action: 'fetchContentDaily', items },
+          (resp: { ok: boolean; count?: number; error?: string }) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+              return;
+            }
+            resolve(resp);
+          },
+        );
       });
       if (response.ok) {
         setFetchMsg(`拉取完成，共 ${response.count} 条每日数据`);

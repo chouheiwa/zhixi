@@ -19,13 +19,16 @@ export function UnmonetizedContentPanel({ monetizedContentTokens }: Props) {
     setError('');
     try {
       const resp = await new Promise<{ ok: boolean; items?: CreationItem[]; error?: string }>((resolve, reject) => {
-        chrome.runtime.sendMessage({ action: 'fetchAllCreations' }, (r) => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-            return;
-          }
-          resolve(r);
-        });
+        chrome.runtime.sendMessage(
+          { action: 'fetchAllCreations' },
+          (r: { ok: boolean; items?: CreationItem[]; error?: string }) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+              return;
+            }
+            resolve(r);
+          },
+        );
       });
 
       if (!resp.ok || !resp.items) {

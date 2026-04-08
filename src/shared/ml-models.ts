@@ -72,14 +72,14 @@ function isFeatureImportanceList(value: unknown): value is NonNullable<ModelResu
 }
 
 function isModelResult(value: unknown): value is ModelResult {
+  if (value === null || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
   return (
-    value !== null &&
-    typeof value === 'object' &&
-    typeof value.name === 'string' &&
-    isNumberArray(value.predictions) &&
-    typeof value.r2 === 'number' &&
-    typeof value.mae === 'number' &&
-    (value.featureImportance === undefined || isFeatureImportanceList(value.featureImportance))
+    typeof v.name === 'string' &&
+    isNumberArray(v.predictions) &&
+    typeof v.r2 === 'number' &&
+    typeof v.mae === 'number' &&
+    (v.featureImportance === undefined || isFeatureImportanceList(v.featureImportance))
   );
 }
 
@@ -94,40 +94,39 @@ function isWeightList(value: unknown): value is EvaluationResult['ensemble']['we
 }
 
 function isMLPTrainingInfo(value: unknown): value is MLPTrainingInfo {
+  if (value === null || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
   return (
-    value !== null &&
-    typeof value === 'object' &&
-    typeof value.totalEpochs === 'number' &&
-    typeof value.actualEpochs === 'number' &&
-    typeof value.bestEpoch === 'number' &&
-    typeof value.stoppedEarly === 'boolean' &&
-    isNumberArray(value.lossHistory) &&
-    isNumberArray(value.valLossHistory)
+    typeof v.totalEpochs === 'number' &&
+    typeof v.actualEpochs === 'number' &&
+    typeof v.bestEpoch === 'number' &&
+    typeof v.stoppedEarly === 'boolean' &&
+    isNumberArray(v.lossHistory) &&
+    isNumberArray(v.valLossHistory)
   );
 }
 
 export function isEvaluationResult(value: unknown): value is EvaluationResult {
+  if (value === null || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  if (!Array.isArray(v.models) || !v.models.every(isModelResult)) return false;
+  if (v.ensemble === null || typeof v.ensemble !== 'object') return false;
+  const e = v.ensemble as Record<string, unknown>;
   return (
-    value !== null &&
-    typeof value === 'object' &&
-    Array.isArray(value.models) &&
-    value.models.every(isModelResult) &&
-    value.ensemble !== null &&
-    typeof value.ensemble === 'object' &&
-    isNumberArray(value.ensemble.predictions) &&
-    typeof value.ensemble.r2 === 'number' &&
-    typeof value.ensemble.mae === 'number' &&
-    isWeightList(value.ensemble.weights) &&
-    isNumberArray(value.testActual) &&
-    Array.isArray(value.testDates) &&
-    value.testDates.every((item) => typeof item === 'string') &&
-    Array.isArray(value.featureNames) &&
-    value.featureNames.every((item) => typeof item === 'string') &&
-    typeof value.trainedAt === 'number' &&
-    typeof value.dataCount === 'number' &&
-    typeof value.trainCount === 'number' &&
-    typeof value.testCount === 'number' &&
-    (value.mlpTrainingInfo === undefined || isMLPTrainingInfo(value.mlpTrainingInfo))
+    isNumberArray(e.predictions) &&
+    typeof e.r2 === 'number' &&
+    typeof e.mae === 'number' &&
+    isWeightList(e.weights) &&
+    isNumberArray(v.testActual) &&
+    Array.isArray(v.testDates) &&
+    (v.testDates as unknown[]).every((item) => typeof item === 'string') &&
+    Array.isArray(v.featureNames) &&
+    (v.featureNames as unknown[]).every((item) => typeof item === 'string') &&
+    typeof v.trainedAt === 'number' &&
+    typeof v.dataCount === 'number' &&
+    typeof v.trainCount === 'number' &&
+    typeof v.testCount === 'number' &&
+    (v.mlpTrainingInfo === undefined || isMLPTrainingInfo(v.mlpTrainingInfo))
   );
 }
 
@@ -303,7 +302,7 @@ async function trainMLP(
         // Learning rate scheduling: reduce by half every 100 epochs
         if ((epoch + 1) % 100 === 0) {
           const newLR = initialLR * Math.pow(0.5, Math.floor((epoch + 1) / 100));
-          optimizer.learningRate = newLR;
+          (optimizer as unknown as { learningRate: number }).learningRate = newLR;
         }
 
         onEpoch?.(epoch + 1, totalEpochs, loss, valLoss, lossHistory, valLossHistory);
@@ -314,7 +313,7 @@ async function trainMLP(
           bestEpoch = epoch + 1;
           // Save current weights
           bestWeights = await Promise.all(
-            model.getWeights().map((w) => w.data().then((d) => new Float32Array(d).buffer)),
+            model.getWeights().map((w) => w.data().then((d) => new Float32Array(d).buffer as ArrayBuffer)),
           );
         }
       },
@@ -323,9 +322,10 @@ async function trainMLP(
 
   // Restore best weights
   if (bestWeights) {
+    const weights = bestWeights as ArrayBuffer[];
     const shapes = model.getWeights().map((w) => w.shape);
     const dtypes = model.getWeights().map((w) => w.dtype);
-    const restored = bestWeights.map((buf, i) => tf.tensor(new Float32Array(buf), shapes[i], dtypes[i] as 'float32'));
+    const restored = weights.map((buf, i) => tf.tensor(new Float32Array(buf), shapes[i], dtypes[i] as 'float32'));
     model.setWeights(restored);
     restored.forEach((t) => t.dispose());
   }

@@ -15,7 +15,10 @@ const mockRecord = (date: string, contentId: string, income: number) => ({
   currentIncome: income,
   currentRead: 100,
   currentInteraction: 10,
-  updatedAt: Date.now(),
+  totalRead: 1000,
+  totalInteraction: 50,
+  totalIncome: income * 10,
+  collectedAt: Date.now(),
 });
 
 describe('useIncomeData', () => {

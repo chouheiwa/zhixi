@@ -11,7 +11,7 @@ function makeResponse(status: number, body: unknown) {
     ok: status >= 200 && status < 300,
     status,
     json,
-  } as Response;
+  } as unknown as Response;
 }
 
 describe('fetchWithRetry', () => {

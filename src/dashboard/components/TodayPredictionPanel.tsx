@@ -142,13 +142,16 @@ export function TodayPredictionPanel() {
     setError('');
     try {
       const resp = await new Promise<{ ok: boolean; count?: number; error?: string }>((resolve, reject) => {
-        chrome.runtime.sendMessage({ action: 'syncRealtimeAggr' }, (r) => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-            return;
-          }
-          resolve(r);
-        });
+        chrome.runtime.sendMessage(
+          { action: 'syncRealtimeAggr' },
+          (r: { ok: boolean; count?: number; error?: string }) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+              return;
+            }
+            resolve(r);
+          },
+        );
       });
       if (resp.ok) {
         await loadData();
@@ -205,7 +208,7 @@ export function TodayPredictionPanel() {
     setError('');
     try {
       const resp = await new Promise<TodayRealtimeResponse>((resolve, reject) => {
-        chrome.runtime.sendMessage({ action: 'fetchTodayRealtime' }, (r) => {
+        chrome.runtime.sendMessage({ action: 'fetchTodayRealtime' }, (r: TodayRealtimeResponse) => {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
             return;
@@ -622,7 +625,11 @@ export function TodayPredictionPanel() {
 
 // ── Historical data visualization ──
 
-const METRIC_GROUPS = [
+const METRIC_GROUPS: {
+  key: string;
+  label: string;
+  metrics: { key: RealtimeMetricKey; label: string; color: string }[];
+}[] = [
   {
     key: 'traffic',
     label: '流量',
