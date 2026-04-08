@@ -34,6 +34,13 @@ export default defineConfig({
       reporter: ['text', 'text-summary', 'lcov'],
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/**/*.d.ts', 'src/manifest.ts'],
+      thresholds: {
+        // TODO: raise to 80/75/70/80 after D2 test coverage phase
+        lines: 10,
+        functions: 10,
+        branches: 10,
+        statements: 10,
+      },
     },
   },
 });
