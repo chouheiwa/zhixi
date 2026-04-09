@@ -145,3 +145,40 @@ export interface SavedAccount {
   addedAt: number;
   lastUsedAt: number;
 }
+
+// ─── Share Card Data Interfaces ──────────────────────────────────────────────
+
+export interface MonthlyReportData {
+  month: string; // "2026-04"
+  totalIncome: number; // cents
+  dailyAvgIncome: number; // cents
+  bestDayIncome: number; // cents
+  bestDayDate: string;
+  growthRate: number; // vs previous month, e.g. 0.15 = +15%
+  cumulativeIncome: number; // cents, for rank
+}
+
+export interface MilestoneData {
+  name: string;
+  achievedDate: string;
+  totalMilestones: number;
+  cumulativeIncome: number;
+}
+
+export interface HotContentData {
+  title: string;
+  income: number; // cents
+  pv: number;
+  rpm: number;
+  percentile: number; // 0-100
+}
+
+export interface AnnualSummaryData {
+  year: number;
+  totalIncome: number; // cents
+  contentCount: number;
+  bestMonth: string; // "4月"
+  bestMonthIncome: number;
+  monthlyIncomes: number[]; // 12 elements
+  cumulativeIncome: number;
+}

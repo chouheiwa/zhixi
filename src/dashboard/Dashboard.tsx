@@ -51,6 +51,7 @@ import { ContentDetailPage } from './components/ContentDetailPage';
 import { ContentComparePage } from './components/ContentComparePage';
 import { generateExcelReport } from './components/ExcelExportButton';
 import { MilestonesPage } from './components/MilestonesPage';
+import { ShareCardButton } from './components/ShareCardButton';
 import { usePanelLayout } from '@/hooks/use-panel-layout';
 import { getPanelMeta, type DashboardContext } from './panel-registry';
 import { LayoutCustomizer } from './components/LayoutCustomizer';
@@ -409,6 +410,9 @@ export function Dashboard() {
                 onSwitch={accountManager.switchAccount}
                 onManage={() => setAccountManagerOpen(true)}
               />
+            )}
+            {(allSummaries.length > 0 || tour.useDemo) && (
+              <ShareCardButton allSummaries={tour.effectiveSummaries} allRecords={tour.effectiveRecords} />
             )}
             <Dropdown menu={{ items: settingsMenuItems }} trigger={['click']}>
               <Button id="tour-settings-menu" icon={<SettingOutlined />} size="small">

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Card, List, Tag, Flex } from 'antd';
 import { TrophyOutlined, LockOutlined, CheckCircleFilled } from '@ant-design/icons';
 import type { DailySummary, IncomeRecord } from '@/shared/types';
+import { ShareCardButton } from './ShareCardButton';
 
 interface Props {
   allSummaries: DailySummary[];
@@ -117,6 +118,9 @@ export function MilestonesPage({ allSummaries, allRecords }: Props) {
 
   return (
     <Flex vertical gap={16}>
+      <Flex justify="flex-end">
+        <ShareCardButton allSummaries={allSummaries} allRecords={allRecords} />
+      </Flex>
       {categories.map((category) => {
         const items = milestones.filter((m) => m.category === category);
         const achieved = items.filter((m) => m.achieved).length;
