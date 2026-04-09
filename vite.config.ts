@@ -33,13 +33,23 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'text-summary', 'lcov'],
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/**/*.d.ts', 'src/manifest.ts'],
+      exclude: [
+        'src/**/*.d.ts',
+        'src/manifest.ts',
+        // Pure type/interface files with no runtime code
+        'src/shared/api-types.ts',
+        'src/shared/message-types.ts',
+        'src/shared/types.ts',
+        // Entry point files (bootstrapping only, not testable in unit tests)
+        'src/popup/main.tsx',
+        'src/dashboard/main.tsx',
+        'src/content/fetch-bridge.ts',
+      ],
       thresholds: {
-        // TODO: raise to 80/75/70/80 after D2 test coverage phase
-        lines: 10,
-        functions: 10,
-        branches: 10,
-        statements: 10,
+        lines: 80,
+        functions: 60,
+        branches: 75,
+        statements: 80,
       },
     },
   },
