@@ -38,6 +38,9 @@ import type { Dayjs } from 'dayjs';
 import { formatDate, getDateRange } from '@/shared/date-utils';
 import { useIncomeData } from '@/hooks/use-income-data';
 import { useCurrentUser } from '@/hooks/use-current-user';
+import { useAccountManager } from '@/hooks/use-account-manager';
+import { AccountSwitcher } from './components/AccountSwitcher';
+import { AccountManager } from './components/AccountManager';
 import { getAllDailySummaries } from '@/db/income-store';
 import { db } from '@/db/database';
 import type { DailySummary, IncomeRecord } from '@/shared/types';
@@ -89,14 +92,28 @@ export function Dashboard() {
   const [compareItems, setCompareItems] = useState<ContentTableItem[] | null>(null);
   const [customizerOpen, setCustomizerOpen] = useState(false);
   const [milestonesOpen, setMilestonesOpen] = useState(false);
+  const [accountManagerOpen, setAccountManagerOpen] = useState(false);
 
-  const { user, loading: userLoading } = useCurrentUser();
-  const { settings, refresh: refreshSettings } = useUserSettings(user?.id ?? '');
-  const { records, loading, refresh } = useIncomeData(user?.id ?? '', startDate, endDate);
+  const accountManager = useAccountManager();
+  const { user, loading: userLoading } = useCurrentUser(accountManager.activeAccountId ?? undefined);
+
+  // Auto-add current logged-in user to saved accounts
+  const { addCurrentAccount } = accountManager;
+  useEffect(() => {
+    if (user && !accountManager.activeAccountId) {
+      addCurrentAccount(user);
+    }
+  }, [user, accountManager.activeAccountId, addCurrentAccount]);
+
+  // Determine effective userId: prefer active account, fallback to fetched user
+  const effectiveUserId = accountManager.activeAccountId ?? user?.id ?? '';
+
+  const { settings, refresh: refreshSettings } = useUserSettings(effectiveUserId);
+  const { records, loading, refresh } = useIncomeData(effectiveUserId, startDate, endDate);
   const collector = useCollector();
   const { status, logs } = collector;
   const { token } = useToken();
-  const { layout, updateLayout, resetLayout } = usePanelLayout(user?.id ?? '');
+  const { layout, updateLayout, resetLayout } = usePanelLayout(effectiveUserId);
 
   // Full summaries (not filtered by date)
   const [allSummaries, setAllSummaries] = useState<DailySummary[]>([]);
@@ -126,10 +143,10 @@ export function Dashboard() {
   const realContentCount = monetizedContentIds.size;
 
   const refreshAllSummaries = useCallback(() => {
-    if (!user) return;
-    getAllDailySummaries(user.id).then(setAllSummaries);
-    db.incomeRecords.where('userId').equals(user.id).toArray().then(setAllIncomeRecords);
-  }, [user]);
+    if (!effectiveUserId) return;
+    getAllDailySummaries(effectiveUserId).then(setAllSummaries);
+    db.incomeRecords.where('userId').equals(effectiveUserId).toArray().then(setAllIncomeRecords);
+  }, [effectiveUserId]);
   useEffect(() => {
     refreshAllSummaries();
   }, [refreshAllSummaries]);
@@ -200,9 +217,9 @@ export function Dashboard() {
   }, [tour.effectiveSummaries, tour.effectiveRecords]);
 
   const dashboardContext: DashboardContext | null = useMemo(() => {
-    if (!user) return null;
+    if (!effectiveUserId) return null;
     return {
-      userId: user.id,
+      userId: effectiveUserId,
       allSummaries: tour.effectiveSummaries,
       allDateRange: tour.effectiveDateRange,
       allIncomeRecords: tour.effectiveRecords,
@@ -215,7 +232,7 @@ export function Dashboard() {
       onContentClick: (item) => setSelectedContent(item),
     };
   }, [
-    user,
+    effectiveUserId,
     tour.effectiveSummaries,
     tour.effectiveDateRange,
     tour.effectiveRecords,
@@ -385,6 +402,14 @@ export function Dashboard() {
             )}
           </div>
           <Space>
+            {accountManager.accounts.length > 0 && (
+              <AccountSwitcher
+                accounts={accountManager.accounts}
+                activeAccountId={accountManager.activeAccountId}
+                onSwitch={accountManager.switchAccount}
+                onManage={() => setAccountManagerOpen(true)}
+              />
+            )}
             <Dropdown menu={{ items: settingsMenuItems }} trigger={['click']}>
               <Button id="tour-settings-menu" icon={<SettingOutlined />} size="small">
                 设置
@@ -698,6 +723,14 @@ export function Dashboard() {
             }}
           />
         )}
+        <AccountManager
+          open={accountManagerOpen}
+          accounts={accountManager.accounts}
+          activeAccountId={accountManager.activeAccountId}
+          onClose={() => setAccountManagerOpen(false)}
+          onSwitch={accountManager.switchAccount}
+          onRemove={accountManager.removeAccount}
+        />
       </Content>
     </Layout>
   );

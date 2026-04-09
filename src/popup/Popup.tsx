@@ -6,6 +6,7 @@ import { formatDate, getDateRange } from '@/shared/date-utils';
 import { useIncomeData } from '@/hooks/use-income-data';
 import { useCollector } from '@/hooks/use-collector';
 import { useCurrentUser } from '@/hooks/use-current-user';
+import { useAccountManager } from '@/hooks/use-account-manager';
 import { useUserSettings } from '@/hooks/use-user-settings';
 import { TodaySummary } from './components/TodaySummary';
 import { WeekSparkline } from './components/WeekSparkline';
@@ -23,9 +24,21 @@ export function Popup() {
   const { start: weekStart } = getDateRange(7);
   const startStr = formatDate(weekStart);
 
-  const { user, loading: userLoading } = useCurrentUser();
-  const { settings, loading: settingsLoading, refresh: refreshSettings } = useUserSettings(user?.id ?? '');
-  const { summaries, loading, refresh } = useIncomeData(user?.id ?? '', startStr, yesterday);
+  const accountManager = useAccountManager();
+  const { user, loading: userLoading } = useCurrentUser(accountManager.activeAccountId ?? undefined);
+
+  // Auto-add current logged-in user to saved accounts
+  const { addCurrentAccount } = accountManager;
+  useEffect(() => {
+    if (user && !accountManager.activeAccountId) {
+      addCurrentAccount(user);
+    }
+  }, [user, accountManager.activeAccountId, addCurrentAccount]);
+
+  const effectiveUserId = accountManager.activeAccountId ?? user?.id ?? '';
+
+  const { settings, loading: settingsLoading, refresh: refreshSettings } = useUserSettings(effectiveUserId);
+  const { summaries, loading, refresh } = useIncomeData(effectiveUserId, startStr, yesterday);
   const { status, sync } = useCollector();
 
   const yesterdaySummary = summaries.find((s) => s.date === yesterday);

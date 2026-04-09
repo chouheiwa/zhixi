@@ -135,3 +135,13 @@ export interface TourState {
   coreCompleted: boolean;
   extendedCompleted: boolean;
 }
+
+/** Saved Zhihu account for multi-account switching */
+export interface SavedAccount {
+  userId: string;
+  name: string;
+  urlToken: string;
+  avatarUrl: string;
+  addedAt: number;
+  lastUsedAt: number;
+}

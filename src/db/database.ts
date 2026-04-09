@@ -6,6 +6,7 @@ import type {
   RealtimeAggrRecord,
   PanelLayout,
   TourState,
+  SavedAccount,
 } from '@/shared/types';
 import type { EvaluationResult } from '@/shared/ml-models';
 
@@ -45,6 +46,7 @@ class ZhihuAnalysisDB extends Dexie {
   incomeGoals!: Table<IncomeGoal>;
   panelLayout!: Table<PanelLayout>;
   tourState!: Table<TourState>;
+  savedAccounts!: Table<SavedAccount, string>;
 
   constructor() {
     super('zhihu-income-analysis-v2');
@@ -119,6 +121,19 @@ class ZhihuAnalysisDB extends Dexie {
       incomeGoals: '[userId+period], userId',
       panelLayout: 'userId',
       tourState: 'userId',
+    });
+    this.version(10).stores({
+      incomeRecords: '[userId+contentId+recordDate], recordDate, contentType, contentId, userId, [userId+recordDate]',
+      userSettings: 'userId',
+      contentDaily: '[userId+contentToken+date], [userId+contentToken], contentToken, date, userId',
+      syncedDates: '[userId+date], userId',
+      mlModels: 'userId',
+      realtimeAggr: '[userId+date], userId, date',
+      contentDailyCache: '[userId+contentToken], userId',
+      incomeGoals: '[userId+period], userId',
+      panelLayout: 'userId',
+      tourState: 'userId',
+      savedAccounts: 'userId',
     });
   }
 }
