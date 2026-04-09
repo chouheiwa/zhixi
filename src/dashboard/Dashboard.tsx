@@ -50,6 +50,7 @@ import { ContentTable, type ContentTableItem } from './components/ContentTable';
 import { ContentDetailPage } from './components/ContentDetailPage';
 import { ContentComparePage } from './components/ContentComparePage';
 import { generateExcelReport } from './components/ExcelExportButton';
+import { ExportHtmlButton } from './components/ExportHtmlButton';
 import { MilestonesPage } from './components/MilestonesPage';
 import { ShareCardButton } from './components/ShareCardButton';
 import { usePanelLayout } from '@/hooks/use-panel-layout';
@@ -413,6 +414,13 @@ export function Dashboard() {
             )}
             {(allSummaries.length > 0 || tour.useDemo) && (
               <ShareCardButton allSummaries={tour.effectiveSummaries} allRecords={tour.effectiveRecords} />
+            )}
+            {(allSummaries.length > 0 || tour.useDemo) && user && (
+              <ExportHtmlButton
+                userName={user.name}
+                allSummaries={tour.effectiveSummaries}
+                allRecords={tour.effectiveRecords}
+              />
             )}
             <Dropdown menu={{ items: settingsMenuItems }} trigger={['click']}>
               <Button id="tour-settings-menu" icon={<SettingOutlined />} size="small">
