@@ -121,11 +121,19 @@ export async function getMissingDates(userId: string, startDate: string): Promis
   const allDays = eachDayInRange(startDate, yesterday);
   const synced = await getSyncedDates(userId);
 
+  // For recent dates (within 3 days), check if actual records exist
+  const recentWithData = new Set<string>();
+  for (const d of allDays) {
+    if (d >= threeDaysAgo && (await hasRecordsForDate(userId, d))) {
+      recentWithData.add(d);
+    }
+  }
+
   return allDays
     .filter((d) => {
       if (d >= threeDaysAgo) {
-        // Recent dates (within 3 days): always re-fetch
-        return true;
+        // Recent dates: only re-fetch if no data was collected previously
+        return !recentWithData.has(d);
       }
       // Older dates: skip if already synced
       return !synced.has(d);
