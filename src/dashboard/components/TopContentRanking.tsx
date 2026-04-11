@@ -4,6 +4,7 @@ import ReactECharts from 'echarts-for-react';
 import type { IncomeRecord } from '@/shared/types';
 import { contentTypeChartColor } from '@/shared/content-type';
 import { themeColors } from '../theme';
+import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 
 interface RankTooltipParam {
   name: string;
@@ -15,6 +16,7 @@ interface Props {
 }
 
 function TopContentRankingInner({ records }: Props) {
+  const currency = useCurrency();
   const top10 = useMemo(() => {
     const map = new Map<string, { title: string; income: number; type: string }>();
     for (const r of records) {
@@ -29,7 +31,7 @@ function TopContentRankingInner({ records }: Props) {
 
   const option = {
     tooltip: {
-      formatter: (params: RankTooltipParam) => `${params.name}<br/>¥${params.value.toFixed(2)}`,
+      formatter: (params: RankTooltipParam) => `${params.name}<br/>${currency.fmtValue(params.value)}`,
     },
     grid: { left: 200, right: 40, top: 10, bottom: 10 },
     xAxis: { type: 'value' as const, show: false },
@@ -48,7 +50,7 @@ function TopContentRankingInner({ records }: Props) {
         type: 'bar',
         data: top10
           .map((item) => ({
-            value: item.income / 100,
+            value: currency.convert(item.income),
             itemStyle: { color: contentTypeChartColor(item.type) },
           }))
           .reverse(),
@@ -56,7 +58,7 @@ function TopContentRankingInner({ records }: Props) {
         label: {
           show: true,
           position: 'right' as const,
-          formatter: (params: RankTooltipParam) => `¥${params.value.toFixed(2)}`,
+          formatter: (params: RankTooltipParam) => currency.fmtValue(params.value),
           fontSize: 11,
         },
       },

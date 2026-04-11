@@ -7,6 +7,7 @@ import { eachDayInRange } from '@/shared/date-utils';
 import { detectAnomalies } from '@/shared/stats';
 import { FormulaBlock } from './FormulaHelp';
 import { themeColors } from '../theme';
+import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 
 interface AnomalyTooltipParam {
   dataIndex: number;
@@ -27,15 +28,16 @@ function describeAnomaly(z: number, value: number, mean: number): string {
 }
 
 export function AnomalyDetectionPanel({ summaries, startDate, endDate }: Props) {
+  const currency = useCurrency();
   const days = useMemo(() => eachDayInRange(startDate, endDate), [startDate, endDate]);
   const summaryMap = useMemo(() => new Map(summaries.map((s) => [s.date, s])), [summaries]);
 
   const analysis = useMemo(() => {
-    const incomes = days.map((d) => (summaryMap.get(d)?.totalIncome ?? 0) / 100);
+    const incomes = days.map((d) => currency.convert(summaryMap.get(d)?.totalIncome ?? 0));
     const mean = incomes.reduce((a, b) => a + b, 0) / (incomes.length || 1);
     const incomeAnomalies = detectAnomalies(incomes, 2.0, days);
     return { incomes, mean, incomeAnomalies };
-  }, [days, summaryMap]);
+  }, [days, summaryMap, currency]);
 
   const dates = days.map((d) => d.slice(5));
 
@@ -47,7 +49,7 @@ export function AnomalyDetectionPanel({ summaries, startDate, endDate }: Props) 
         const date = days[idx];
         const income = analysis.incomes[idx];
         const anomaly = analysis.incomeAnomalies.find((a) => a.index === idx);
-        let text = `${date}<br/>收益: ¥${income.toFixed(2)}`;
+        let text = `${date}<br/>收益: ${currency.fmtValue(income)}`;
         if (anomaly) {
           text += `<br/><b style="color:${anomaly.zScore > 0 ? themeColors.sage : themeColors.warmRed}">${describeAnomaly(anomaly.zScore, anomaly.value, analysis.mean)}</b>`;
         }
@@ -59,7 +61,7 @@ export function AnomalyDetectionPanel({ summaries, startDate, endDate }: Props) 
     xAxis: { type: 'category' as const, data: dates, axisLabel: { fontSize: 10 }, axisTick: { show: false } },
     yAxis: {
       type: 'value' as const,
-      axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(0)}` },
+      axisLabel: { fontSize: 10, formatter: (v: number) => currency.fmtAxis(v) },
       splitNumber: 3,
     },
     series: [
@@ -82,7 +84,9 @@ export function AnomalyDetectionPanel({ summaries, startDate, endDate }: Props) 
         barMaxWidth: 14,
         markLine: {
           silent: true,
-          data: [{ yAxis: analysis.mean, label: { formatter: `日均 ¥${analysis.mean.toFixed(2)}`, fontSize: 10 } }],
+          data: [
+            { yAxis: analysis.mean, label: { formatter: `日均 ${currency.fmtValue(analysis.mean)}`, fontSize: 10 } },
+          ],
           lineStyle: { color: '#999', type: 'dashed' },
         },
       },
@@ -136,7 +140,7 @@ export function AnomalyDetectionPanel({ summaries, startDate, endDate }: Props) 
                       }}
                     >
                       <span style={{ fontSize: 12, fontWeight: 600 }}>{a.date}</span>
-                      <span style={{ fontSize: 13, fontWeight: 700 }}>¥{a.value.toFixed(2)}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{currency.fmtValue(a.value)}</span>
                     </div>
                     <div style={{ fontSize: 11, color: a.zScore > 0 ? '#2e7d32' : '#c62828' }}>
                       {describeAnomaly(a.zScore, a.value, analysis.mean)}

@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import type { DailySummary, IncomeRecord } from '@/shared/types';
 import { contentTypeLabel } from '@/shared/content-type';
+import { getCurrencyUnit, convertFromSalt, currencyLabel, formatIncome } from '@/shared/currency';
 
 interface ExportParams {
   userName: string;
@@ -9,9 +10,13 @@ interface ExportParams {
 }
 
 export function generateExcelReport({ userName, allSummaries, allRecords }: ExportParams): void {
+  const unit = getCurrencyUnit();
   const wb = XLSX.utils.book_new();
 
-  const totalIncome = allSummaries.reduce((s, d) => s + d.totalIncome, 0) / 100;
+  const totalIncome = convertFromSalt(
+    allSummaries.reduce((s, d) => s + d.totalIncome, 0),
+    unit,
+  );
   const totalRead = allSummaries.reduce((s, d) => s + d.totalRead, 0);
   const days = allSummaries.length;
 
@@ -44,12 +49,26 @@ export function generateExcelReport({ userName, allSummaries, allRecords }: Expo
       '数据范围',
       allSummaries.length > 0 ? `${allSummaries[0].date} ~ ${allSummaries[allSummaries.length - 1].date}` : '-',
     ],
-    ['总收益', `¥${totalIncome.toFixed(2)}`],
+    [
+      '总收益',
+      formatIncome(
+        allSummaries.reduce((s, d) => s + d.totalIncome, 0),
+        unit,
+      ),
+    ],
     ['总阅读量', totalRead],
-    ['平均RPM', totalRead > 0 ? `¥${((totalIncome / totalRead) * 1000).toFixed(2)}` : '-'],
+    [
+      '平均RPM',
+      totalRead > 0
+        ? formatIncome(Math.round((totalIncome / totalRead) * 1000 * (unit === 'yuan' ? 100 : 1)), unit)
+        : '-',
+    ],
     ['内容总数', `${contentCount}篇`],
     ...Array.from(typeCounts.entries()).map(([type, count]) => [`${contentTypeLabel(type)}数`, `${count}篇`]),
-    ['日均收益', days > 0 ? `¥${(totalIncome / days).toFixed(2)}` : '-'],
+    [
+      '日均收益',
+      days > 0 ? formatIncome(Math.round(allSummaries.reduce((s, d) => s + d.totalIncome, 0) / days), unit) : '-',
+    ],
     ['采集天数', `${days}天`],
   ];
   const ws1 = XLSX.utils.aoa_to_sheet(summaryData);
@@ -57,21 +76,21 @@ export function generateExcelReport({ userName, allSummaries, allRecords }: Expo
   XLSX.utils.book_append_sheet(wb, ws1, '摘要');
 
   // Sheet 2: Daily Summary
-  const dailyHeader = ['日期', '收益(元)', '阅读量', '互动量', '内容篇数', 'RPM'];
+  const dailyHeader = ['日期', `收益(${currencyLabel(unit)})`, '阅读量', '互动量', '内容篇数', 'RPM'];
   const dailyRows = allSummaries.map((s) => [
     s.date,
-    +(s.totalIncome / 100).toFixed(2),
+    +convertFromSalt(s.totalIncome, unit).toFixed(unit === 'yuan' ? 2 : 0),
     s.totalRead,
     s.totalInteraction,
     s.contentCount,
-    s.totalRead > 0 ? +((s.totalIncome / 100 / s.totalRead) * 1000).toFixed(2) : 0,
+    s.totalRead > 0 ? +((convertFromSalt(s.totalIncome, unit) / s.totalRead) * 1000).toFixed(2) : 0,
   ]);
   const ws2 = XLSX.utils.aoa_to_sheet([dailyHeader, ...dailyRows]);
   ws2['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
   XLSX.utils.book_append_sheet(wb, ws2, '每日汇总');
 
   // Sheet 3: Content Details
-  const contentHeader = ['标题', '类型', '发布日期', '总收益(元)', '总阅读', '总互动', 'RPM'];
+  const contentHeader = ['标题', '类型', '发布日期', `总收益(${currencyLabel(unit)})`, '总阅读', '总互动', 'RPM'];
   const contentAgg = new Map<
     string,
     {
@@ -106,10 +125,10 @@ export function generateExcelReport({ userName, allSummaries, allRecords }: Expo
       c.title,
       c.type,
       c.publishDate,
-      +(c.income / 100).toFixed(2),
+      +convertFromSalt(c.income, unit).toFixed(unit === 'yuan' ? 2 : 0),
       c.read,
       c.interaction,
-      c.read > 0 ? +((c.income / 100 / c.read) * 1000).toFixed(2) : 0,
+      c.read > 0 ? +((convertFromSalt(c.income, unit) / c.read) * 1000).toFixed(2) : 0,
     ]);
   const ws3 = XLSX.utils.aoa_to_sheet([contentHeader, ...contentRows]);
   ws3['!cols'] = [{ wch: 40 }, { wch: 6 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
@@ -129,19 +148,19 @@ export function generateExcelReport({ userName, allSummaries, allRecords }: Expo
     }
   }
   const months = Array.from(monthAgg.keys()).sort();
-  const monthlyHeader = ['月份', '收益(元)', '阅读量', '内容篇数', 'RPM', '环比增长(%)'];
+  const monthlyHeader = ['月份', `收益(${currencyLabel(unit)})`, '阅读量', '内容篇数', 'RPM', '环比增长(%)'];
   const monthlyRows = months.map((month, idx) => {
     const m = monthAgg.get(month)!;
-    const income = m.income / 100;
+    const income = convertFromSalt(m.income, unit);
     const rpm = m.read > 0 ? (income / m.read) * 1000 : 0;
     let growth: string | number = '-';
     if (idx > 0) {
-      const prevIncome = monthAgg.get(months[idx - 1])!.income / 100;
+      const prevIncome = convertFromSalt(monthAgg.get(months[idx - 1])!.income, unit);
       if (prevIncome > 0) {
         growth = +(((income - prevIncome) / prevIncome) * 100).toFixed(1);
       }
     }
-    return [month, +income.toFixed(2), m.read, m.contentIds.size, +rpm.toFixed(2), growth];
+    return [month, +income.toFixed(unit === 'yuan' ? 2 : 0), m.read, m.contentIds.size, +rpm.toFixed(2), growth];
   });
   const ws4 = XLSX.utils.aoa_to_sheet([monthlyHeader, ...monthlyRows]);
   ws4['!cols'] = [{ wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }];

@@ -1,4 +1,5 @@
 import { formatDate } from '@/shared/date-utils';
+import { formatIncome } from '@/shared/currency';
 import {
   STORAGE_KEYS,
   REQUEST_INTERVAL_MIN,
@@ -531,24 +532,25 @@ async function checkIncomeAnomalyAndNotify(userId: string): Promise<void> {
     const yesterdaySummary = allSummaries.find((s) => s.date === yesterday);
     if (!yesterdaySummary) return;
 
-    const yesterdayIncome = yesterdaySummary.totalIncome / 100;
+    const yesterdayIncomeSalt = yesterdaySummary.totalIncome;
 
     // Get average of 7 days before yesterday
     const yesterdayIdx = allSummaries.findIndex((s) => s.date === yesterday);
     if (yesterdayIdx < 7) return;
 
     const prev7 = allSummaries.slice(yesterdayIdx - 7, yesterdayIdx);
-    const avg7 = prev7.reduce((sum, s) => sum + s.totalIncome, 0) / 100 / prev7.length;
+    const avg7Salt = prev7.reduce((sum, s) => sum + s.totalIncome, 0) / prev7.length;
 
-    if (avg7 <= 0) return;
+    if (avg7Salt <= 0) return;
 
     // Check if yesterday < 50% of average
-    if (yesterdayIncome < avg7 * 0.5) {
+    if (yesterdayIncomeSalt < avg7Salt * 0.5) {
+      // Service workers lack localStorage; formatIncome defaults to yuan
       chrome.notifications.create('income-anomaly', {
         type: 'basic',
         iconUrl: chrome.runtime.getURL('icons/icon128.png'),
         title: '知析 - 收益异常提醒',
-        message: `昨日收益 ¥${yesterdayIncome.toFixed(2)}，低于近7天均值 ¥${avg7.toFixed(2)} 的 50%`,
+        message: `昨日收益 ${formatIncome(yesterdayIncomeSalt, 'yuan')}，低于近7天均值 ${formatIncome(Math.round(avg7Salt), 'yuan')} 的 50%`,
         priority: 2,
       });
     }

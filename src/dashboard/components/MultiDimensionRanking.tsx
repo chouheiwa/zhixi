@@ -4,6 +4,7 @@ import type { ColumnsType } from 'antd/es/table';
 import type { IncomeRecord } from '@/shared/types';
 import { contentTypeLabel, contentTypeColor } from '@/shared/content-type';
 import { themeColors } from '../theme';
+import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 
 interface Props {
   records: IncomeRecord[];
@@ -30,6 +31,7 @@ interface RankItem {
 }
 
 export function MultiDimensionRanking({ records, onContentClick }: Props) {
+  const currency = useCurrency();
   const [dimension, setDimension] = useState<Dimension>('income');
 
   const rankings = useMemo(() => {
@@ -112,13 +114,13 @@ export function MultiDimensionRanking({ records, onContentClick }: Props) {
         title: item.title,
         contentType: item.contentType,
         publishDate: item.publishDate,
-        value: item.totalIncome / 100,
-        label: `¥${(item.totalIncome / 100).toFixed(2)}`,
+        value: currency.convert(item.totalIncome),
+        label: currency.format(item.totalIncome),
       }));
 
     const rpmRank = items
       .filter((i) => i.totalRead >= 100)
-      .map((i) => ({ ...i, rpm: (i.totalIncome / 100 / i.totalRead) * 1000 }))
+      .map((i) => ({ ...i, rpm: (currency.convert(i.totalIncome) / i.totalRead) * 1000 }))
       .sort((a, b) => b.rpm - a.rpm)
       .slice(0, 10)
       .map((item, i) => ({
@@ -129,7 +131,7 @@ export function MultiDimensionRanking({ records, onContentClick }: Props) {
         contentType: item.contentType,
         publishDate: item.publishDate,
         value: item.rpm,
-        label: `¥${item.rpm.toFixed(2)}/千次`,
+        label: `${currency.rpmPfx}${item.rpm.toFixed(2)}${currency.rpmSfx}/千次`,
       }));
 
     const growthRank = items
@@ -165,7 +167,7 @@ export function MultiDimensionRanking({ records, onContentClick }: Props) {
       }));
 
     return { income: incomeRank, rpm: rpmRank, growth: growthRank, engagement: engagementRank };
-  }, [records]);
+  }, [records, currency]);
 
   const currentRanking = rankings[dimension];
 

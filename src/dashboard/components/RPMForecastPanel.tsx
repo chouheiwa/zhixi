@@ -8,6 +8,7 @@ import { eachDayInRange } from '@/shared/date-utils';
 import { computeRPM, ema, holtForecast } from '@/shared/stats';
 import { FormulaBlock } from './FormulaHelp';
 import { themeColors } from '../theme';
+import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 
 interface RPMTooltipParam {
   name: string;
@@ -22,11 +23,12 @@ interface Props {
 }
 
 export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
+  const currency = useCurrency();
   const days = useMemo(() => eachDayInRange(startDate, endDate), [startDate, endDate]);
   const summaryMap = useMemo(() => new Map(summaries.map((s) => [s.date, s])), [summaries]);
 
   const analysis = useMemo(() => {
-    const incomes = days.map((d) => (summaryMap.get(d)?.totalIncome ?? 0) / 100);
+    const incomes = days.map((d) => currency.convert(summaryMap.get(d)?.totalIncome ?? 0));
     const reads = days.map((d) => summaryMap.get(d)?.totalRead ?? 0);
     const rpms = days.map((_, i) => computeRPM(incomes[i], reads[i]));
     const rpmEma = ema(rpms, 7);
@@ -46,7 +48,7 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
     const rpmTrend = prevRpm > 0 ? ((latestRpm - prevRpm) / prevRpm) * 100 : 0;
 
     return { incomes, rpms, rpmEma, holtSmoothed, forecast, forecastDates, forecast7Total, latestRpm, rpmTrend };
-  }, [days, summaryMap, endDate]);
+  }, [days, summaryMap, endDate, currency]);
 
   const dates = days.map((d) => d.slice(5));
 
@@ -54,7 +56,7 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
     tooltip: {
       trigger: 'axis' as const,
       formatter: (params: RPMTooltipParam[]) => {
-        const lines = params.map((p) => `${p.seriesName}: ¥${p.value.toFixed(2)}`);
+        const lines = params.map((p) => `${p.seriesName}: ${currency.fmtValue(p.value)}`);
         return `${params[0].name}<br/>${lines.join('<br/>')}<br/><span style="color:#999;font-size:11px">即每1000次阅读赚的钱</span>`;
       },
     },
@@ -64,7 +66,7 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
     xAxis: { type: 'category' as const, data: dates, axisLabel: { fontSize: 10 }, axisTick: { show: false } },
     yAxis: {
       type: 'value' as const,
-      axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(1)}` },
+      axisLabel: { fontSize: 10, formatter: (v: number) => currency.fmtAxis(v) },
       splitNumber: 3,
     },
     series: [
@@ -104,7 +106,7 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
     },
     yAxis: {
       type: 'value' as const,
-      axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(0)}` },
+      axisLabel: { fontSize: 10, formatter: (v: number) => currency.fmtAxis(v) },
       splitNumber: 3,
     },
     series: [
@@ -153,13 +155,16 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
           title="当前每千次阅读收益"
           value={analysis.latestRpm}
           precision={2}
-          prefix="¥"
+          prefix={currency.rpmPfx}
           valueStyle={{ color: themeColors.amber, fontFamily: '"Noto Serif SC", serif' }}
           suffix={
-            <span style={{ fontSize: 12, color: analysis.rpmTrend >= 0 ? themeColors.sage : themeColors.warmRed }}>
-              {analysis.rpmTrend >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
-              {Math.abs(analysis.rpmTrend).toFixed(1)}%
-            </span>
+            <>
+              {currency.rpmSfx}{' '}
+              <span style={{ fontSize: 12, color: analysis.rpmTrend >= 0 ? themeColors.sage : themeColors.warmRed }}>
+                {analysis.rpmTrend >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+                {Math.abs(analysis.rpmTrend).toFixed(1)}%
+              </span>
+            </>
           }
         />
       </Card>

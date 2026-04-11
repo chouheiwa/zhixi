@@ -3,6 +3,8 @@ import { Card, List, Tag, Flex } from 'antd';
 import { TrophyOutlined, LockOutlined, CheckCircleFilled } from '@ant-design/icons';
 import type { DailySummary, IncomeRecord } from '@/shared/types';
 import { ShareCardButton } from './ShareCardButton';
+import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
+import { convertFromSalt, formatIncome, currencyLabel } from '@/shared/currency';
 
 interface Props {
   allSummaries: DailySummary[];
@@ -20,12 +22,16 @@ interface Milestone {
 }
 
 export function MilestonesPage({ allSummaries, allRecords }: Props) {
+  const { unit } = useCurrency();
   const milestones = useMemo(() => {
-    const totalIncome = allSummaries.reduce((s, d) => s + d.totalIncome, 0) / 100;
+    const totalIncome = convertFromSalt(
+      allSummaries.reduce((s, d) => s + d.totalIncome, 0),
+      unit,
+    );
 
     let maxDailyIncome = 0;
     for (const s of allSummaries) {
-      const dayIncome = s.totalIncome / 100;
+      const dayIncome = convertFromSalt(s.totalIncome, unit);
       if (dayIncome > maxDailyIncome) maxDailyIncome = dayIncome;
     }
 
@@ -54,35 +60,39 @@ export function MilestonesPage({ allSummaries, allRecords }: Props) {
     const findCumulativeDate = (threshold: number): string | undefined => {
       let cumulative = 0;
       for (const s of sortedSummaries) {
-        cumulative += s.totalIncome / 100;
+        cumulative += convertFromSalt(s.totalIncome, unit);
         if (cumulative >= threshold) return s.date;
       }
       return undefined;
     };
 
-    const maxDailyDate = sortedSummaries.find((s) => s.totalIncome / 100 === maxDailyIncome)?.date;
+    const maxDailyDate = sortedSummaries.find((s) => convertFromSalt(s.totalIncome, unit) === maxDailyIncome)?.date;
 
     const result: Milestone[] = [];
 
-    for (const target of [10, 50, 100, 500, 1000, 5000, 10000]) {
+    const cLabel = currencyLabel(unit);
+    const cumulativeTargets =
+      unit === 'yuan' ? [10, 50, 100, 500, 1000, 5000, 10000] : [1000, 5000, 10000, 50000, 100000, 500000, 1000000];
+    for (const target of cumulativeTargets) {
       const date = findCumulativeDate(target);
       result.push({
         category: '累计收益',
-        name: `累计收益达到 ¥${target}`,
+        name: `累计收益达到 ${formatIncome(unit === 'yuan' ? target * 100 : target, unit)}`,
         target,
-        unit: '元',
+        unit: cLabel,
         achieved: totalIncome >= target,
         achievedDate: date,
         current: totalIncome,
       });
     }
 
-    for (const target of [1, 5, 10, 50]) {
+    const dailyTargets = unit === 'yuan' ? [1, 5, 10, 50] : [100, 500, 1000, 5000];
+    for (const target of dailyTargets) {
       result.push({
         category: '单日最高',
-        name: `单日收益突破 ¥${target}`,
+        name: `单日收益突破 ${formatIncome(unit === 'yuan' ? target * 100 : target, unit)}`,
         target,
-        unit: '元',
+        unit: cLabel,
         achieved: maxDailyIncome >= target,
         achievedDate: maxDailyIncome >= target ? maxDailyDate : undefined,
         current: maxDailyIncome,
@@ -112,7 +122,7 @@ export function MilestonesPage({ allSummaries, allRecords }: Props) {
     }
 
     return result;
-  }, [allSummaries, allRecords]);
+  }, [allSummaries, allRecords, unit]);
 
   const categories = ['累计收益', '单日最高', '内容数量', '连续收益'];
 
@@ -157,7 +167,7 @@ export function MilestonesPage({ allSummaries, allRecords }: Props) {
                     <span style={{ fontSize: 12, color: '#999' }}>
                       {item.achieved
                         ? (item.achievedDate ?? '已达成')
-                        : `还差 ${(item.target - item.current).toFixed(item.unit === '元' ? 2 : 0)} ${item.unit}`}
+                        : `还差 ${(item.target - item.current).toFixed(item.unit === currencyLabel(unit) ? (unit === 'yuan' ? 2 : 0) : 0)} ${item.unit}`}
                     </span>
                   </Flex>
                 </List.Item>

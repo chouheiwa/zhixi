@@ -2,6 +2,7 @@ import React from 'react';
 import ReactECharts from 'echarts-for-react';
 import type { DailySummary } from '@/shared/types';
 import { eachDayInRange, formatDate, getDateRange } from '@/shared/date-utils';
+import { getCurrencyUnit, convertFromSalt, formatValue } from '@/shared/currency';
 
 interface SparklineTooltipParam {
   name: string;
@@ -13,11 +14,12 @@ interface Props {
 }
 
 function WeekSparklineInner({ summaries }: Props) {
+  const unit = getCurrencyUnit();
   const { start, end } = getDateRange(7);
   const days = eachDayInRange(formatDate(start), formatDate(end));
 
   const summaryMap = new Map(summaries.map((s) => [s.date, s]));
-  const incomeData = days.map((d) => (summaryMap.get(d)?.totalIncome ?? 0) / 100);
+  const incomeData = days.map((d) => convertFromSalt(summaryMap.get(d)?.totalIncome ?? 0, unit));
 
   const option = {
     grid: { left: 0, right: 0, top: 4, bottom: 20 },
@@ -39,7 +41,7 @@ function WeekSparklineInner({ summaries }: Props) {
     ],
     tooltip: {
       trigger: 'axis' as const,
-      formatter: (params: SparklineTooltipParam[]) => `${params[0].name}<br/>¥${params[0].value.toFixed(2)}`,
+      formatter: (params: SparklineTooltipParam[]) => `${params[0].name}<br/>${formatValue(params[0].value, unit)}`,
     },
   };
 

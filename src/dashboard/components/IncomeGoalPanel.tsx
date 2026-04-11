@@ -3,6 +3,7 @@ import { Card, Button, Modal, InputNumber, Progress, Flex, Statistic } from 'ant
 import { TrophyOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { getGoal, saveGoal, deleteGoal } from '@/db/goal-store';
 import type { IncomeGoal } from '@/db/database';
+import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 
 interface Props {
   userId: string;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function IncomeGoalPanel({ userId, monthIncome, monthDaysElapsed, monthDaysTotal }: Props) {
+  const currency = useCurrency();
   const [goal, setGoal] = useState<IncomeGoal | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [inputValue, setInputValue] = useState<number | null>(null);
@@ -35,7 +37,7 @@ export function IncomeGoalPanel({ userId, monthIncome, monthDaysElapsed, monthDa
     await saveGoal({
       userId,
       period,
-      targetAmount: Math.round(inputValue * 100),
+      targetAmount: currency.unit === 'yuan' ? Math.round(inputValue * 100) : Math.round(inputValue),
       createdAt: Date.now(),
     });
     setModalOpen(false);
@@ -74,9 +76,10 @@ export function IncomeGoalPanel({ userId, monthIncome, monthDaysElapsed, monthDa
             value={inputValue}
             onChange={setInputValue}
             min={1}
-            precision={0}
-            prefix="¥"
-            placeholder="输入目标金额（元）"
+            precision={currency.precision}
+            prefix={currency.prefix || undefined}
+            suffix={currency.suffix || undefined}
+            placeholder={`输入目标金额（${currency.label}）`}
             style={{ width: '100%', marginTop: 16 }}
             size="large"
           />
@@ -85,7 +88,7 @@ export function IncomeGoalPanel({ userId, monthIncome, monthDaysElapsed, monthDa
     );
   }
 
-  const target = goal.targetAmount / 100;
+  const target = currency.convert(goal.targetAmount);
   const percent = target > 0 ? Math.min((monthIncome / target) * 100, 100) : 0;
   const dailyAvg = monthDaysElapsed > 0 ? monthIncome / monthDaysElapsed : 0;
   const daysRemaining = monthDaysTotal - monthDaysElapsed;
@@ -118,18 +121,33 @@ export function IncomeGoalPanel({ userId, monthIncome, monthDaysElapsed, monthDa
     >
       <Progress percent={Math.round(percent)} strokeColor={progressColor} format={() => `${percent.toFixed(1)}%`} />
       <Flex justify="space-between" style={{ marginTop: 8 }}>
-        <Statistic title="已达成" value={monthIncome} precision={2} prefix="¥" valueStyle={{ fontSize: 16 }} />
-        <Statistic title="目标" value={target} precision={0} prefix="¥" valueStyle={{ fontSize: 16, color: '#999' }} />
+        <Statistic
+          title="已达成"
+          value={monthIncome}
+          precision={currency.precision}
+          prefix={currency.prefix || undefined}
+          suffix={currency.suffix || undefined}
+          valueStyle={{ fontSize: 16 }}
+        />
+        <Statistic
+          title="目标"
+          value={target}
+          precision={currency.precision}
+          prefix={currency.prefix || undefined}
+          suffix={currency.suffix || undefined}
+          valueStyle={{ fontSize: 16, color: '#999' }}
+        />
         <Statistic
           title="月底预计"
           value={projected}
-          precision={2}
-          prefix="¥"
+          precision={currency.precision}
+          prefix={currency.prefix || undefined}
+          suffix={currency.suffix || undefined}
           valueStyle={{ fontSize: 16, color: projected >= target ? '#52c41a' : '#fa8c16' }}
         />
       </Flex>
       <div style={{ fontSize: 11, color: '#999', marginTop: 4, textAlign: 'center' }}>
-        按当前日均 ¥{dailyAvg.toFixed(2)}，还剩 {daysRemaining} 天
+        按当前日均 {currency.fmtValue(dailyAvg)}，还剩 {daysRemaining} 天
       </div>
 
       <Modal
@@ -147,9 +165,10 @@ export function IncomeGoalPanel({ userId, monthIncome, monthDaysElapsed, monthDa
           value={inputValue}
           onChange={setInputValue}
           min={1}
-          precision={0}
-          prefix="¥"
-          placeholder="输入目标金额（元）"
+          precision={currency.precision}
+          prefix={currency.prefix || undefined}
+          suffix={currency.suffix || undefined}
+          placeholder={`输入目标金额（${currency.label}）`}
           style={{ width: '100%', marginTop: 16 }}
           size="large"
         />

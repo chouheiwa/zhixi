@@ -18,6 +18,7 @@ import {
   Alert,
   Modal,
   Drawer,
+  Segmented,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -61,6 +62,7 @@ import { themeColors } from './theme';
 import { NewFeatureBanner } from './tour/NewFeatureBanner';
 import { useTourManagement } from './hooks/useTourManagement';
 import { useSyncOrchestration } from './hooks/useSyncOrchestration';
+import { CurrencyProvider, useCurrency } from './contexts/CurrencyContext';
 
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
@@ -87,6 +89,15 @@ const cardHeaderStyles = {
 };
 
 export function Dashboard() {
+  return (
+    <CurrencyProvider>
+      <DashboardInner />
+    </CurrencyProvider>
+  );
+}
+
+function DashboardInner() {
+  const currency = useCurrency();
   const { start: defaultStart, end: defaultEnd } = getDateRange(30);
   const [startDate, setStartDate] = useState(formatDate(defaultStart));
   const [endDate, setEndDate] = useState(formatDate(defaultEnd));
@@ -233,7 +244,7 @@ export function Dashboard() {
       totalRead += s.totalRead;
       totalInteraction += s.totalInteraction;
     }
-    const rpm = totalRead > 0 ? (totalIncome / 100 / totalRead) * 1000 : 0;
+    const rpm = totalRead > 0 ? (currency.convert(totalIncome) / totalRead) * 1000 : 0;
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yStr = formatDate(yesterday);
@@ -253,21 +264,21 @@ export function Dashboard() {
       if (r.recordDate.startsWith(monthPrefix)) monthContentIds.add(r.contentId);
     }
     return {
-      totalIncome: totalIncome / 100,
+      totalIncome: currency.convert(totalIncome),
       totalRead,
       totalInteraction,
       rpm,
       days: effectiveSummaries.length,
-      yesterdayIncome: ySummary ? ySummary.totalIncome / 100 : 0,
+      yesterdayIncome: ySummary ? currency.convert(ySummary.totalIncome) : 0,
       yesterdayRead: ySummary?.totalRead ?? 0,
       yesterdayContentCount: ySummary?.contentCount ?? 0,
-      monthIncome: monthIncome / 100,
+      monthIncome: currency.convert(monthIncome),
       monthRead,
       monthContentCount: monthContentIds.size,
       monthDaysElapsed: now.getDate(),
       monthDaysTotal: new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(),
     };
-  }, [effectiveSummaries, effectiveRecords]);
+  }, [effectiveSummaries, effectiveRecords, currency]);
 
   const dashboardContext: DashboardContext | null = useMemo(() => {
     if (!effectiveUserId) return null;
@@ -486,6 +497,15 @@ export function Dashboard() {
                 allRecords={effectiveRecords}
               />
             )}
+            <Segmented
+              size="small"
+              options={[
+                { label: '元', value: 'yuan' },
+                { label: '盐粒', value: 'salt' },
+              ]}
+              value={currency.unit}
+              onChange={(v) => currency.setUnit(v as 'salt' | 'yuan')}
+            />
             <Dropdown menu={{ items: settingsMenuItems }} trigger={['click']}>
               <Button id="tour-settings-menu" icon={<SettingOutlined />} size="small">
                 设置
@@ -643,8 +663,9 @@ export function Dashboard() {
                     <Statistic
                       title="收益"
                       value={stats.yesterdayIncome}
-                      precision={2}
-                      prefix="¥"
+                      precision={currency.precision}
+                      prefix={currency.prefix}
+                      suffix={currency.suffix}
                       valueStyle={{
                         color: themeColors.amber,
                         fontWeight: 700,
@@ -672,8 +693,9 @@ export function Dashboard() {
                     <Statistic
                       title="收益"
                       value={stats.monthIncome}
-                      precision={2}
-                      prefix="¥"
+                      precision={currency.precision}
+                      prefix={currency.prefix}
+                      suffix={currency.suffix}
                       valueStyle={{
                         color: themeColors.amber,
                         fontWeight: 700,
@@ -701,8 +723,9 @@ export function Dashboard() {
                     <Statistic
                       title="收益"
                       value={stats.totalIncome}
-                      precision={2}
-                      prefix="¥"
+                      precision={currency.precision}
+                      prefix={currency.prefix}
+                      suffix={currency.suffix}
                       valueStyle={{
                         color: themeColors.warmBlue,
                         fontWeight: 700,
@@ -714,7 +737,8 @@ export function Dashboard() {
                       title="RPM"
                       value={stats.rpm}
                       precision={2}
-                      prefix="¥"
+                      prefix={currency.rpmPfx}
+                      suffix={currency.rpmSfx}
                       valueStyle={{ fontSize: 20, color: themeColors.ink }}
                     />
                     <Statistic

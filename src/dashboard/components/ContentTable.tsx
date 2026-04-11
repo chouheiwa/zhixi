@@ -4,6 +4,7 @@ import type { ColumnsType } from 'antd/es/table';
 import type { IncomeRecord } from '@/shared/types';
 import { contentTypeLabel, contentTypeColor, CONTENT_TYPE_FILTERS } from '@/shared/content-type';
 import { useCollector } from '@/hooks/use-collector';
+import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 import { themeColors } from '../theme';
 
 export interface ContentTableItem {
@@ -27,6 +28,7 @@ export function ContentTable({ records, onContentClick, onCompare }: Props) {
   const [selectedKeys, setSelectedKeys] = useState<React.Key[]>([]);
   const [fetchMsg, setFetchMsg] = useState('');
   const { status } = useCollector();
+  const currency = useCurrency();
 
   const aggregated = useMemo(() => {
     const map = new Map<string, ContentTableItem>();
@@ -138,7 +140,7 @@ export function ContentTable({ records, onContentClick, onCompare }: Props) {
       align: 'right',
       defaultSortOrder: 'descend',
       sorter: (a, b) => a.currentIncome - b.currentIncome,
-      render: (v: number) => <b>¥{(v / 100).toFixed(2)}</b>,
+      render: (v: number) => <b>{currency.format(v)}</b>,
     },
     {
       title: '转化率',
@@ -151,7 +153,9 @@ export function ContentTable({ records, onContentClick, onCompare }: Props) {
         return rpmA - rpmB;
       },
       render: (_, item) =>
-        item.currentRead > 0 ? `¥${((item.currentIncome / 100 / item.currentRead) * 1000).toFixed(2)}/千次` : '-',
+        item.currentRead > 0
+          ? `${currency.rpmPfx}${((currency.convert(item.currentIncome) / item.currentRead) * 1000).toFixed(currency.precision)}${currency.rpmSfx}/千次`
+          : '-',
     },
   ];
 

@@ -8,6 +8,7 @@ import { getContentDailyRecords } from '@/db/content-daily-store';
 import { db } from '@/db/database';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { contentTypeLabel, contentTypeColor } from '@/shared/content-type';
+import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 import { themeColors } from '../theme';
 
 interface ContentOption {
@@ -28,6 +29,7 @@ const COLORS = [themeColors.warmBlue, themeColors.warmRed, themeColors.sage];
 
 export function ContentComparePage({ initialItems, allContentOptions, onBack }: Props) {
   const { user } = useCurrentUser();
+  const currency = useCurrency();
   const [selected, setSelected] = useState<ContentOption[]>(initialItems ?? []);
   const [dailyMap, setDailyMap] = useState<Map<string, ContentDailyRecord[]>>(new Map());
   const [incomeMap, setIncomeMap] = useState<Map<string, IncomeRecord[]>>(new Map());
@@ -108,7 +110,7 @@ export function ContentComparePage({ initialItems, allContentOptions, onBack }: 
   const incomeChart = makeLineChart('每日收益', (cid, date) => {
     const records = incomeMap.get(cid);
     const r = records?.find((r) => r.recordDate === date);
-    return r ? r.currentIncome / 100 : 0;
+    return r ? currency.convert(r.currentIncome) : 0;
   });
 
   const cumulativeChart = (() => {
@@ -119,7 +121,7 @@ export function ContentComparePage({ initialItems, allContentOptions, onBack }: 
       xAxis: { type: 'category' as const, data: allDates.map((d) => d.slice(5)), axisLabel: { fontSize: 9 } },
       yAxis: {
         type: 'value' as const,
-        axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(0)}` },
+        axisLabel: { fontSize: 10, formatter: (v: number) => currency.fmtAxis(v) },
         splitNumber: 3,
       },
       series: selected.map((item, idx) => {
@@ -129,7 +131,7 @@ export function ContentComparePage({ initialItems, allContentOptions, onBack }: 
           type: 'line',
           data: allDates.map((d) => {
             const inc = incomeMap.get(item.contentId)?.find((r) => r.recordDate === d);
-            if (inc) running += inc.currentIncome / 100;
+            if (inc) running += currency.convert(inc.currentIncome);
             return running;
           }),
           smooth: true,
@@ -157,16 +159,22 @@ export function ContentComparePage({ initialItems, allContentOptions, onBack }: 
         let value: string;
         switch (metric) {
           case '总收益':
-            value = `¥${(totalIncome / 100).toFixed(2)}`;
+            value = currency.format(totalIncome);
             break;
           case '总阅读':
             value = totalRead.toLocaleString();
             break;
           case 'RPM':
-            value = totalRead > 0 ? `¥${((totalIncome / 100 / totalRead) * 1000).toFixed(2)}` : '-';
+            value =
+              totalRead > 0
+                ? `${currency.rpmPfx}${((currency.convert(totalIncome) / totalRead) * 1000).toFixed(currency.precision)}${currency.rpmSfx}`
+                : '-';
             break;
           case '平均日收益':
-            value = days > 0 ? `¥${(totalIncome / 100 / days).toFixed(2)}` : '-';
+            value =
+              days > 0
+                ? `${currency.prefix}${(currency.convert(totalIncome) / days).toFixed(currency.precision)}${currency.suffix}`
+                : '-';
             break;
           case '互动率':
             value = totalRead > 0 ? `${((totalInteraction / totalRead) * 100).toFixed(2)}%` : '-';

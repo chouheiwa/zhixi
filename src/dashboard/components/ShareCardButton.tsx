@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { Button, Modal, Tabs, Select, Spin, message } from 'antd';
 import { ShareAltOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { DailySummary, IncomeRecord } from '@/shared/types';
+import { formatIncome, getCurrencyUnit } from '@/shared/currency';
 import {
   renderMonthlyReportCard,
   renderMilestoneCard,
@@ -92,7 +93,7 @@ function buildMilestoneData(allSummaries: DailySummary[], allRecords: IncomeReco
   const latestAchievedDate = sorted[sorted.length - 1]?.date ?? new Date().toISOString().slice(0, 10);
 
   return {
-    name: `累计收益达到 ¥${(cumulativeIncome / 100).toFixed(0)}`,
+    name: `累计收益达到 ${formatIncome(cumulativeIncome, getCurrencyUnit())}`,
     achievedDate: latestAchievedDate,
     totalMilestones: achievedCount,
     cumulativeIncome,

@@ -17,6 +17,7 @@ import {
 } from '@/shared/stats';
 import { FormulaBlock } from './FormulaHelp';
 import { themeColors } from '../theme';
+import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 
 interface Props {
   records: IncomeRecord[];
@@ -61,6 +62,7 @@ function describeElasticity(e: number): string {
 
 export function GlobalCorrelationAnalysis({ records }: Props) {
   const { user } = useCurrentUser();
+  const currency = useCurrency();
   const [dailyData, setDailyData] = useState<ContentDailyRecord[]>([]);
 
   useEffect(() => {
@@ -106,10 +108,10 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
     for (const [token, metrics] of dailyMap) {
       const income = incomeMap.get(token);
       if (income === undefined) continue;
-      result.push({ contentToken: token, ...metrics, totalIncome: income / 100 });
+      result.push({ contentToken: token, ...metrics, totalIncome: currency.convert(income) });
     }
     return result;
-  }, [dailyData, records]);
+  }, [dailyData, records, currency]);
 
   const analysis = useMemo(() => {
     if (aggregated.length < 3) return null;
@@ -205,9 +207,9 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
       .filter((i) => i.read > 0)
       .map((i) => ({
         ...i,
-        income: i.income / 100,
+        income: currency.convert(i.income),
         engRate: (i.interaction / i.read) * 100,
-        rpm: computeRPM(i.income / 100, i.read),
+        rpm: computeRPM(currency.convert(i.income), i.read),
       }));
     if (items.length < 4) return null;
 
@@ -261,7 +263,7 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
         },
       ],
     };
-  }, [records]);
+  }, [records, currency]);
 
   // Inclusion delay: query ALL income records from DB + user settings for collect start date
   const [allIncomeRecords, setAllIncomeRecords] = useState<IncomeRecord[]>([]);
@@ -420,13 +422,16 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
                       color: weight > 0 ? color : weight < 0 ? themeColors.warmRed : '#999',
                     }}
                   >
-                    {Math.abs(weight) < 0.0001 ? '影响极小' : `${weight > 0 ? '+' : ''}¥${weight.toFixed(4)}`}
+                    {Math.abs(weight) < 0.0001
+                      ? '影响极小'
+                      : `${weight > 0 ? '+' : ''}${currency.prefix}${weight.toFixed(4)}${currency.suffix}`}
                   </span>
                 </div>
               </div>
             ))}
             <div style={{ fontSize: 10, color: '#bbb', marginTop: 4 }}>
-              例：+¥0.0050 表示每多1个该指标，收益多0.5分钱
+              例：+{currency.prefix}0.0050{currency.suffix} 表示每多1个该指标，收益多
+              {currency.unit === 'yuan' ? '0.5分钱' : '0.005盐粒'}
             </div>
           </Card>
         </Col>
@@ -510,13 +515,13 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
                       <tr key={key} style={{ borderBottom: '1px solid #f0f0f0' }}>
                         <td style={{ padding: '5px 6px', color: '#666' }}>{label}</td>
                         <td style={{ textAlign: 'right', padding: '5px 6px', color: themeColors.warmRed }}>
-                          {Math.abs(q10) < 0.0001 ? '-' : `¥${q10.toFixed(4)}`}
+                          {Math.abs(q10) < 0.0001 ? '-' : `${currency.prefix}${q10.toFixed(4)}${currency.suffix}`}
                         </td>
                         <td style={{ textAlign: 'right', padding: '5px 6px', fontWeight: 600 }}>
-                          {Math.abs(q50) < 0.0001 ? '-' : `¥${q50.toFixed(4)}`}
+                          {Math.abs(q50) < 0.0001 ? '-' : `${currency.prefix}${q50.toFixed(4)}${currency.suffix}`}
                         </td>
                         <td style={{ textAlign: 'right', padding: '5px 6px', color: '#2e7d32' }}>
-                          {Math.abs(q90) < 0.0001 ? '-' : `¥${q90.toFixed(4)}`}
+                          {Math.abs(q90) < 0.0001 ? '-' : `${currency.prefix}${q90.toFixed(4)}${currency.suffix}`}
                         </td>
                       </tr>
                     );
@@ -568,10 +573,10 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#666' }}>
                     <span>
-                      预期 ¥{item.predicted.toFixed(2)} | 实际 ¥{item.actual.toFixed(2)}
+                      预期 {currency.fmtValue(item.predicted)} | 实际 {currency.fmtValue(item.actual)}
                     </span>
                     <span style={{ fontWeight: 600, color: item.residual > 0 ? '#2e7d32' : '#c62828' }}>
-                      {item.residual > 0 ? '超出预期' : '低于预期'} ¥{Math.abs(item.residual).toFixed(2)}
+                      {item.residual > 0 ? '超出预期' : '低于预期'} {currency.fmtValue(Math.abs(item.residual))}
                     </span>
                   </div>
                 </div>
@@ -597,7 +602,7 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
                     />
                   </div>
                   <div style={{ width: 65, fontSize: 12, textAlign: 'right', fontWeight: 600 }}>
-                    ¥{q.income.toFixed(2)}
+                    {currency.fmtValue(q.income)}
                   </div>
                   <div style={{ width: 30, fontSize: 10, color: '#999', textAlign: 'right' }}>{q.count}篇</div>
                 </div>
@@ -631,7 +636,7 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
                           }}
                         />
                       </div>
-                      <div style={{ fontSize: 12, fontWeight: 600, marginTop: 2 }}>¥{t.income.toFixed(2)}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, marginTop: 2 }}>{currency.fmtValue(t.income)}</div>
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 10, color: '#999', marginBottom: 2 }}>千次阅读收益</div>
@@ -645,7 +650,11 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
                           }}
                         />
                       </div>
-                      <div style={{ fontSize: 12, fontWeight: 600, marginTop: 2 }}>¥{t.rpm.toFixed(2)}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, marginTop: 2 }}>
+                        {currency.rpmPfx}
+                        {t.rpm.toFixed(2)}
+                        {currency.rpmSfx}
+                      </div>
                     </div>
                   </div>
                 </div>

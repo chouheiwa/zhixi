@@ -1,4 +1,12 @@
 /** Generates a fully self-contained HTML report for Zhihu income analysis. */
+import {
+  getCurrencyUnit,
+  formatIncome as formatCurrencyIncome,
+  convertFromSalt,
+  currencyLabel,
+  currencyPrefix,
+} from './currency';
+import type { CurrencyUnit } from './currency';
 
 export interface HtmlReportData {
   userName: string;
@@ -24,8 +32,11 @@ export interface HtmlReportData {
   }[];
 }
 
+// Module-level variable set at report generation time
+let _reportUnit: CurrencyUnit = 'yuan';
+
 function formatIncome(cents: number): string {
-  return `¥${(cents / 100).toFixed(2)}`;
+  return formatCurrencyIncome(cents, _reportUnit);
 }
 
 function buildSvgChart(dailyTrend: { date: string; income: number }[]): string {
@@ -73,7 +84,7 @@ function buildSvgChart(dailyTrend: { date: string; income: number }[]): string {
     const v = (maxIncome * t) / 4;
     const y = yOf(v).toFixed(1);
     yLabels.push(
-      `<text x="${(PAD_L - 8).toFixed(1)}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="11" fill="#aaa">${(v / 100).toFixed(2)}</text>`,
+      `<text x="${(PAD_L - 8).toFixed(1)}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="11" fill="#aaa">${convertFromSalt(v, _reportUnit).toFixed(_reportUnit === 'yuan' ? 2 : 0)}</text>`,
       `<line x1="${PAD_L}" y1="${y}" x2="${(PAD_L + chartW).toFixed(1)}" y2="${y}" stroke="#f0f0f0" stroke-width="1"/>`,
     );
   }
@@ -112,7 +123,7 @@ function buildTopContentTable(
       <td><span class="type-badge type-${c.contentType}">${contentTypeLabel(c.contentType)}</span></td>
       <td style="text-align:right;font-weight:600;color:#d46b08">${formatIncome(c.income)}</td>
       <td style="text-align:right">${c.pv.toLocaleString()}</td>
-      <td style="text-align:right">${(c.rpm / 100).toFixed(2)}</td>
+      <td style="text-align:right">${convertFromSalt(c.rpm, _reportUnit).toFixed(2)}</td>
     </tr>`,
     )
     .join('');
@@ -126,7 +137,7 @@ function buildTopContentTable(
       <th style="width:70px">类型</th>
       <th class="sortable" data-col="3" style="width:100px">收益 ▲</th>
       <th class="sortable" data-col="4" style="width:90px">阅读量</th>
-      <th class="sortable" data-col="5" style="width:90px">RPM(元)</th>
+      <th class="sortable" data-col="5" style="width:90px">RPM(${currencyLabel(_reportUnit)})</th>
     </tr>
   </thead>
   <tbody>${rows}</tbody>
@@ -143,7 +154,7 @@ function buildRpmByTypeSection(rpmByType: { type: string; rpm: number; count: nu
   <div style="margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;margin-bottom:4px">
       <span style="font-weight:500">${contentTypeLabel(r.type)}</span>
-      <span style="color:#666">RPM: <strong style="color:#1890ff">${(r.rpm / 100).toFixed(2)}</strong> 元 &nbsp;·&nbsp; ${r.count} 篇</span>
+      <span style="color:#666">RPM: <strong style="color:#1890ff">${convertFromSalt(r.rpm, _reportUnit).toFixed(2)}</strong> ${currencyLabel(_reportUnit)} &nbsp;·&nbsp; ${r.count} 篇</span>
     </div>
     <div style="background:#f5f5f5;border-radius:4px;height:12px;overflow:hidden">
       <div style="background:#1890ff;height:100%;width:${((r.rpm / maxRpm) * 100).toFixed(1)}%;border-radius:4px;transition:width 0.3s"></div>
@@ -172,7 +183,7 @@ function buildAllContentTable(
       <td><span class="type-badge type-${c.contentType}">${contentTypeLabel(c.contentType)}</span></td>
       <td style="text-align:right;font-weight:600;color:#d46b08">${formatIncome(c.totalIncome)}</td>
       <td style="text-align:right">${c.totalPv.toLocaleString()}</td>
-      <td style="text-align:right">${c.totalPv > 0 ? ((c.totalIncome / 100 / c.totalPv) * 1000).toFixed(2) : '-'}</td>
+      <td style="text-align:right">${c.totalPv > 0 ? ((convertFromSalt(c.totalIncome, _reportUnit) / c.totalPv) * 1000).toFixed(2) : '-'}</td>
       <td style="text-align:center;color:#999">${c.publishDate}</td>
     </tr>`,
     )
@@ -186,7 +197,7 @@ function buildAllContentTable(
       <th style="width:70px">类型</th>
       <th class="sortable" data-col="2" style="width:100px">收益 ▼</th>
       <th class="sortable" data-col="3" style="width:90px">阅读量</th>
-      <th class="sortable" data-col="4" style="width:90px">RPM(元)</th>
+      <th class="sortable" data-col="4" style="width:90px">RPM(${currencyLabel(_reportUnit)})</th>
       <th class="sortable" data-col="5" style="width:100px">发布日期</th>
     </tr>
   </thead>
@@ -332,6 +343,7 @@ const JS = `
 `;
 
 export function generateHtmlReport(data: HtmlReportData): string {
+  _reportUnit = getCurrencyUnit();
   const genDate = formatChineseDate(data.generatedAt.slice(0, 10));
 
   const svgChart = buildSvgChart(data.dailyTrend);

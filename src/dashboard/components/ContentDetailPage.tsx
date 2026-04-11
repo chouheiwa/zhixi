@@ -13,6 +13,7 @@ import { LifecycleAnalysis } from './LifecycleAnalysis';
 import { ResidualChart } from './ResidualChart';
 import { computeRPM, percentileRanks } from '@/shared/stats';
 import { contentTypeLabel, contentTypeColor } from '@/shared/content-type';
+import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 import { themeColors } from '../theme';
 
 interface Props {
@@ -124,6 +125,7 @@ export function ContentDetailPage({
 }: Props) {
   const { user } = useCurrentUser();
   const { status } = useCollector();
+  const currency = useCurrency();
   const [dailyRecords, setDailyRecords] = useState<ContentDailyRecord[]>([]);
   const [incomeRecords, setIncomeRecords] = useState<IncomeRecord[]>([]);
   const [fetchMsg, setFetchMsg] = useState('');
@@ -166,7 +168,7 @@ export function ContentDetailPage({
       totalRead += r.currentRead;
       totalInteraction += r.currentInteraction;
     }
-    const rpm = computeRPM(totalIncome / 100, totalRead);
+    const rpm = computeRPM(currency.convert(totalIncome), totalRead);
     return { totalIncome, totalRead, totalInteraction, days: incomeRecords.length, rpm };
   }, [incomeRecords]);
 
@@ -222,11 +224,11 @@ export function ContentDetailPage({
     return {
       tooltip: {
         trigger: 'axis' as const,
-        formatter: (params: IncomeTooltipParam[]) => `${params[0].name}<br/>¥${(params[0].value / 100).toFixed(2)}`,
+        formatter: (params: IncomeTooltipParam[]) => `${params[0].name}<br/>${currency.format(params[0].value)}`,
       },
       grid: withZoomGrid({ left: 50, right: 30, top: 20, bottom: 30 }),
       xAxis: { type: 'category' as const, data: sorted.map((r) => r.recordDate.slice(5)), axisLabel: { fontSize: 11 } },
-      yAxis: { type: 'value' as const, axisLabel: { formatter: (v: number) => `¥${(v / 100).toFixed(0)}` } },
+      yAxis: { type: 'value' as const, axisLabel: { formatter: (v: number) => currency.fmtAxis(currency.convert(v)) } },
       series: [
         {
           type: 'bar',
@@ -278,16 +280,23 @@ export function ContentDetailPage({
           <Card size="small">
             <Statistic
               title="总收益"
-              value={incomeSummary.totalIncome / 100}
-              precision={2}
-              prefix="¥"
+              value={currency.convert(incomeSummary.totalIncome)}
+              precision={currency.precision}
+              prefix={currency.prefix}
+              suffix={currency.suffix}
               valueStyle={{ color: themeColors.warmBlue, fontWeight: 700 }}
             />
           </Card>
         </Col>
         <Col span={4}>
           <Card size="small">
-            <Statistic title="千次阅读收益" value={incomeSummary.rpm} precision={2} prefix="¥" />
+            <Statistic
+              title="千次阅读收益"
+              value={incomeSummary.rpm}
+              precision={currency.precision}
+              prefix={currency.rpmPfx}
+              suffix={currency.rpmSfx}
+            />
           </Card>
         </Col>
         <Col span={4}>
@@ -379,7 +388,7 @@ export function ContentDetailPage({
                     {ALL_METRICS.map(({ key, label, color }) => {
                       const dates = dailyRecords.map((r) => r.date);
                       const incomeMap = new Map(incomeRecords.map((r) => [r.recordDate, r.currentIncome]));
-                      const incomeData = dates.map((d) => (incomeMap.get(d) ?? 0) / 100);
+                      const incomeData = dates.map((d) => currency.convert(incomeMap.get(d) ?? 0));
                       return (
                         <Col span={12} key={key}>
                           <MetricChart
@@ -420,6 +429,7 @@ function MetricChart({
   incomeData: number[];
   dates: string[];
 }) {
+  const currency = useCurrency();
   const option = {
     tooltip: { trigger: 'axis' as const },
     legend: { data: [label, '收益'], textStyle: { fontSize: 11 }, right: 0, top: 0 },
@@ -430,7 +440,7 @@ function MetricChart({
       { type: 'value' as const, axisLabel: { fontSize: 10 }, splitNumber: 3, position: 'left' as const },
       {
         type: 'value' as const,
-        axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v}` },
+        axisLabel: { fontSize: 10, formatter: (v: number) => currency.fmtAxis(v) },
         splitNumber: 3,
         position: 'right' as const,
       },

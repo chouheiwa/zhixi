@@ -5,6 +5,7 @@ import type { DailySummary } from '@/shared/types';
 import { weeklySeasonality } from '@/shared/stats';
 import { themeColors } from '../theme';
 import { FormulaBlock } from './FormulaHelp';
+import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 
 interface SeriesTooltipParam {
   name: string;
@@ -23,9 +24,10 @@ interface Props {
 const DAY_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
 function WeeklySeasonalityChartInner({ summaries }: Props) {
+  const currency = useCurrency();
   const { seasonality, bestDay, worstDay } = useMemo(() => {
     const dates = summaries.map((s) => s.date);
-    const incomes = summaries.map((s) => s.totalIncome / 100);
+    const incomes = summaries.map((s) => currency.convert(s.totalIncome));
     const reads = summaries.map((s) => s.totalRead);
     const incomeByDay = weeklySeasonality(dates, incomes);
     const readsByDay = weeklySeasonality(dates, reads);
@@ -42,7 +44,7 @@ function WeeklySeasonalityChartInner({ summaries }: Props) {
       bestDay: sorted[0],
       worstDay: sorted[sorted.length - 1],
     };
-  }, [summaries]);
+  }, [summaries, currency]);
 
   const maxIncome = Math.max(...seasonality.map((s) => s.avgIncome), 0.01);
 
@@ -53,7 +55,7 @@ function WeeklySeasonalityChartInner({ summaries }: Props) {
         const day = params[0].name;
         const item = seasonality.find((s) => s.label === day);
         const lines = params.map(
-          (p) => `${p.seriesName}: ${p.seriesName === '平均收益' ? `¥${p.value.toFixed(2)}` : p.value.toFixed(0)}`,
+          (p) => `${p.seriesName}: ${p.seriesName === '平均收益' ? currency.fmtValue(p.value) : p.value.toFixed(0)}`,
         );
         return `${day}（统计了 ${item?.count ?? 0} 天）<br/>${lines.join('<br/>')}`;
       },
@@ -69,7 +71,7 @@ function WeeklySeasonalityChartInner({ summaries }: Props) {
     yAxis: [
       {
         type: 'value' as const,
-        axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(0)}` },
+        axisLabel: { fontSize: 10, formatter: (v: number) => currency.fmtAxis(v) },
         splitNumber: 3,
         position: 'left' as const,
       },
@@ -115,8 +117,8 @@ function WeeklySeasonalityChartInner({ summaries }: Props) {
       <ReactECharts option={option} style={{ height: 220 }} />
       {bestDay && worstDay && bestDay.avgIncome > 0 && (
         <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-          <b>{bestDay.label}</b>平均赚最多（¥{bestDay.avgIncome.toFixed(2)}），
-          <b>{worstDay.label}</b>最少（¥{worstDay.avgIncome.toFixed(2)}）
+          <b>{bestDay.label}</b>平均赚最多（{currency.fmtValue(bestDay.avgIncome)}），
+          <b>{worstDay.label}</b>最少（{currency.fmtValue(worstDay.avgIncome)}）
         </div>
       )}
       <FormulaBlock

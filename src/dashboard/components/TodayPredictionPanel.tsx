@@ -25,6 +25,7 @@ import {
   type SavedRealtimeModel,
 } from '@/shared/ml-realtime';
 import { FormulaBlock } from './FormulaHelp';
+import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 import { themeColors } from '../theme';
 
 const MODEL_DB_KEY = 'realtimeModel';
@@ -88,6 +89,7 @@ type RealtimeMetricKey =
 
 export function TodayPredictionPanel() {
   const { user } = useCurrentUser();
+  const currency = useCurrency();
   const [aggrRecords, setAggrRecords] = useState<RealtimeAggrRecord[]>([]);
   const [summaries, setSummaries] = useState<DailySummary[]>([]);
   const [modelResult, setModelResult] = useState<RealtimeModelResult | null>(null);
@@ -249,7 +251,7 @@ export function TodayPredictionPanel() {
       setTodayUpdatedAt(resp.today.updatedAt ?? '');
 
       // Get yesterday's income for feature
-      const incomeMap = new Map(summaries.map((s) => [s.date, s.totalIncome / 100]));
+      const incomeMap = new Map(summaries.map((s) => [s.date, currency.convert(s.totalIncome)]));
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       const yStr = yesterday.toISOString().slice(0, 10);
@@ -386,14 +388,14 @@ export function TodayPredictionPanel() {
     tooltip: {
       trigger: 'axis' as const,
       formatter: (params: PredictionTooltipParam[]) => {
-        const lines = params.map((p) => `${p.marker} ${p.seriesName}: ¥${p.value.toFixed(2)}`);
+        const lines = params.map((p) => `${p.marker} ${p.seriesName}: ${currency.fmtValue(p.value)}`);
         return `${params[0].name}<br/>${lines.join('<br/>')}`;
       },
     },
     legend: { data: ['实际收益', '模型预测'], textStyle: { fontSize: 11 }, right: 0, top: 0 },
     grid: withZoomGrid({ left: 50, right: 30, top: 30, bottom: 25 }),
     xAxis: { type: 'category' as const, data: chartDates, axisLabel: { fontSize: 10 } },
-    yAxis: { type: 'value' as const, axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(0)}` } },
+    yAxis: { type: 'value' as const, axisLabel: { fontSize: 10, formatter: (v: number) => currency.fmtAxis(v) } },
     series: [
       {
         name: '实际收益',
@@ -501,7 +503,7 @@ export function TodayPredictionPanel() {
               >
                 <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>预测今日总收益</div>
                 <div style={{ fontSize: 32, fontWeight: 700, color: themeColors.warmBlue }}>
-                  ¥{prediction.toFixed(2)}
+                  {currency.fmtValue(prediction)}
                 </div>
                 <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>基于当前实时数据推算</div>
               </div>
@@ -564,7 +566,7 @@ export function TodayPredictionPanel() {
                 预测模型 <Tag color={accuracy.color}>{accuracy.text}</Tag>
               </div>
               <div style={{ fontSize: 11, color: '#999' }}>
-                {modelResult.dataCount} 天数据 · 平均偏差 ¥{modelResult.mae.toFixed(2)}
+                {modelResult.dataCount} 天数据 · 平均偏差 {currency.fmtValue(modelResult.mae)}
               </div>
             </div>
           </Flex>
@@ -675,8 +677,12 @@ function HistoryDataSection({
   aggrRecords: RealtimeAggrRecord[];
   summaries: DailySummary[];
 }) {
+  const currency = useCurrency();
   const sorted = useMemo(() => [...aggrRecords].sort((a, b) => a.date.localeCompare(b.date)), [aggrRecords]);
-  const incomeMap = useMemo(() => new Map(summaries.map((s) => [s.date, s.totalIncome / 100])), [summaries]);
+  const incomeMap = useMemo(
+    () => new Map(summaries.map((s) => [s.date, currency.convert(s.totalIncome)])),
+    [summaries, currency],
+  );
   const dates = sorted.map((r) => r.date.slice(5));
   const incomeData = sorted.map((r) => incomeMap.get(r.date) ?? null);
 
@@ -699,7 +705,7 @@ function HistoryDataSection({
       { type: 'value' as const, axisLabel: { fontSize: 10 }, splitNumber: 3, position: 'left' as const },
       {
         type: 'value' as const,
-        axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v}` },
+        axisLabel: { fontSize: 10, formatter: (v: number) => currency.fmtAxis(v) },
         splitNumber: 3,
         position: 'right' as const,
       },
@@ -733,7 +739,7 @@ function HistoryDataSection({
       trigger: 'axis' as const,
       formatter: (params: PredictionTooltipParam[]) => {
         const lines = params.map((p) => {
-          if (p.seriesName === '收益') return `${p.marker} ${p.seriesName}: ¥${(p.value ?? 0).toFixed(2)}`;
+          if (p.seriesName === '收益') return `${p.marker} ${p.seriesName}: ${currency.fmtValue(p.value ?? 0)}`;
           if (p.seriesName === '互动率') return `${p.marker} ${p.seriesName}: ${((p.value ?? 0) * 100).toFixed(2)}%`;
           return `${p.marker} ${p.seriesName}: ${(p.value ?? 0).toLocaleString()}`;
         });
@@ -747,7 +753,7 @@ function HistoryDataSection({
       { type: 'value' as const, axisLabel: { fontSize: 10 }, splitNumber: 3 },
       {
         type: 'value' as const,
-        axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v}` },
+        axisLabel: { fontSize: 10, formatter: (v: number) => currency.fmtAxis(v) },
         splitNumber: 3,
         position: 'right' as const,
       },

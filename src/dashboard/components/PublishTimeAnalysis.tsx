@@ -4,6 +4,7 @@ import ReactECharts from 'echarts-for-react';
 import type { IncomeRecord } from '@/shared/types';
 import { parseDateString } from '@/shared/date-utils';
 import { themeColors } from '../theme';
+import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 
 interface PublishTooltipParam {
   name: string;
@@ -18,6 +19,7 @@ interface Props {
 const DAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
 function PublishTimeAnalysisInner({ records }: Props) {
+  const currency = useCurrency();
   const analysis = useMemo(() => {
     const contentMap = new Map<
       string,
@@ -70,7 +72,7 @@ function PublishTimeAnalysisInner({ records }: Props) {
 
     const result = dayBuckets.map((b, i) => ({
       label: DAY_LABELS[i],
-      avgIncome: b.count > 0 ? b.income / 100 / b.count : 0,
+      avgIncome: b.count > 0 ? currency.convert(b.income) / b.count : 0,
       avgRead: b.count > 0 ? b.read / b.count : 0,
       count: b.count,
     }));
@@ -78,7 +80,7 @@ function PublishTimeAnalysisInner({ records }: Props) {
     const best = result.reduce((a, b) => (b.avgIncome > a.avgIncome ? b : a), result[0]);
 
     return { result, best };
-  }, [records]);
+  }, [records, currency]);
 
   const chartOption = {
     tooltip: {
@@ -87,7 +89,7 @@ function PublishTimeAnalysisInner({ records }: Props) {
         const item = analysis.result.find((r) => r.label === params[0].name);
         const lines = params.map((p) =>
           p.seriesName === '平均首周收益'
-            ? `${p.seriesName}: ¥${p.value.toFixed(2)}`
+            ? `${p.seriesName}: ${currency.fmtValue(p.value)}`
             : `${p.seriesName}: ${Math.round(p.value).toLocaleString()}`,
         );
         return `${params[0].name}（${item?.count ?? 0} 篇）<br/>${lines.join('<br/>')}`;
@@ -103,7 +105,7 @@ function PublishTimeAnalysisInner({ records }: Props) {
     yAxis: [
       {
         type: 'value' as const,
-        axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(0)}` },
+        axisLabel: { fontSize: 10, formatter: (v: number) => currency.fmtAxis(v) },
         splitNumber: 3,
       },
       {
@@ -145,8 +147,8 @@ function PublishTimeAnalysisInner({ records }: Props) {
           showIcon
           message={
             <span style={{ fontSize: 12 }}>
-              建议在<b>{analysis.best.label}</b>发布，平均首周收益最高（¥{analysis.best.avgIncome.toFixed(2)}，基于{' '}
-              {analysis.best.count} 篇统计）
+              建议在<b>{analysis.best.label}</b>发布，平均首周收益最高（{currency.fmtValue(analysis.best.avgIncome)}
+              ，基于 {analysis.best.count} 篇统计）
             </span>
           }
           style={{ marginTop: 8 }}

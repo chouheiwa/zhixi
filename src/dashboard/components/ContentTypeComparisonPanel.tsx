@@ -4,6 +4,7 @@ import ReactECharts from 'echarts-for-react';
 import type { IncomeRecord } from '@/shared/types';
 import { contentTypeLabel, contentTypeColor, contentTypeChartColor } from '@/shared/content-type';
 import { themeColors } from '../theme';
+import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 
 interface Props {
   records: IncomeRecord[];
@@ -17,6 +18,7 @@ interface TypeStats {
 }
 
 export function ContentTypeComparisonPanel({ records }: Props) {
+  const currency = useCurrency();
   const { typeStatsMap, typeKeys, monthlyData } = useMemo(() => {
     const contentMap = new Map<string, { type: string; income: number; read: number; interaction: number }>();
     for (const r of records) {
@@ -78,7 +80,7 @@ export function ContentTypeComparisonPanel({ records }: Props) {
     },
     yAxis: {
       type: 'value' as const,
-      axisLabel: { fontSize: 10, formatter: (v: number) => `¥${(v / 100).toFixed(0)}` },
+      axisLabel: { fontSize: 10, formatter: (v: number) => currency.fmtAxis(currency.convert(v)) },
     },
     series: typeKeys.map((type) => ({
       name: contentTypeLabel(type),

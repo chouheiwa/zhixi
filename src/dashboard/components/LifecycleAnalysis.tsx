@@ -4,6 +4,7 @@ import { timeSeriesZoom, withZoomGrid } from './chartConfig';
 import type { IncomeRecord } from '@/shared/types';
 import { exponentialDecayFit, powerLawDecayFit, computeRPM } from '@/shared/stats';
 import { FormulaBlock } from './FormulaHelp';
+import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 import { themeColors } from '../theme';
 
 interface Props {
@@ -11,11 +12,12 @@ interface Props {
 }
 
 export function LifecycleAnalysis({ incomeRecords }: Props) {
+  const currency = useCurrency();
   const analysis = useMemo(() => {
     if (incomeRecords.length < 5) return null;
 
     const sorted = [...incomeRecords].sort((a, b) => a.recordDate.localeCompare(b.recordDate));
-    const incomes = sorted.map((r) => r.currentIncome / 100);
+    const incomes = sorted.map((r) => currency.convert(r.currentIncome));
     const dates = sorted.map((r) => r.recordDate);
     const reads = sorted.map((r) => r.currentRead);
     const rpms = sorted.map((_, i) => computeRPM(incomes[i], reads[i]));
@@ -52,7 +54,7 @@ export function LifecycleAnalysis({ incomeRecords }: Props) {
       totalSum,
       firstNDays,
     };
-  }, [incomeRecords]);
+  }, [incomeRecords, currency]);
 
   if (!analysis) {
     return (
@@ -86,7 +88,7 @@ export function LifecycleAnalysis({ incomeRecords }: Props) {
     xAxis: { type: 'category' as const, data: dates, axisLabel: { fontSize: 10 }, axisTick: { show: false } },
     yAxis: {
       type: 'value' as const,
-      axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(0)}` },
+      axisLabel: { fontSize: 10, formatter: (v: number) => currency.fmtAxis(v) },
       splitNumber: 3,
     },
     series: [
@@ -136,13 +138,13 @@ export function LifecycleAnalysis({ incomeRecords }: Props) {
     yAxis: [
       {
         type: 'value' as const,
-        axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(0)}` },
+        axisLabel: { fontSize: 10, formatter: (v: number) => currency.fmtAxis(v) },
         splitNumber: 3,
         position: 'left' as const,
       },
       {
         type: 'value' as const,
-        axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(1)}` },
+        axisLabel: { fontSize: 10, formatter: (v: number) => currency.fmtAxis(v) },
         splitNumber: 3,
         position: 'right' as const,
       },
@@ -219,7 +221,11 @@ export function LifecycleAnalysis({ incomeRecords }: Props) {
               sub={analysis.expFit.halfLife < 7 ? '衰减较快' : analysis.expFit.halfLife < 30 ? '衰减适中' : '衰减很慢'}
               highlight={bestFit === 'exp'}
             />
-            <MiniCard label="预估总收益" value={`¥${analysis.expFit.ltv.toFixed(2)}`} sub="按当前衰减速度推算" />
+            <MiniCard
+              label="预估总收益"
+              value={`${currency.prefix}${analysis.expFit.ltv.toFixed(currency.precision)}${currency.suffix}`}
+              sub="按当前衰减速度推算"
+            />
           </>
         )}
         {analysis.powFit && (
@@ -239,7 +245,7 @@ export function LifecycleAnalysis({ incomeRecords }: Props) {
         <MiniCard
           label="前7天 vs 总收益"
           value={`${analysis.multiplier.toFixed(1)} 倍`}
-          sub={`前7天赚了 ¥${analysis.earlySum.toFixed(2)}，总共 ¥${analysis.totalSum.toFixed(2)}`}
+          sub={`前7天赚了 ${currency.prefix}${analysis.earlySum.toFixed(currency.precision)}${currency.suffix}，总共 ${currency.prefix}${analysis.totalSum.toFixed(currency.precision)}${currency.suffix}`}
         />
       </div>
 
@@ -268,7 +274,7 @@ export function LifecycleAnalysis({ incomeRecords }: Props) {
           {
             name: '前7天倍数',
             formula: '倍数 = 总收益 ÷ 前7天收益',
-            desc: '一个简单的经验指标：如果你的内容前7天赚了¥10，倍数是3倍，那总收益大约是¥30。可以用历史内容的平均倍数来预测新内容的总收益。',
+            desc: `一个简单的经验指标：如果你的内容前7天赚了${currency.prefix}10${currency.suffix}，倍数是3倍，那总收益大约是${currency.prefix}30${currency.suffix}。可以用历史内容的平均倍数来预测新内容的总收益。`,
           },
         ]}
       />

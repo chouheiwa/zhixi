@@ -7,6 +7,7 @@ import { efficiencyFrontier, computeRPM } from '@/shared/stats';
 import { FormulaBlock } from './FormulaHelp';
 import { contentTypeChartColor } from '@/shared/content-type';
 import { themeColors } from '../theme';
+import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 
 interface ScatterTooltipParam {
   name: string;
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function ConversionAnalysis({ records }: Props) {
+  const currency = useCurrency();
   const { scatterData, frontierLine, avgRPM } = useMemo(() => {
     const map = new Map<string, { read: number; income: number; title: string; type: string }>();
     for (const r of records) {
@@ -32,20 +34,20 @@ export function ConversionAnalysis({ records }: Props) {
     }
     const items = Array.from(map.values());
     const reads = items.map((i) => i.read);
-    const incomes = items.map((i) => i.income / 100);
+    const incomes = items.map((i) => currency.convert(i.income));
     const totalReads = reads.reduce((a, b) => a + b, 0);
     const totalIncome = incomes.reduce((a, b) => a + b, 0);
 
     return {
       scatterData: items.map((item) => ({
-        value: [item.read, item.income / 100],
+        value: [item.read, currency.convert(item.income)],
         name: item.title,
         itemStyle: { color: contentTypeChartColor(item.type) },
       })),
       frontierLine: efficiencyFrontier(reads, incomes),
       avgRPM: computeRPM(totalIncome, totalReads),
     };
-  }, [records]);
+  }, [records, currency]);
 
   const option = {
     ...scatterZoomToolbox,
@@ -53,13 +55,13 @@ export function ConversionAnalysis({ records }: Props) {
       formatter: (params: ScatterTooltipParam) => {
         if (params.seriesType === 'scatter') {
           const rpm = params.value[0] > 0 ? computeRPM(params.value[1], params.value[0]) : 0;
-          return `${params.name}<br/>阅读: ${params.value[0].toLocaleString()}<br/>收益: ¥${params.value[1].toFixed(2)}<br/>每千次阅读赚 ¥${rpm.toFixed(2)}`;
+          return `${params.name}<br/>阅读: ${params.value[0].toLocaleString()}<br/>收益: ${currency.fmtValue(params.value[1])}<br/>每千次阅读赚 ${currency.rpmPfx}${rpm.toFixed(2)}${currency.rpmSfx}`;
         }
         return '';
       },
     },
     xAxis: { type: 'value' as const, name: '阅读量', nameLocation: 'center' as const, nameGap: 30 },
-    yAxis: { type: 'value' as const, name: '收益 (元)' },
+    yAxis: { type: 'value' as const, name: `收益 (${currency.label})` },
     grid: { left: 60, right: 40, top: 20, bottom: 50 },
     series: [
       { type: 'scatter', data: scatterData, symbolSize: 10, z: 2 },
@@ -80,7 +82,13 @@ export function ConversionAnalysis({ records }: Props) {
     <Card
       title="阅读量 vs 收益"
       size="small"
-      extra={<span style={{ fontSize: 12, color: '#999' }}>平均 RPM ¥{avgRPM.toFixed(2)}</span>}
+      extra={
+        <span style={{ fontSize: 12, color: '#999' }}>
+          平均 RPM {currency.rpmPfx}
+          {avgRPM.toFixed(2)}
+          {currency.rpmSfx}
+        </span>
+      }
     >
       <ReactECharts option={option} style={{ height: 300 }} />
       <div style={{ fontSize: 11, color: '#999', textAlign: 'right', marginTop: 4 }}>

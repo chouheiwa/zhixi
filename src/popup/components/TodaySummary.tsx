@@ -1,5 +1,6 @@
 import React from 'react';
 import type { DailySummary } from '@/shared/types';
+import { getCurrencyUnit, formatIncome } from '@/shared/currency';
 
 interface Props {
   summary: DailySummary | undefined;
@@ -13,10 +14,11 @@ export function TodaySummary({ summary, loading }: Props) {
   const read = summary?.totalRead ?? 0;
   const interaction = summary?.totalInteraction ?? 0;
   const count = summary?.contentCount ?? 0;
+  const unit = getCurrencyUnit();
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: '8px 0' }}>
-      <StatCard label="今日收益" value={`¥${(income / 100).toFixed(2)}`} highlight />
+      <StatCard label="今日收益" value={formatIncome(income, unit)} highlight />
       <StatCard label="阅读量" value={String(read)} />
       <StatCard label="互动量" value={String(interaction)} />
       <StatCard label="内容数" value={String(count)} />

@@ -5,6 +5,7 @@ import type { IncomeRecord, ContentDailyRecord } from '@/shared/types';
 import { ridgeRegression, residualAnalysis, detectAnomalies } from '@/shared/stats';
 import { FormulaBlock } from './FormulaHelp';
 import { themeColors } from '../theme';
+import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 
 interface AxisTooltipParam {
   dataIndex: number;
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function ResidualChart({ incomeRecords, dailyRecords }: Props) {
+  const currency = useCurrency();
   const analysis = useMemo(() => {
     if (dailyRecords.length < 5 || incomeRecords.length < 5) return null;
 
@@ -34,7 +36,7 @@ export function ResidualChart({ incomeRecords, dailyRecords }: Props) {
       const income = incomeMap.get(date);
       if (!income) continue;
       alignedDates.push(date);
-      incomes.push(income.currentIncome / 100);
+      incomes.push(currency.convert(income.currentIncome));
       pvs.push(daily.pv);
       upvotes.push(daily.upvote);
       comments.push(daily.comment);
@@ -52,7 +54,7 @@ export function ResidualChart({ incomeRecords, dailyRecords }: Props) {
     const accuracy = (1 - mape / 100) * 100;
 
     return { alignedDates, incomes, predicted, residuals, mape, anomalies, r2: ridge.r2, accuracy };
-  }, [incomeRecords, dailyRecords]);
+  }, [incomeRecords, dailyRecords, currency]);
 
   if (!analysis) {
     return (
@@ -81,7 +83,7 @@ export function ResidualChart({ incomeRecords, dailyRecords }: Props) {
     xAxis: { type: 'category' as const, data: dates, axisLabel: { fontSize: 10 }, axisTick: { show: false } },
     yAxis: {
       type: 'value' as const,
-      axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(0)}` },
+      axisLabel: { fontSize: 10, formatter: (v: number) => currency.fmtAxis(v) },
       splitNumber: 3,
     },
     series: [
@@ -114,7 +116,7 @@ export function ResidualChart({ incomeRecords, dailyRecords }: Props) {
         const date = analysis.alignedDates[idx];
         const resid = analysis.residuals[idx];
         const anomaly = analysis.anomalies.find((a) => a.index === idx);
-        let text = `${date}<br/>偏差: ${resid > 0 ? '多赚了' : '少赚了'} ¥${Math.abs(resid).toFixed(2)}`;
+        let text = `${date}<br/>偏差: ${resid > 0 ? '多赚了' : '少赚了'} ${currency.fmtValue(Math.abs(resid))}`;
         if (anomaly) text += `<br/><b>收益${anomaly.zScore > 0 ? '异常偏高' : '异常偏低'}，可能有特殊原因</b>`;
         return text;
       },
@@ -124,7 +126,7 @@ export function ResidualChart({ incomeRecords, dailyRecords }: Props) {
     xAxis: { type: 'category' as const, data: dates, axisLabel: { fontSize: 10 }, axisTick: { show: false } },
     yAxis: {
       type: 'value' as const,
-      axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(0)}` },
+      axisLabel: { fontSize: 10, formatter: (v: number) => currency.fmtAxis(v) },
       splitNumber: 3,
     },
     series: [

@@ -1,5 +1,7 @@
 import type { MonthlyReportData, MilestoneData, HotContentData, AnnualSummaryData } from './types';
 import { getRank, getNextRank, getRankProgress } from './rank-system';
+import { getCurrencyUnit, formatIncome, formatIncomeShort, currencyPrefix } from './currency';
+import type { CurrencyUnit } from './currency';
 
 // Card dimensions
 const CARD_WIDTH = 1080;
@@ -186,15 +188,12 @@ function drawRankBadge(ctx: CanvasRenderingContext2D, totalIncomeCents: number, 
   ctx.fillText(`${rank.icon} ${rank.name}`, cx, cy + 10);
 }
 
-function formatCents(cents: number): string {
-  return (cents / 100).toFixed(2);
+function formatCents(cents: number, unit: CurrencyUnit): string {
+  return formatIncome(cents, unit).replace(/^¥/, '');
 }
 
-function formatCentsShort(cents: number): string {
-  const yuan = cents / 100;
-  if (yuan >= 10000) return `${(yuan / 10000).toFixed(1)}万`;
-  if (yuan >= 1000) return `${(yuan / 1000).toFixed(1)}千`;
-  return yuan.toFixed(2);
+function formatCentsShort(cents: number, unit: CurrencyUnit): string {
+  return formatIncomeShort(cents, unit).replace(/^¥/, '');
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
@@ -209,6 +208,8 @@ function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
 // ─── Monthly Report Card ──────────────────────────────────────────────────────
 
 export async function renderMonthlyReportCard(data: MonthlyReportData): Promise<Blob> {
+  const unit = getCurrencyUnit();
+  const prefix = currencyPrefix(unit);
   const canvas = createCanvas();
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Failed to get canvas context');
@@ -245,13 +246,20 @@ export async function renderMonthlyReportCard(data: MonthlyReportData): Promise<
   ctx.fillStyle = WHITE_MUTED;
   ctx.fillText('本月总收益', CARD_WIDTH / 2, 380);
 
-  drawGradientText(ctx, `¥ ${formatCents(data.totalIncome)}`, CARD_WIDTH / 2, 490, [GOLD, '#FFA500'], 100);
+  drawGradientText(
+    ctx,
+    `${prefix} ${formatCents(data.totalIncome, unit)}`,
+    CARD_WIDTH / 2,
+    490,
+    [GOLD, '#FFA500'],
+    100,
+  );
 
   // Stats grid
   const statsY = 580;
   const statsData = [
-    { label: '日均收益', value: `¥${formatCents(data.dailyAvgIncome)}` },
-    { label: '最佳单日', value: `¥${formatCents(data.bestDayIncome)}` },
+    { label: '日均收益', value: `${prefix}${formatCents(data.dailyAvgIncome, unit)}` },
+    { label: '最佳单日', value: `${prefix}${formatCents(data.bestDayIncome, unit)}` },
     {
       label: '环比增长',
       value: `${data.growthRate >= 0 ? '+' : ''}${(data.growthRate * 100).toFixed(1)}%`,
@@ -294,7 +302,7 @@ export async function renderMonthlyReportCard(data: MonthlyReportData): Promise<
     const remaining = nextRank.threshold - data.cumulativeIncome;
     ctx.textAlign = 'right';
     ctx.fillStyle = WHITE_MUTED;
-    ctx.fillText(`还差 ¥${formatCentsShort(remaining)}`, CARD_WIDTH - 110, progressY + 45);
+    ctx.fillText(`还差 ${prefix}${formatCentsShort(remaining, unit)}`, CARD_WIDTH - 110, progressY + 45);
   }
 
   const rank = getRank(data.cumulativeIncome);
@@ -303,7 +311,7 @@ export async function renderMonthlyReportCard(data: MonthlyReportData): Promise<
   ctx.font = `400 24px "PingFang SC", "Noto Sans SC", sans-serif`;
   ctx.textAlign = 'center';
   ctx.fillStyle = WHITE_MUTED;
-  ctx.fillText(`累计收益 ¥${formatCentsShort(data.cumulativeIncome)}`, CARD_WIDTH / 2, progressY + 125);
+  ctx.fillText(`累计收益 ${prefix}${formatCentsShort(data.cumulativeIncome, unit)}`, CARD_WIDTH / 2, progressY + 125);
 
   // Cumulative income display
   ctx.font = `400 32px "PingFang SC", "Noto Sans SC", sans-serif`;
@@ -318,6 +326,8 @@ export async function renderMonthlyReportCard(data: MonthlyReportData): Promise<
 // ─── Milestone Card ───────────────────────────────────────────────────────────
 
 export async function renderMilestoneCard(data: MilestoneData): Promise<Blob> {
+  const unit = getCurrencyUnit();
+  const prefix = currencyPrefix(unit);
   const canvas = createCanvas();
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Failed to get canvas context');
@@ -384,7 +394,7 @@ export async function renderMilestoneCard(data: MilestoneData): Promise<Blob> {
   // Cumulative income
   ctx.font = `400 30px "PingFang SC", "Noto Sans SC", sans-serif`;
   ctx.fillStyle = WHITE_MUTED;
-  ctx.fillText(`累计收益 ¥${formatCentsShort(data.cumulativeIncome)}`, CARD_WIDTH / 2, 1100);
+  ctx.fillText(`累计收益 ${prefix}${formatCentsShort(data.cumulativeIncome, unit)}`, CARD_WIDTH / 2, 1100);
 
   drawFooter(ctx);
 
@@ -394,6 +404,8 @@ export async function renderMilestoneCard(data: MilestoneData): Promise<Blob> {
 // ─── Hot Content Card ─────────────────────────────────────────────────────────
 
 export async function renderHotContentCard(data: HotContentData): Promise<Blob> {
+  const unit = getCurrencyUnit();
+  const prefix = currencyPrefix(unit);
   const canvas = createCanvas();
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Failed to get canvas context');
@@ -452,13 +464,13 @@ export async function renderHotContentCard(data: HotContentData): Promise<Blob> 
   ctx.fillStyle = WHITE_MUTED;
   ctx.fillText('内容收益', CARD_WIDTH / 2, 530);
 
-  drawGradientText(ctx, `¥ ${formatCents(data.income)}`, CARD_WIDTH / 2, 640, [GOLD, '#FFA500'], 96);
+  drawGradientText(ctx, `${prefix} ${formatCents(data.income, unit)}`, CARD_WIDTH / 2, 640, [GOLD, '#FFA500'], 96);
 
   // Metrics grid
   const metricsY = 700;
   const metricData = [
     { label: '阅读量', value: data.pv >= 10000 ? `${(data.pv / 10000).toFixed(1)}w` : String(data.pv) },
-    { label: 'RPM', value: `¥${data.rpm.toFixed(2)}` },
+    { label: 'RPM', value: `${prefix}${data.rpm.toFixed(2)}` },
     { label: '超越', value: `${data.percentile.toFixed(0)}%` },
   ];
   const mCellW = (CARD_WIDTH - 160) / 3;
@@ -507,6 +519,8 @@ export async function renderHotContentCard(data: HotContentData): Promise<Blob> 
 // ─── Annual Summary Card ──────────────────────────────────────────────────────
 
 export async function renderAnnualSummaryCard(data: AnnualSummaryData): Promise<Blob> {
+  const unit = getCurrencyUnit();
+  const prefix = currencyPrefix(unit);
   const canvas = createCanvas();
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Failed to get canvas context');
@@ -532,14 +546,14 @@ export async function renderAnnualSummaryCard(data: AnnualSummaryData): Promise<
   ctx.fillStyle = WHITE_MUTED;
   ctx.fillText('年度总收益', CARD_WIDTH / 2, 340);
 
-  drawGradientText(ctx, `¥ ${formatCents(data.totalIncome)}`, CARD_WIDTH / 2, 450, [GOLD, '#FFA500'], 96);
+  drawGradientText(ctx, `${prefix} ${formatCents(data.totalIncome, unit)}`, CARD_WIDTH / 2, 450, [GOLD, '#FFA500'], 96);
 
   // Key metrics
   const kpY = 510;
   const kpData = [
     { label: '内容篇数', value: `${data.contentCount}篇` },
     { label: '最佳月份', value: data.bestMonth },
-    { label: '最高月收益', value: `¥${formatCentsShort(data.bestMonthIncome)}` },
+    { label: '最高月收益', value: `${prefix}${formatCentsShort(data.bestMonthIncome, unit)}` },
   ];
   const kpCellW = (CARD_WIDTH - 160) / 3;
 
@@ -608,7 +622,11 @@ export async function renderAnnualSummaryCard(data: AnnualSummaryData): Promise<
   ctx.font = `400 28px "PingFang SC", "Noto Sans SC", sans-serif`;
   ctx.textAlign = 'center';
   ctx.fillStyle = WHITE_MUTED;
-  ctx.fillText(`累计收益 ¥${formatCentsShort(data.cumulativeIncome)}`, CARD_WIDTH / 2, chartY + chartH + 100);
+  ctx.fillText(
+    `累计收益 ${prefix}${formatCentsShort(data.cumulativeIncome, unit)}`,
+    CARD_WIDTH / 2,
+    chartY + chartH + 100,
+  );
 
   drawFooter(ctx);
 
