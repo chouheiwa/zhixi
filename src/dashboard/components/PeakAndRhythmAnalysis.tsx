@@ -302,7 +302,7 @@ export function PeakAndRhythmAnalysis({ dailyRecords, incomeRecords, publishDate
                   valueStyle={{ color: p.color, fontWeight: 600, fontSize: 18 }}
                 />
                 <div style={{ fontSize: 12, color: themeColors.muted, marginTop: 4 }}>
-                  {p.peakDate.slice(5)} · 发布后第 {p.daysAfterPublish} 天
+                  {p.peakDate.slice(5)} · {p.daysAfterPublish === 0 ? '发布当天' : `发布后第 ${p.daysAfterPublish} 天`}
                 </div>
               </Card>
             </Col>
