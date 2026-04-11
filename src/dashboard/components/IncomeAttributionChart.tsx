@@ -3,6 +3,7 @@ import { Card, Empty, Alert } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import type { ContentDailyRecord, IncomeRecord } from '@/shared/types';
 import { elasticityAnalysis } from '@/shared/stats';
+import { FormulaBlock } from './FormulaHelp';
 import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 import { themeColors } from '../theme';
 
@@ -172,6 +173,31 @@ export function IncomeAttributionChart({ dailyRecords, incomeRecords }: Props) {
           </div>
         ))}
       </div>
+      <FormulaBlock
+        title="收益归因分析 — 基于弹性（Elasticity）"
+        items={[
+          {
+            name: '弹性系数（log-log 回归）',
+            formula: 'ln(收益) = a + β · ln(指标)',
+            desc: '对每个指标独立做对数-对数线性回归，β 即弹性系数。β=0.8 意味着该指标上升 1% 时，收益约上升 0.8%。独立计算可避免多指标间的共线性干扰（例如阅读量与点赞高度相关时，多元回归可能低估阅读量的作用）。',
+          },
+          {
+            name: '贡献度百分比（柱状图）',
+            formula: '贡献度_i = max(0, βᵢ) / Σ max(0, βⱼ) × 100%',
+            desc: '将所有非负弹性系数归一化为 100%，越高表示该指标对收益的边际影响越大。负弹性视为 0（提升该指标并不会推高收益）。',
+          },
+          {
+            name: '拟合质量 R²',
+            formula: 'R² = 各指标独立回归的 R² 平均',
+            desc: 'R² 越接近 1 表示该指标与收益的对数关系越稳定；过低说明数据波动较随机，归因结论可信度降低。',
+          },
+          {
+            name: '数据要求',
+            formula: '匹配日期 ≥ 10 天',
+            desc: '需要同时具备每日指标（pv / 点赞 / 评论 / 收藏 / 分享）和每日收益，按日期 join 后至少 10 天样本才会输出结果。',
+          },
+        ]}
+      />
     </Card>
   );
 }
