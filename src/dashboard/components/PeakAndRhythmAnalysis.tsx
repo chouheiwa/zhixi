@@ -41,63 +41,54 @@ export function PeakAndRhythmAnalysis({ dailyRecords, incomeRecords, publishDate
     const sortedDaily = [...dailyRecords].sort((a, b) => a.date.localeCompare(b.date));
     const sortedIncome = [...incomeRecords].sort((a, b) => a.recordDate.localeCompare(b.recordDate));
 
-    // ── Peak Detection ──
+    // ── Peak Detection (single pass) ──
     const peaks: PeakInfo[] = [];
 
-    // PV peak
+    const incomeMap = new Map<string, number>();
+    for (const r of sortedIncome) {
+      incomeMap.set(r.recordDate, r.currentIncome);
+    }
+
     if (sortedDaily.length > 0) {
       let maxPv = 0,
         maxPvIdx = 0;
-      for (let i = 0; i < sortedDaily.length; i++) {
-        if (sortedDaily[i].pv > maxPv) {
-          maxPv = sortedDaily[i].pv;
-          maxPvIdx = i;
-        }
-      }
-      peaks.push({
-        label: '阅读量',
-        peakDate: sortedDaily[maxPvIdx].date,
-        daysAfterPublish: daysBetween(publishDate, sortedDaily[maxPvIdx].date),
-        peakValue: maxPv,
-        color: themeColors.warmBlue,
-      });
-
-      // Upvote peak
       let maxUp = 0,
         maxUpIdx = 0;
-      for (let i = 0; i < sortedDaily.length; i++) {
-        if (sortedDaily[i].upvote > maxUp) {
-          maxUp = sortedDaily[i].upvote;
-          maxUpIdx = i;
-        }
-      }
-      peaks.push({
-        label: '点赞',
-        peakDate: sortedDaily[maxUpIdx].date,
-        daysAfterPublish: daysBetween(publishDate, sortedDaily[maxUpIdx].date),
-        peakValue: maxUp,
-        color: themeColors.warmRed,
-      });
-
-      // Collect peak
       let maxCol = 0,
         maxColIdx = 0;
+
       for (let i = 0; i < sortedDaily.length; i++) {
-        if (sortedDaily[i].collect > maxCol) {
-          maxCol = sortedDaily[i].collect;
+        const r = sortedDaily[i];
+        if (r.pv > maxPv) {
+          maxPv = r.pv;
+          maxPvIdx = i;
+        }
+        if (r.upvote > maxUp) {
+          maxUp = r.upvote;
+          maxUpIdx = i;
+        }
+        if (r.collect > maxCol) {
+          maxCol = r.collect;
           maxColIdx = i;
         }
       }
-      peaks.push({
-        label: '收藏',
-        peakDate: sortedDaily[maxColIdx].date,
-        daysAfterPublish: daysBetween(publishDate, sortedDaily[maxColIdx].date),
-        peakValue: maxCol,
-        color: themeColors.amberLight,
-      });
+
+      const dailyPeaks: { label: string; idx: number; value: number; color: string }[] = [
+        { label: '阅读量', idx: maxPvIdx, value: maxPv, color: themeColors.warmBlue },
+        { label: '点赞', idx: maxUpIdx, value: maxUp, color: themeColors.warmRed },
+        { label: '收藏', idx: maxColIdx, value: maxCol, color: themeColors.amberLight },
+      ];
+      for (const p of dailyPeaks) {
+        peaks.push({
+          label: p.label,
+          peakDate: sortedDaily[p.idx].date,
+          daysAfterPublish: daysBetween(publishDate, sortedDaily[p.idx].date),
+          peakValue: p.value,
+          color: p.color,
+        });
+      }
     }
 
-    // Income peak
     if (sortedIncome.length > 0) {
       let maxInc = 0,
         maxIncIdx = 0;
@@ -117,42 +108,30 @@ export function PeakAndRhythmAnalysis({ dailyRecords, incomeRecords, publishDate
       });
     }
 
-    // ── Weekend vs Weekday ──
-    const weekdayPv: number[] = [],
-      weekendPv: number[] = [];
-    const weekdayIncome: number[] = [],
-      weekendIncome: number[] = [];
-    const weekdayEngRate: number[] = [],
-      weekendEngRate: number[] = [];
-
-    const incomeMap = new Map<string, number>();
-    for (const r of sortedIncome) {
-      incomeMap.set(r.recordDate, r.currentIncome);
-    }
+    // ── Weekend vs Weekday (accumulators, O(1) space) ──
+    const buckets = {
+      weekday: { pvSum: 0, incSum: 0, engSum: 0, count: 0 },
+      weekend: { pvSum: 0, incSum: 0, engSum: 0, count: 0 },
+    };
 
     for (const r of sortedDaily) {
       const inc = incomeMap.get(r.date) ?? 0;
       const engRate = r.pv > 0 ? ((r.upvote + r.comment + r.collect + r.share) / r.pv) * 100 : 0;
-
-      if (isWeekend(r.date)) {
-        weekendPv.push(r.pv);
-        weekendIncome.push(inc);
-        weekendEngRate.push(engRate);
-      } else {
-        weekdayPv.push(r.pv);
-        weekdayIncome.push(inc);
-        weekdayEngRate.push(engRate);
-      }
+      const bucket = isWeekend(r.date) ? buckets.weekend : buckets.weekday;
+      bucket.pvSum += r.pv;
+      bucket.incSum += inc;
+      bucket.engSum += engRate;
+      bucket.count++;
     }
 
-    const avg = (arr: number[]) => (arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
+    const safeAvg = (sum: number, count: number) => (count > 0 ? sum / count : 0);
 
-    const weekdayAvgPv = avg(weekdayPv);
-    const weekendAvgPv = avg(weekendPv);
-    const weekdayAvgInc = avg(weekdayIncome);
-    const weekendAvgInc = avg(weekendIncome);
-    const weekdayAvgEng = avg(weekdayEngRate);
-    const weekendAvgEng = avg(weekendEngRate);
+    const weekdayAvgPv = safeAvg(buckets.weekday.pvSum, buckets.weekday.count);
+    const weekendAvgPv = safeAvg(buckets.weekend.pvSum, buckets.weekend.count);
+    const weekdayAvgInc = safeAvg(buckets.weekday.incSum, buckets.weekday.count);
+    const weekendAvgInc = safeAvg(buckets.weekend.incSum, buckets.weekend.count);
+    const weekdayAvgEng = safeAvg(buckets.weekday.engSum, buckets.weekday.count);
+    const weekendAvgEng = safeAvg(buckets.weekend.engSum, buckets.weekend.count);
 
     const pvDiffPct = weekdayAvgPv > 0 ? ((weekendAvgPv - weekdayAvgPv) / weekdayAvgPv) * 100 : 0;
     const weekendConclusion =

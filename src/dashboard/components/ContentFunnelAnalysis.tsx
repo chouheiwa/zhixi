@@ -33,7 +33,6 @@ export function ContentFunnelAnalysis({ dailyRecords, incomeRecords, demoMode }:
   const currency = useCurrency();
   const [benchmark, setBenchmark] = useState<Benchmark | null>(null);
 
-  // Compute global benchmark from all content
   useEffect(() => {
     if (demoMode) {
       setBenchmark({ ctr: 25, engagementRate: 2.5, rpm: 3.0 });

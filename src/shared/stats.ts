@@ -264,6 +264,23 @@ export function computeRPM(income: number, reads: number): number {
   return reads > 0 ? (income / reads) * 1000 : 0;
 }
 
+// ── Simple Moving Average ──
+
+export function simpleMovingAverage(values: (number | null)[], window: number): (number | null)[] {
+  return values.map((_, i) => {
+    if (i < window - 1) return null;
+    let sum = 0;
+    let count = 0;
+    for (let j = i - window + 1; j <= i; j++) {
+      if (values[j] != null) {
+        sum += values[j]!;
+        count++;
+      }
+    }
+    return count > 0 ? sum / count : null;
+  });
+}
+
 // ── Exponential Moving Average ──
 
 export function ema(values: number[], span: number): number[] {

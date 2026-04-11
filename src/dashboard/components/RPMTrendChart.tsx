@@ -3,21 +3,12 @@ import { Card } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import { timeSeriesZoom, withZoomGrid } from './chartConfig';
 import type { IncomeRecord } from '@/shared/types';
-import { computeRPM } from '@/shared/stats';
+import { computeRPM, simpleMovingAverage } from '@/shared/stats';
 import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 import { themeColors } from '../theme';
 
 interface Props {
   incomeRecords: IncomeRecord[];
-}
-
-function movingAverage(values: number[], window: number): (number | null)[] {
-  return values.map((_, i) => {
-    if (i < window - 1) return null;
-    let sum = 0;
-    for (let j = i - window + 1; j <= i; j++) sum += values[j];
-    return sum / window;
-  });
 }
 
 export function RPMTrendChart({ incomeRecords }: Props) {
@@ -29,7 +20,7 @@ export function RPMTrendChart({ incomeRecords }: Props) {
     const sorted = [...incomeRecords].sort((a, b) => a.recordDate.localeCompare(b.recordDate));
     const dates = sorted.map((r) => r.recordDate.slice(5));
     const rpms = sorted.map((r) => computeRPM(currency.convert(r.currentIncome), r.currentRead));
-    const ma7 = movingAverage(rpms, 7);
+    const ma7 = simpleMovingAverage(rpms, 7);
 
     const avgRPM = rpms.reduce((a, b) => a + b, 0) / rpms.length;
 
