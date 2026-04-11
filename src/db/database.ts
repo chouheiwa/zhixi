@@ -135,6 +135,10 @@ class ZhihuAnalysisDB extends Dexie {
       tourState: 'userId',
       savedAccounts: 'userId',
     });
+
+    this.version(11).stores({
+      savedAccounts: 'userId, lastUsedAt',
+    });
   }
 }
 

@@ -178,9 +178,7 @@ export function Dashboard() {
     }
   }, [tour.isFirstVisit, hasSetup, sync]);
 
-  const totalContentCount = tour.useDemo
-    ? new Set(tour.effectiveRecords.map((r) => r.contentId)).size
-    : realContentCount;
+  const totalContentCount = useDemo ? new Set(effectiveRecords.map((r) => r.contentId)).size : realContentCount;
 
   const stats = useMemo(() => {
     const { effectiveSummaries, effectiveRecords } = tour;
@@ -226,16 +224,19 @@ export function Dashboard() {
       monthDaysElapsed: now.getDate(),
       monthDaysTotal: new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(),
     };
-  }, [tour.effectiveSummaries, tour.effectiveRecords]);
+  }, [effectiveSummaries, effectiveRecords]);
+
+  const { useDemo, effectiveSummaries, effectiveRecords, effectiveDateRange } = tour;
 
   const dashboardContext: DashboardContext | null = useMemo(() => {
     if (!effectiveUserId) return null;
     return {
       userId: effectiveUserId,
-      allSummaries: tour.effectiveSummaries,
-      allDateRange: tour.effectiveDateRange,
-      allIncomeRecords: tour.effectiveRecords,
-      records: tour.useDemo ? tour.effectiveRecords : records,
+      demoMode: useDemo,
+      allSummaries: effectiveSummaries,
+      allDateRange: effectiveDateRange,
+      allIncomeRecords: effectiveRecords,
+      records: useDemo ? effectiveRecords : records,
       monetizedContentIds,
       monetizedContentTokens,
       monthIncome: stats.monthIncome,
@@ -245,10 +246,10 @@ export function Dashboard() {
     };
   }, [
     effectiveUserId,
-    tour.effectiveSummaries,
-    tour.effectiveDateRange,
-    tour.effectiveRecords,
-    tour.useDemo,
+    effectiveSummaries,
+    effectiveDateRange,
+    effectiveRecords,
+    useDemo,
     records,
     monetizedContentIds,
     monetizedContentTokens,
@@ -422,15 +423,11 @@ export function Dashboard() {
                 onManage={() => setAccountManagerOpen(true)}
               />
             )}
-            {(allSummaries.length > 0 || tour.useDemo) && (
-              <ShareCardButton allSummaries={tour.effectiveSummaries} allRecords={tour.effectiveRecords} />
+            {(allSummaries.length > 0 || useDemo) && (
+              <ShareCardButton allSummaries={effectiveSummaries} allRecords={effectiveRecords} />
             )}
-            {(allSummaries.length > 0 || tour.useDemo) && user && (
-              <ExportHtmlButton
-                userName={user.name}
-                allSummaries={tour.effectiveSummaries}
-                allRecords={tour.effectiveRecords}
-              />
+            {(allSummaries.length > 0 || useDemo) && user && (
+              <ExportHtmlButton userName={user.name} allSummaries={effectiveSummaries} allRecords={effectiveRecords} />
             )}
             <Dropdown menu={{ items: settingsMenuItems }} trigger={['click']}>
               <Button id="tour-settings-menu" icon={<SettingOutlined />} size="small">
@@ -570,11 +567,11 @@ export function Dashboard() {
           <Flex justify="center" style={{ padding: 80 }}>
             <Spin size="large" tip="加载中..." />
           </Flex>
-        ) : tour.effectiveSummaries.length === 0 ? (
+        ) : effectiveSummaries.length === 0 ? (
           <Empty description="暂无数据，请先点击右上角设置按钮同步收益数据" style={{ padding: 80 }} />
         ) : (
           <>
-            {tour.useDemo && (
+            {useDemo && (
               <Alert
                 message="当前展示的是演示数据，帮助你了解各功能区域。同步真实数据后将自动替换。"
                 type="info"
@@ -718,7 +715,7 @@ export function Dashboard() {
                           key: tab.key,
                           label: tab.label,
                           children:
-                            tour.effectiveSummaries.length === 0 && tab.key === 'overview' ? (
+                            effectiveSummaries.length === 0 && tab.key === 'overview' ? (
                               <Empty description="暂无数据" />
                             ) : dashboardContext ? (
                               <Flex vertical gap={24}>

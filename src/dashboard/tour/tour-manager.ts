@@ -16,15 +16,19 @@ const DRIVER_BASE_CONFIG = {
 
 function buildDriverSteps(tourSteps: TourStep[], switchTab: (tabKey: string) => void): DriveStep[] {
   return tourSteps.map((tourStep) => {
-    if (tourStep.tab) {
-      return {
-        ...tourStep.step,
-        onHighlightStarted: () => {
-          flushSync(() => switchTab(tourStep.tab!));
-        },
-      };
-    }
-    return tourStep.step;
+    if (!tourStep.tab) return tourStep.step;
+    const { element: selector, ...rest } = tourStep.step;
+    return {
+      ...rest,
+      // driver.js resolves the element BEFORE calling onHighlightStarted,
+      // so we use the function form of `element` to switch tabs first,
+      // ensuring the target DOM node exists when driver.js queries it.
+      element: () => {
+        flushSync(() => switchTab(tourStep.tab!));
+        const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
+        return (el as Element) ?? document.body;
+      },
+    };
   });
 }
 

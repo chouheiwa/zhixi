@@ -37,6 +37,7 @@ type RankedContentItem = Pick<ContentTableItem, 'contentId' | 'contentToken' | '
 
 export interface DashboardContext {
   userId: string;
+  demoMode: boolean;
   allSummaries: DailySummary[];
   allDateRange: { start: string; end: string };
   allIncomeRecords: IncomeRecord[];
@@ -199,7 +200,7 @@ const panelRegistry: PanelMeta[] = [
       React.createElement(
         React.Suspense,
         { fallback: null },
-        React.createElement(MLPredictionPanel, { records: ctx.records }),
+        React.createElement(MLPredictionPanel, { records: ctx.records, demoMode: ctx.demoMode }),
       ),
   },
   {
@@ -212,7 +213,10 @@ const panelRegistry: PanelMeta[] = [
       React.createElement(
         React.Suspense,
         { fallback: null },
-        React.createElement(UnmonetizedContentPanel, { monetizedContentTokens: ctx.monetizedContentTokens }),
+        React.createElement(UnmonetizedContentPanel, {
+          monetizedContentTokens: ctx.monetizedContentTokens,
+          demoMode: ctx.demoMode,
+        }),
       ),
   },
 ];

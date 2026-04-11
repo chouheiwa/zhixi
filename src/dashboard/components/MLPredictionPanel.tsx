@@ -28,6 +28,7 @@ import { themeColors } from '../theme';
 
 interface Props {
   records: IncomeRecord[];
+  demoMode?: boolean;
 }
 
 interface LossTooltipParam {
@@ -98,7 +99,7 @@ function accuracyLevel(r2: number): { text: string; color: string; desc: string 
   return { text: '不太准', color: themeColors.warmRed, desc: '数据量可能不足，或收益波动太大' };
 }
 
-export function MLPredictionPanel({ records }: Props) {
+export function MLPredictionPanel({ records, demoMode }: Props) {
   const { user } = useCurrentUser();
   const [dailyData, setDailyData] = useState<ContentDailyRecord[]>([]);
   const [allIncomeRecords, setAllIncomeRecords] = useState<IncomeRecord[]>([]);
@@ -533,6 +534,23 @@ export function MLPredictionPanel({ records }: Props) {
       render: (v: number) => <span style={{ fontWeight: 600, color: themeColors.warmBlue }}>¥{v.toFixed(2)}</span>,
     },
   ];
+
+  if (demoMode) {
+    return (
+      <Card title="智能分析" size="small">
+        <Flex vertical align="center" gap={16} style={{ padding: '32px 16px' }}>
+          <ExperimentOutlined style={{ fontSize: 48, color: themeColors.warmBlue }} />
+          <div style={{ textAlign: 'center', maxWidth: 400 }}>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>基于机器学习的收益预测</div>
+            <div style={{ fontSize: 13, color: '#666', lineHeight: 1.8 }}>
+              同步足够的收益数据后，可以训练模型预测每篇内容的收益趋势。
+              模型会综合阅读量、互动数据等多维度特征，给出收益预测和准确度评估。
+            </div>
+          </div>
+        </Flex>
+      </Card>
+    );
+  }
 
   return (
     <Flex vertical gap={16}>

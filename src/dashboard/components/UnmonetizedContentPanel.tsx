@@ -4,12 +4,49 @@ import { FileSearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { CreationItem } from '@/api/zhihu-creations';
 import { contentTypeLabel, contentTypeColor } from '@/shared/content-type';
 
+const DEMO_UNMONETIZED: CreationItem[] = [
+  {
+    contentId: 'demo-unmon-1',
+    contentToken: 'demo-unmon-token-1',
+    contentType: 'article',
+    title: '我的 2024 年度技术总结：从 React 到全栈的成长之路',
+    publishDate: '2024-12-28',
+    readCount: 1520,
+    upvoteCount: 42,
+    commentCount: 8,
+    collectCount: 15,
+  },
+  {
+    contentId: 'demo-unmon-2',
+    contentToken: 'demo-unmon-token-2',
+    contentType: 'answer',
+    title: '如何看待 2025 年前端技术发展趋势？',
+    publishDate: '2025-01-15',
+    readCount: 860,
+    upvoteCount: 23,
+    commentCount: 5,
+    collectCount: 7,
+  },
+  {
+    contentId: 'demo-unmon-3',
+    contentToken: 'demo-unmon-token-3',
+    contentType: 'pin',
+    title: '推荐一个超好用的 VS Code 插件，写代码效率翻倍',
+    publishDate: '2025-02-10',
+    readCount: 320,
+    upvoteCount: 18,
+    commentCount: 3,
+    collectCount: 2,
+  },
+];
+
 interface Props {
   /** Content tokens (url_token) that have income records */
   monetizedContentTokens: Set<string>;
+  demoMode?: boolean;
 }
 
-export function UnmonetizedContentPanel({ monetizedContentTokens }: Props) {
+export function UnmonetizedContentPanel({ monetizedContentTokens, demoMode }: Props) {
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<CreationItem[] | null>(null);
   const [error, setError] = useState('');
@@ -47,6 +84,8 @@ export function UnmonetizedContentPanel({ monetizedContentTokens }: Props) {
     }
   }, [monetizedContentTokens]);
 
+  const displayItems = demoMode ? DEMO_UNMONETIZED : items;
+
   return (
     <Card
       title={
@@ -56,29 +95,31 @@ export function UnmonetizedContentPanel({ monetizedContentTokens }: Props) {
       }
       size="small"
       extra={
-        <Button size="small" icon={<ReloadOutlined />} onClick={handleFetch} loading={loading}>
-          {items !== null ? '刷新' : '获取列表'}
-        </Button>
+        !demoMode && (
+          <Button size="small" icon={<ReloadOutlined />} onClick={handleFetch} loading={loading}>
+            {items !== null ? '刷新' : '获取列表'}
+          </Button>
+        )
       }
     >
-      {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 12 }} />}
+      {error && !demoMode && <Alert type="error" message={error} showIcon style={{ marginBottom: 12 }} />}
 
-      {items === null ? (
+      {displayItems === null ? (
         <Flex justify="center" style={{ padding: 16, color: '#999', fontSize: 13 }}>
           点击右上角按钮，获取所有已发表内容并筛选出未产生收益的
         </Flex>
-      ) : items.length === 0 ? (
+      ) : displayItems.length === 0 ? (
         <Empty description="所有内容都已产生收益" image={Empty.PRESENTED_IMAGE_SIMPLE} />
       ) : (
         <>
           <div style={{ fontSize: 12, color: '#999', marginBottom: 8 }}>
-            共 {items.length} 篇内容尚未被致知计划收录或产生收益
+            共 {displayItems.length} 篇内容尚未被致知计划收录或产生收益
           </div>
           <Table
-            dataSource={items}
+            dataSource={displayItems}
             rowKey="contentId"
             size="small"
-            pagination={items.length > 10 ? { pageSize: 10, size: 'small' } : false}
+            pagination={displayItems.length > 10 ? { pageSize: 10, size: 'small' } : false}
             columns={[
               {
                 title: '内容',
