@@ -11,6 +11,11 @@ import { useCurrentUser } from '@/hooks/use-current-user';
 import { useCollector } from '@/hooks/use-collector';
 import { LifecycleAnalysis } from './LifecycleAnalysis';
 import { ResidualChart } from './ResidualChart';
+import { RPMTrendChart } from './RPMTrendChart';
+import { ContentFunnelAnalysis } from './ContentFunnelAnalysis';
+import { EngagementEfficiencyChart } from './EngagementEfficiencyChart';
+import { IncomeAttributionChart } from './IncomeAttributionChart';
+import { PeakAndRhythmAnalysis } from './PeakAndRhythmAnalysis';
 import { computeRPM, percentileRanks } from '@/shared/stats';
 import { contentTypeLabel, contentTypeColor } from '@/shared/content-type';
 import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
@@ -341,6 +346,7 @@ export function ContentDetailPage({
                     <ReactECharts option={incomeTrendOption} style={{ height: 250 }} />
                   </Card>
                 )}
+                {incomeRecords.length >= 3 && <RPMTrendChart incomeRecords={incomeRecords} />}
                 {incomeRecords.length >= 5 && <LifecycleAnalysis incomeRecords={incomeRecords} />}
                 {dailyRecords.length >= 5 && incomeRecords.length >= 5 && (
                   <ResidualChart incomeRecords={incomeRecords} dailyRecords={dailyRecords} />
@@ -408,6 +414,22 @@ export function ContentDetailPage({
                   </Card>
                 )}
               </div>
+            ),
+          },
+          {
+            key: 'diagnosis',
+            label: '内容诊断',
+            children: (
+              <Flex vertical gap={16}>
+                <ContentFunnelAnalysis dailyRecords={dailyRecords} incomeRecords={incomeRecords} demoMode={demoMode} />
+                {dailyRecords.length >= 3 && <EngagementEfficiencyChart dailyRecords={dailyRecords} />}
+                <IncomeAttributionChart dailyRecords={dailyRecords} incomeRecords={incomeRecords} />
+                <PeakAndRhythmAnalysis
+                  dailyRecords={dailyRecords}
+                  incomeRecords={incomeRecords}
+                  publishDate={publishDate}
+                />
+              </Flex>
             ),
           },
         ]}
