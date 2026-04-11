@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, Row, Col, Statistic, Button, Tag, Progress, Flex, Empty, Alert, Space, Steps, Table } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -29,6 +29,8 @@ import { themeColors } from '../theme';
 interface Props {
   records: IncomeRecord[];
   demoMode?: boolean;
+  demoStep?: number;
+  onDemoAnimating?: (animating: boolean) => void;
 }
 
 interface LossTooltipParam {
@@ -92,6 +94,103 @@ const STEP_ITEMS = [
   { title: '保存模型' },
 ];
 
+// ── Demo mode constants ──
+const DEMO_TEST_DATES = Array.from({ length: 8 }, (_, i) => {
+  const d = new Date();
+  d.setDate(d.getDate() - 8 + i);
+  return d.toISOString().slice(0, 10);
+});
+const DEMO_ACTUAL = [3.2, 4.1, 2.8, 5.5, 4.9, 3.6, 6.1, 4.3];
+const DEMO_PRED = [3.5, 3.8, 3.1, 5.1, 5.2, 3.9, 5.7, 4.6];
+const DEMO_FINAL_RESULT: EnsembleResult = {
+  models: [
+    {
+      name: '随机森林',
+      predictions: DEMO_PRED,
+      r2: 0.78,
+      mae: 0.52,
+      featureImportance: [
+        { name: 'pv', importance: 0.32 },
+        { name: 'upvote', importance: 0.18 },
+        { name: 'engagementRate', importance: 0.14 },
+        { name: 'log_pv', importance: 0.11 },
+        { name: 'comment', importance: 0.08 },
+        { name: 'collect', importance: 0.06 },
+        { name: 'income_lag1', importance: 0.05 },
+        { name: 'share', importance: 0.03 },
+      ],
+    },
+    { name: '岭回归', predictions: DEMO_PRED.map((v) => v * 0.95), r2: 0.71, mae: 0.61 },
+    { name: '神经网络', predictions: DEMO_PRED.map((v) => v * 1.02), r2: 0.82, mae: 0.45 },
+  ],
+  ensemble: {
+    predictions: DEMO_PRED,
+    r2: 0.85,
+    mae: 0.41,
+    weights: [
+      { name: '随机森林', weight: 0.3 },
+      { name: '岭回归', weight: 0.2 },
+      { name: '神经网络', weight: 0.5 },
+    ],
+  },
+  testActual: DEMO_ACTUAL,
+  testDates: DEMO_TEST_DATES,
+  featureNames: ['pv', 'upvote', 'comment', 'collect', 'engagementRate'],
+  trainedAt: Date.now(),
+  dataCount: 156,
+  trainCount: 124,
+  testCount: 32,
+  mlpTrainingInfo: {
+    totalEpochs: 100,
+    actualEpochs: 67,
+    bestEpoch: 54,
+    stoppedEarly: true,
+    lossHistory: Array.from({ length: 67 }, (_, i) => 0.8 * Math.exp(-i * 0.05) + 0.02),
+    valLossHistory: Array.from({ length: 67 }, (_, i) => 0.9 * Math.exp(-i * 0.04) + 0.05),
+  },
+};
+const DEMO_PREDICTIONS: PredictionRow[] = [
+  {
+    title: '如何高效学习编程',
+    contentType: 'article',
+    pv: 1820,
+    upvote: 45,
+    comment: 12,
+    collect: 18,
+    predicted: 8.52,
+  },
+  {
+    title: '程序员如何提高工作效率',
+    contentType: 'answer',
+    pv: 1340,
+    upvote: 32,
+    comment: 8,
+    collect: 11,
+    predicted: 5.67,
+  },
+  {
+    title: '深入理解 JS 异步编程',
+    contentType: 'article',
+    pv: 960,
+    upvote: 28,
+    comment: 6,
+    collect: 9,
+    predicted: 4.21,
+  },
+  { title: '前端性能优化技巧', contentType: 'answer', pv: 720, upvote: 19, comment: 4, collect: 6, predicted: 2.89 },
+  { title: '善用 TS 的类型收窄', contentType: 'pin', pv: 380, upvote: 14, comment: 3, collect: 4, predicted: 1.35 },
+];
+const DEMO_TRAINING_STEPS: { label: string; detail: string }[] = [
+  { label: '准备数据', detail: '正在准备特征数据，共 156 条...' },
+  { label: '随机森林', detail: '训练随机森林（200 棵决策树）...' },
+  { label: '岭回归', detail: '训练岭回归模型...' },
+  { label: '神经网络', detail: '训练神经网络 128→64→32→16→1...' },
+  { label: '集成计算', detail: '计算集成权重...' },
+  { label: '保存模型', detail: '保存模型到本地...' },
+];
+const TOTAL_LOSS_FRAMES = 67;
+const LOSS_ANIM_INTERVAL_MS = 40; // ~2.7s total
+
 function accuracyLevel(r2: number): { text: string; color: string; desc: string } {
   if (r2 >= 0.9) return { text: '非常准', color: themeColors.sage, desc: '模型能解释绝大部分收益变化' };
   if (r2 >= 0.7) return { text: '比较准', color: themeColors.warmBlue, desc: '模型能较好地预测收益趋势' };
@@ -99,7 +198,7 @@ function accuracyLevel(r2: number): { text: string; color: string; desc: string 
   return { text: '不太准', color: themeColors.warmRed, desc: '数据量可能不足，或收益波动太大' };
 }
 
-export function MLPredictionPanel({ records, demoMode }: Props) {
+export function MLPredictionPanel({ records, demoMode, demoStep, onDemoAnimating }: Props) {
   const { user } = useCurrentUser();
   const [dailyData, setDailyData] = useState<ContentDailyRecord[]>([]);
   const [allIncomeRecords, setAllIncomeRecords] = useState<IncomeRecord[]>([]);
@@ -116,7 +215,7 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
   const [cacheInfo, setCacheInfo] = useState('');
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || demoMode) return;
     setLoadingModel(true);
 
     Promise.all([
@@ -135,7 +234,7 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
         }
       })
       .finally(() => setLoadingModel(false));
-  }, [user]);
+  }, [user, demoMode]);
 
   const handleTrain = useCallback(async () => {
     if (!user) return;
@@ -274,7 +373,115 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
     }
   }, [user, dailyData, allIncomeRecords]);
 
-  if (loadingModel) {
+  // ── Demo mode: synchronous state derivation from demoStep ──
+  // Neural network loss animation frame (only for demoStep=3)
+  const [lossFrame, setLossFrame] = useState(0);
+
+  // Compute effective state synchronously so DOM is ready when driver.js queries it
+  const demoActive = demoStep !== undefined;
+  const effectiveLoadingModel = demoActive ? false : loadingModel;
+  const effectiveDataCount = demoActive ? 156 : dataCount;
+
+  const effectiveTraining = demoActive ? demoStep >= 1 && demoStep <= 5 : training;
+
+  const effectiveResult = demoActive ? (demoStep >= 6 ? DEMO_FINAL_RESULT : null) : result;
+
+  const effectivePredictions = demoActive ? (demoStep >= 6 ? DEMO_PREDICTIONS : []) : predictions;
+
+  const effectiveTrainingStep: TrainingStep | null = useMemo(() => {
+    if (!demoActive || demoStep < 1 || demoStep > 5) return demoActive ? null : trainingStep;
+
+    // Neural network: use lossFrame for animated progress
+    if (demoStep === 3) {
+      const epochCount = Math.round((lossFrame / TOTAL_LOSS_FRAMES) * 67);
+      const lastLoss = 0.8 * Math.exp(-epochCount * 0.05) + 0.02;
+      const lastValLoss = 0.9 * Math.exp(-epochCount * 0.04) + 0.05;
+      return {
+        step: 4,
+        total: 6,
+        label: DEMO_TRAINING_STEPS[3].label,
+        detail: DEMO_TRAINING_STEPS[3].detail,
+        mlpProgress: {
+          epoch: epochCount,
+          totalEpochs: 100,
+          loss: lastLoss,
+          valLoss: lastValLoss,
+          bestEpoch: lossFrame >= TOTAL_LOSS_FRAMES * 0.7 ? 54 : 0,
+          lossHistory: Array.from({ length: epochCount }, (_, j) => 0.8 * Math.exp(-j * 0.05) + 0.02),
+          valLossHistory: Array.from({ length: epochCount }, (_, j) => 0.9 * Math.exp(-j * 0.04) + 0.05),
+        },
+      };
+    }
+
+    // Training complete step
+    if (demoStep === 5) {
+      return { step: 6, total: 6, label: DEMO_TRAINING_STEPS[5].label, detail: DEMO_TRAINING_STEPS[5].detail };
+    }
+
+    // Other training steps (1, 2, 4)
+    const stepInfo = DEMO_TRAINING_STEPS[demoStep - 1];
+    return { step: demoStep, total: 6, label: stepInfo.label, detail: stepInfo.detail };
+  }, [demoActive, demoStep, lossFrame, trainingStep]);
+
+  // Neural network loss curve animation (demoStep=3 only)
+  useEffect(() => {
+    if (demoStep !== 3) {
+      setLossFrame(0);
+      return;
+    }
+
+    onDemoAnimating?.(true);
+
+    // Disable next button immediately
+    const nextBtn = document.querySelector('.driver-popover-next-btn');
+    if (nextBtn) {
+      (nextBtn as HTMLButtonElement).setAttribute('disabled', 'true');
+      (nextBtn as HTMLButtonElement).style.opacity = '0.5';
+      (nextBtn as HTMLButtonElement).style.cursor = 'not-allowed';
+    }
+
+    let frame = 0;
+    const interval = setInterval(() => {
+      frame += 1;
+      setLossFrame(frame);
+
+      if (frame >= TOTAL_LOSS_FRAMES) {
+        clearInterval(interval);
+        onDemoAnimating?.(false);
+        const btn = document.querySelector('.driver-popover-next-btn');
+        if (btn) {
+          (btn as HTMLButtonElement).removeAttribute('disabled');
+          (btn as HTMLButtonElement).style.opacity = '';
+          (btn as HTMLButtonElement).style.cursor = '';
+        }
+      }
+    }, LOSS_ANIM_INTERVAL_MS);
+
+    return () => {
+      clearInterval(interval);
+      onDemoAnimating?.(false);
+    };
+  }, [demoStep, onDemoAnimating]);
+
+  // Demo mode without active demoStep: show feature description card
+  if (demoMode && demoStep === undefined) {
+    return (
+      <Card title="智能分析" size="small">
+        <Flex vertical align="center" gap={16} style={{ padding: '32px 16px' }}>
+          <ExperimentOutlined style={{ fontSize: 48, color: themeColors.warmBlue }} />
+          <div style={{ textAlign: 'center', maxWidth: 400 }}>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>基于机器学习的收益预测</div>
+            <div style={{ fontSize: 13, color: '#666', lineHeight: 1.8 }}>
+              同步足够的收益数据后，可以训练模型预测每篇内容的收益趋势。
+              模型会综合阅读量、互动数据等多维度特征，给出收益预测和准确度评估。
+            </div>
+          </div>
+        </Flex>
+      </Card>
+    );
+  }
+
+  if (effectiveLoadingModel) {
     return (
       <Card size="small">
         <Flex justify="center" align="center" gap={8} style={{ padding: 40, color: '#999' }}>
@@ -285,7 +492,7 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
   }
 
   // ── Not trained yet ──
-  if (!result && !training) {
+  if (!effectiveResult && !effectiveTraining) {
     return (
       <Card size="small">
         <Flex vertical align="center" gap={12} style={{ padding: 20 }}>
@@ -296,17 +503,17 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
             <div style={{ fontSize: 12, color: '#999', marginBottom: 12 }}>
               训练完成后，会告诉你阅读量、点赞、评论等哪些指标最影响收益
             </div>
-            {dataCount < 10 ? (
+            {effectiveDataCount < 10 ? (
               <Alert
                 type="warning"
                 showIcon
-                message={`当前只有 ${dataCount} 条数据，至少需要 10 条`}
+                message={`当前只有 ${effectiveDataCount} 条数据，至少需要 10 条`}
                 description="请先在「内容明细」标签页中，点击「拉取所有内容详情」来获取每日数据"
                 style={{ marginBottom: 12, textAlign: 'left' }}
               />
             ) : (
               <div style={{ fontSize: 12, color: themeColors.sage, marginBottom: 12 }}>
-                <CheckCircleOutlined /> 已有 {dataCount} 条数据，可以开始训练
+                <CheckCircleOutlined /> 已有 {effectiveDataCount} 条数据，可以开始训练
               </div>
             )}
             {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 12 }} />}
@@ -315,7 +522,7 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
               size="large"
               icon={<ExperimentOutlined />}
               onClick={handleTrain}
-              disabled={dataCount < 10}
+              disabled={effectiveDataCount < 10 || demoActive}
             >
               开始训练
             </Button>
@@ -326,10 +533,12 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
   }
 
   // ── Training in progress ──
-  if (training) {
-    const currentStepIdx = trainingStep ? trainingStep.step - 1 : 0;
-    const percent = trainingStep ? Math.round((trainingStep.step / trainingStep.total) * 100) : 0;
-    const mlp = trainingStep?.mlpProgress;
+  if (effectiveTraining) {
+    const currentStepIdx = effectiveTrainingStep ? effectiveTrainingStep.step - 1 : 0;
+    const percent = effectiveTrainingStep
+      ? Math.round((effectiveTrainingStep.step / effectiveTrainingStep.total) * 100)
+      : 0;
+    const mlp = effectiveTrainingStep?.mlpProgress;
 
     const lossChartOption =
       mlp && mlp.lossHistory.length > 1
@@ -388,16 +597,18 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
       >
         <div style={{ padding: '12px 0' }}>
           <Progress percent={percent} status="active" strokeColor={themeColors.warmBlue} style={{ marginBottom: 20 }} />
-          <Steps
-            current={currentStepIdx}
-            size="small"
-            items={STEP_ITEMS.map((item, i) => ({
-              ...item,
-              status: i < currentStepIdx ? 'finish' : i === currentStepIdx ? 'process' : 'wait',
-              icon: i === currentStepIdx ? <LoadingOutlined /> : undefined,
-            }))}
-          />
-          {trainingStep?.detail && (
+          <div id="ml-training-steps">
+            <Steps
+              current={currentStepIdx}
+              size="small"
+              items={STEP_ITEMS.map((item, i) => ({
+                ...item,
+                status: i < currentStepIdx ? 'finish' : i === currentStepIdx ? 'process' : 'wait',
+                icon: i === currentStepIdx ? <LoadingOutlined /> : undefined,
+              }))}
+            />
+          </div>
+          {effectiveTrainingStep?.detail && (
             <div
               style={{
                 marginTop: 16,
@@ -408,11 +619,11 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
                 color: '#666',
               }}
             >
-              {trainingStep.detail}
+              {effectiveTrainingStep.detail}
             </div>
           )}
           {mlp && (
-            <div style={{ marginTop: 16 }}>
+            <div id="ml-training-neural" style={{ marginTop: 16 }}>
               <Flex justify="space-between" align="center" style={{ marginBottom: 8 }}>
                 <span style={{ fontSize: 12, fontWeight: 600 }}>神经网络训练进度</span>
                 <Flex gap={12} style={{ fontSize: 11, color: '#999' }}>
@@ -442,19 +653,19 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
     );
   }
 
-  if (!result) return null;
+  if (!effectiveResult) return null;
 
   // ── Results display ──
-  const accuracy = accuracyLevel(result.ensemble.r2);
-  const bestModel = [...result.models].sort((a, b) => b.r2 - a.r2)[0];
-  const isBetter = result.ensemble.r2 >= bestModel.r2;
+  const accuracy = accuracyLevel(effectiveResult.ensemble.r2);
+  const bestModel = [...effectiveResult.models].sort((a, b) => b.r2 - a.r2)[0];
+  const isBetter = effectiveResult.ensemble.r2 >= bestModel.r2;
 
   // Feature importance
-  const rfModel = result.models.find((m) => m.name === '随机森林');
+  const rfModel = effectiveResult.models.find((m) => m.name === '随机森林');
   const importanceData = (rfModel?.featureImportance ?? []).slice(0, 8);
 
   // Prediction vs actual chart with dates
-  const chartDates = (result.testDates ?? []).map((d) => d.slice(5));
+  const chartDates = (effectiveResult.testDates ?? []).map((d) => d.slice(5));
   const predChartOption = {
     tooltip: {
       trigger: 'axis' as const,
@@ -468,7 +679,7 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
     grid: withZoomGrid({ left: 50, right: 30, top: 30, bottom: 25 }),
     xAxis: {
       type: 'category' as const,
-      data: chartDates.length > 0 ? chartDates : result.ensemble.predictions.map((_, i) => `第${i + 1}天`),
+      data: chartDates.length > 0 ? chartDates : effectiveResult.ensemble.predictions.map((_, i) => `第${i + 1}天`),
       axisLabel: { fontSize: 10 },
     },
     yAxis: { type: 'value' as const, axisLabel: { fontSize: 10, formatter: (v: number) => `¥${v.toFixed(0)}` } },
@@ -476,14 +687,14 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
       {
         name: '实际收益',
         type: 'bar',
-        data: result.testActual,
+        data: effectiveResult.testActual,
         itemStyle: { color: 'rgba(91, 122, 157, 0.25)', borderRadius: [3, 3, 0, 0] },
         barMaxWidth: 16,
       },
       {
         name: '模型预测',
         type: 'line',
-        data: result.ensemble.predictions,
+        data: effectiveResult.ensemble.predictions,
         itemStyle: { color: themeColors.warmRed },
         lineStyle: { width: 2 },
         smooth: true,
@@ -496,7 +707,7 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
 
   const topFactors = importanceData.slice(0, 5);
 
-  const predTotal = predictions.reduce((s, p) => s + p.predicted, 0);
+  const predTotal = effectivePredictions.reduce((s, p) => s + p.predicted, 0);
   const predictionColumns: ColumnsType<PredictionRow> = [
     {
       title: '内容',
@@ -535,23 +746,6 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
     },
   ];
 
-  if (demoMode) {
-    return (
-      <Card title="智能分析" size="small">
-        <Flex vertical align="center" gap={16} style={{ padding: '32px 16px' }}>
-          <ExperimentOutlined style={{ fontSize: 48, color: themeColors.warmBlue }} />
-          <div style={{ textAlign: 'center', maxWidth: 400 }}>
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>基于机器学习的收益预测</div>
-            <div style={{ fontSize: 13, color: '#666', lineHeight: 1.8 }}>
-              同步足够的收益数据后，可以训练模型预测每篇内容的收益趋势。
-              模型会综合阅读量、互动数据等多维度特征，给出收益预测和准确度评估。
-            </div>
-          </div>
-        </Flex>
-      </Card>
-    );
-  }
-
   return (
     <Flex vertical gap={16}>
       {/* Prediction section */}
@@ -563,19 +757,21 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
         }
         size="small"
         extra={
-          <Button
-            type="primary"
-            size="small"
-            icon={<ThunderboltOutlined />}
-            onClick={handlePredict}
-            loading={predicting}
-            disabled={!result}
-          >
-            {predictions.length > 0 ? '刷新预测' : '预测各内容收益'}
-          </Button>
+          !demoMode && (
+            <Button
+              type="primary"
+              size="small"
+              icon={<ThunderboltOutlined />}
+              onClick={handlePredict}
+              loading={predicting}
+              disabled={!effectiveResult}
+            >
+              {effectivePredictions.length > 0 ? '刷新预测' : '预测各内容收益'}
+            </Button>
+          )
         }
       >
-        {predictions.length > 0 ? (
+        {effectivePredictions.length > 0 ? (
           <>
             <Flex align="center" gap={16} style={{ marginBottom: 12 }}>
               <div
@@ -597,10 +793,10 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
               </div>
             </Flex>
             <Table
-              dataSource={predictions}
+              dataSource={effectivePredictions}
               rowKey="title"
               size="small"
-              pagination={predictions.length > 10 ? { pageSize: 10, size: 'small' } : false}
+              pagination={effectivePredictions.length > 10 ? { pageSize: 10, size: 'small' } : false}
               columns={predictionColumns}
             />
           </>
@@ -613,7 +809,7 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
       </Card>
 
       {/* Summary card */}
-      <Card size="small">
+      <Card id="ml-result-accuracy" size="small">
         <Flex justify="space-between" align="center">
           <Flex align="center" gap={16}>
             <div
@@ -630,7 +826,7 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
               }}
             >
               <div style={{ fontSize: 18, fontWeight: 700, color: accuracy.color, lineHeight: 1 }}>
-                {(result.ensemble.r2 * 100).toFixed(0)}%
+                {(effectiveResult.ensemble.r2 * 100).toFixed(0)}%
               </div>
               <div style={{ fontSize: 9, color: accuracy.color }}>准确度</div>
             </div>
@@ -643,15 +839,15 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
               </div>
               <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{accuracy.desc}</div>
               <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>
-                平均每次预测偏差 ¥{result.ensemble.mae.toFixed(2)}
+                平均每次预测偏差 ¥{effectiveResult.ensemble.mae.toFixed(2)}
               </div>
             </div>
           </Flex>
           <Space direction="vertical" align="end" size={4}>
-            {result.trainedAt && (
+            {effectiveResult.trainedAt && (
               <span style={{ fontSize: 11, color: '#999' }}>
                 <ClockCircleOutlined />{' '}
-                {new Date(result.trainedAt).toLocaleString('zh-CN', {
+                {new Date(effectiveResult.trainedAt).toLocaleString('zh-CN', {
                   month: 'numeric',
                   day: 'numeric',
                   hour: 'numeric',
@@ -660,15 +856,21 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
               </span>
             )}
             <span style={{ fontSize: 11, color: '#999' }}>
-              {result.dataCount} 条数据 · 训练 {result.trainCount ?? '?'} 条 · 测试 {result.testCount ?? '?'} 条
+              {effectiveResult.dataCount} 条数据 · 训练 {effectiveResult.trainCount ?? '?'} 条 · 测试{' '}
+              {effectiveResult.testCount ?? '?'} 条
             </span>
             <Button
               size="small"
-              type={result.dataCount < dataCount ? 'primary' : 'default'}
+              type={effectiveResult.dataCount < effectiveDataCount ? 'primary' : 'default'}
               onClick={handleTrain}
               loading={training}
+              disabled={demoActive}
             >
-              {result.dataCount < dataCount ? `有新数据，重新训练 (${dataCount} 条)` : '重新训练'}
+              {demoActive
+                ? '演示数据'
+                : effectiveResult.dataCount < dataCount
+                  ? `有新数据，重新训练 (${dataCount} 条)`
+                  : '重新训练'}
             </Button>
           </Space>
         </Flex>
@@ -676,6 +878,7 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
 
       {/* Charts */}
       <Card
+        id="ml-result-chart"
         title="预测效果验证"
         size="small"
         extra={
@@ -705,14 +908,15 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
 
       {/* Model details */}
       <Card
+        id="ml-result-models"
         title="三个模型的表现对比"
         size="small"
         extra={<span style={{ fontSize: 11, color: '#999' }}>最终预测由三个模型加权合成</span>}
       >
         <Row gutter={[12, 12]}>
-          {result.models.map((m) => {
+          {effectiveResult.models.map((m) => {
             const mAccuracy = accuracyLevel(m.r2);
-            const weight = result.ensemble.weights.find((w) => w.name === m.name);
+            const weight = effectiveResult.ensemble.weights.find((w) => w.name === m.name);
             return (
               <Col span={8} key={m.name}>
                 <div
@@ -767,15 +971,15 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
       </Card>
 
       {/* MLP Training Curve */}
-      {result.mlpTrainingInfo && result.mlpTrainingInfo.lossHistory.length > 1 && (
+      {effectiveResult.mlpTrainingInfo && effectiveResult.mlpTrainingInfo.lossHistory.length > 1 && (
         <Card
           title="神经网络训练曲线"
           size="small"
           extra={
             <span style={{ fontSize: 11, color: '#999' }}>
-              {result.mlpTrainingInfo.stoppedEarly
-                ? `第 ${result.mlpTrainingInfo.actualEpochs} 轮早停，最优第 ${result.mlpTrainingInfo.bestEpoch} 轮`
-                : `共 ${result.mlpTrainingInfo.actualEpochs} 轮，最优第 ${result.mlpTrainingInfo.bestEpoch} 轮`}
+              {effectiveResult.mlpTrainingInfo.stoppedEarly
+                ? `第 ${effectiveResult.mlpTrainingInfo.actualEpochs} 轮早停，最优第 ${effectiveResult.mlpTrainingInfo.bestEpoch} 轮`
+                : `共 ${effectiveResult.mlpTrainingInfo.actualEpochs} 轮，最优第 ${effectiveResult.mlpTrainingInfo.bestEpoch} 轮`}
             </span>
           }
         >
@@ -791,7 +995,7 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
               legend: { data: ['训练 loss', '验证 loss'], textStyle: { fontSize: 11 }, right: 0, top: 0 },
               xAxis: {
                 type: 'category' as const,
-                data: result.mlpTrainingInfo.lossHistory.map((_, i) => i + 1),
+                data: effectiveResult.mlpTrainingInfo.lossHistory.map((_, i) => i + 1),
                 axisLabel: { fontSize: 10 },
                 name: '轮次',
                 nameGap: 20,
@@ -802,18 +1006,18 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
                 {
                   name: '训练 loss',
                   type: 'line',
-                  data: result.mlpTrainingInfo.lossHistory,
+                  data: effectiveResult.mlpTrainingInfo.lossHistory,
                   smooth: true,
                   symbol: 'none',
                   lineStyle: { width: 1.5, color: themeColors.warmBlue },
                   itemStyle: { color: themeColors.warmBlue },
                 },
-                ...(result.mlpTrainingInfo.valLossHistory.length > 0
+                ...(effectiveResult.mlpTrainingInfo.valLossHistory.length > 0
                   ? [
                       {
                         name: '验证 loss',
                         type: 'line' as const,
-                        data: result.mlpTrainingInfo.valLossHistory,
+                        data: effectiveResult.mlpTrainingInfo.valLossHistory,
                         smooth: true,
                         symbol: 'none',
                         lineStyle: { width: 1.5, color: themeColors.warmRed },
@@ -822,8 +1026,8 @@ export function MLPredictionPanel({ records, demoMode }: Props) {
                           silent: true,
                           data: [
                             {
-                              xAxis: result.mlpTrainingInfo!.bestEpoch - 1,
-                              label: { formatter: `最优 #${result.mlpTrainingInfo!.bestEpoch}`, fontSize: 10 },
+                              xAxis: effectiveResult.mlpTrainingInfo!.bestEpoch - 1,
+                              label: { formatter: `最优 #${effectiveResult.mlpTrainingInfo!.bestEpoch}`, fontSize: 10 },
                             },
                           ],
                           lineStyle: { color: themeColors.sage, type: 'dashed' as const },

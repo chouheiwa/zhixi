@@ -10,7 +10,13 @@ import {
   updateCompletedVersion,
   resetTourState,
 } from '@/db/tour-store';
-import { getNewFeatures, startCoreTour, startExtendedTour, startNewFeatureTour } from '../tour/tour-manager';
+import {
+  getNewFeatures,
+  startCoreTour,
+  startExtendedTour,
+  startNewFeatureTour,
+  type TourCallbacks,
+} from '../tour/tour-manager';
 import { TOUR_VERSION } from '../tour/tour-config';
 import { getDemoSummaries, getDemoRecords } from '../tour/demo-data';
 
@@ -18,10 +24,10 @@ interface UseTourManagementParams {
   userId: string | undefined;
   allSummaries: DailySummary[];
   allIncomeRecords: IncomeRecord[];
-  switchTab: (tabKey: string) => void;
+  tourCallbacks: TourCallbacks;
 }
 
-export function useTourManagement({ userId, allSummaries, allIncomeRecords, switchTab }: UseTourManagementParams) {
+export function useTourManagement({ userId, allSummaries, allIncomeRecords, tourCallbacks }: UseTourManagementParams) {
   const [tourState, setTourState] = useState<TourState | undefined>(undefined);
   const [tourLoaded, setTourLoaded] = useState(false);
   const [showNewFeatureBanner, setShowNewFeatureBanner] = useState(false);
@@ -52,7 +58,7 @@ export function useTourManagement({ userId, allSummaries, allIncomeRecords, swit
   const launchCoreTour = useCallback(() => {
     if (!userId) return;
     const onTourEnd = () => setTourActive(false);
-    startCoreTour(switchTab, () => {
+    startCoreTour(tourCallbacks, () => {
       markCoreCompleted(userId).then(() => {
         setTourState((prev) => (prev ? { ...prev, coreCompleted: true } : prev));
         Modal.confirm({
@@ -61,7 +67,7 @@ export function useTourManagement({ userId, allSummaries, allIncomeRecords, swit
           okText: '继续探索',
           cancelText: '稍后再看',
           onOk: () => {
-            startExtendedTour(switchTab, () => {
+            startExtendedTour(tourCallbacks, () => {
               markExtendedCompleted(userId);
               setTourState((prev) => (prev ? { ...prev, extendedCompleted: true } : prev));
               onTourEnd();
@@ -71,7 +77,7 @@ export function useTourManagement({ userId, allSummaries, allIncomeRecords, swit
         });
       });
     });
-  }, [userId, switchTab]);
+  }, [userId, tourCallbacks]);
 
   // Launch tour after DOM has updated (double-raf ensures paint completion)
   useEffect(() => {
@@ -138,8 +144,8 @@ export function useTourManagement({ userId, allSummaries, allIncomeRecords, swit
     );
   };
 
-  // Demo data logic
-  const useDemo = tourActive && allSummaries.length === 0;
+  // Demo data logic: always use demo data during tour for consistent experience
+  const useDemo = tourActive;
   const effectiveSummaries = useDemo ? getDemoSummaries() : allSummaries;
   const effectiveRecords = useDemo ? getDemoRecords() : allIncomeRecords;
   const effectiveDateRange = useMemo(() => {

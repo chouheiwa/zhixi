@@ -157,7 +157,49 @@ export function Dashboard() {
   const hasSetup = !!settings?.collectStartDate;
 
   // Tour management
-  const tour = useTourManagement({ userId: user?.id, allSummaries, allIncomeRecords, switchTab: setActiveTabKey });
+  // ML demo tour state
+  const [mlDemoStep, setMlDemoStep] = useState<number | undefined>(undefined);
+  const [mlAnimating, setMlAnimating] = useState(false);
+
+  // Disable driver.js next button while ML neural network animation plays
+  useEffect(() => {
+    if (!mlAnimating) {
+      const nextBtn = document.querySelector('.driver-popover-next-btn');
+      if (nextBtn) nextBtn.removeAttribute('disabled');
+    }
+  }, [mlAnimating]);
+
+  const demoContentItem: ContentTableItem = useMemo(
+    () => ({
+      contentId: 'demo-1',
+      contentToken: 'demo-token-1',
+      contentType: 'article',
+      title: '如何高效学习编程：从零到一的实践指南',
+      publishDate: '2025-01-15',
+      currentIncome: 0,
+      currentRead: 0,
+      currentInteraction: 0,
+    }),
+    [],
+  );
+  const tourCallbacks = useMemo(
+    () => ({
+      switchTab: setActiveTabKey,
+      onAction: (action: string) => {
+        if (action === 'show-content-detail') setSelectedContent(demoContentItem);
+        if (action === 'hide-content-detail') setSelectedContent(null);
+        // ML demo steps
+        const mlMatch = action.match(/^ml-demo-(\d)$/);
+        if (mlMatch) setMlDemoStep(Number(mlMatch[1]));
+        if (action === 'ml-demo-reset') {
+          setMlDemoStep(undefined);
+          setMlAnimating(false);
+        }
+      },
+    }),
+    [setActiveTabKey, demoContentItem],
+  );
+  const tour = useTourManagement({ userId: user?.id, allSummaries, allIncomeRecords, tourCallbacks });
 
   // Sync orchestration
   const sync = useSyncOrchestration({
@@ -178,10 +220,11 @@ export function Dashboard() {
     }
   }, [tour.isFirstVisit, hasSetup, sync]);
 
+  const { useDemo, effectiveSummaries, effectiveRecords, effectiveDateRange } = tour;
+
   const totalContentCount = useDemo ? new Set(effectiveRecords.map((r) => r.contentId)).size : realContentCount;
 
   const stats = useMemo(() => {
-    const { effectiveSummaries, effectiveRecords } = tour;
     let totalIncome = 0,
       totalRead = 0,
       totalInteraction = 0;
@@ -226,13 +269,13 @@ export function Dashboard() {
     };
   }, [effectiveSummaries, effectiveRecords]);
 
-  const { useDemo, effectiveSummaries, effectiveRecords, effectiveDateRange } = tour;
-
   const dashboardContext: DashboardContext | null = useMemo(() => {
     if (!effectiveUserId) return null;
     return {
       userId: effectiveUserId,
       demoMode: useDemo,
+      mlDemoStep,
+      onMlDemoAnimating: setMlAnimating,
       allSummaries: effectiveSummaries,
       allDateRange: effectiveDateRange,
       allIncomeRecords: effectiveRecords,
@@ -250,6 +293,7 @@ export function Dashboard() {
     effectiveDateRange,
     effectiveRecords,
     useDemo,
+    mlDemoStep,
     records,
     monetizedContentIds,
     monetizedContentTokens,
@@ -299,6 +343,7 @@ export function Dashboard() {
               setSelectedContent(null);
               setCompareItems([item]);
             }}
+            demoMode={useDemo}
           />
         </Content>
       </Layout>
@@ -352,7 +397,11 @@ export function Dashboard() {
       label: '导出 Excel 报告',
       onClick: () => {
         if (user && allSummaries.length > 0)
-          generateExcelReport({ userName: user.name, allSummaries, allRecords: allIncomeRecords });
+          generateExcelReport({
+            userName: useDemo ? '知析用户' : user.name,
+            allSummaries,
+            allRecords: allIncomeRecords,
+          });
       },
     },
     { key: 'import', icon: <UploadOutlined />, label: '导入数据', onClick: () => sync.fileInputRef.current?.click() },
@@ -410,14 +459,18 @@ export function Dashboard() {
             </h1>
             {user && (
               <div style={{ fontSize: 12, color: themeColors.muted, marginTop: 4, letterSpacing: '0.02em' }}>
-                {user.name} 的创作数据
+                {useDemo ? '知析用户' : user.name} 的创作数据
               </div>
             )}
           </div>
           <Space>
             {accountManager.accounts.length > 0 && (
               <AccountSwitcher
-                accounts={accountManager.accounts}
+                accounts={
+                  useDemo
+                    ? accountManager.accounts.map((a) => ({ ...a, name: '知析用户', avatarUrl: '' }))
+                    : accountManager.accounts
+                }
                 activeAccountId={accountManager.activeAccountId}
                 onSwitch={accountManager.switchAccount}
                 onManage={() => setAccountManagerOpen(true)}
@@ -427,7 +480,11 @@ export function Dashboard() {
               <ShareCardButton allSummaries={effectiveSummaries} allRecords={effectiveRecords} />
             )}
             {(allSummaries.length > 0 || useDemo) && user && (
-              <ExportHtmlButton userName={user.name} allSummaries={effectiveSummaries} allRecords={effectiveRecords} />
+              <ExportHtmlButton
+                userName={useDemo ? '知析用户' : user.name}
+                allSummaries={effectiveSummaries}
+                allRecords={effectiveRecords}
+              />
             )}
             <Dropdown menu={{ items: settingsMenuItems }} trigger={['click']}>
               <Button id="tour-settings-menu" icon={<SettingOutlined />} size="small">
@@ -700,7 +757,7 @@ export function Dashboard() {
                                 </div>
                                 <div id="tour-content-table">
                                   <ContentTable
-                                    records={records}
+                                    records={useDemo ? effectiveRecords : records}
                                     onContentClick={setSelectedContent}
                                     onCompare={(items) => setCompareItems(items)}
                                   />

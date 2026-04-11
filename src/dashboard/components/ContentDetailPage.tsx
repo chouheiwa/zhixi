@@ -23,7 +23,78 @@ interface Props {
   publishDate: string;
   onBack: () => void;
   onCompare?: (item: ContentTableItem) => void;
+  demoMode?: boolean;
 }
+
+// ── Demo data for tour ──
+function generateDemoIncomeRecords(): IncomeRecord[] {
+  const records: IncomeRecord[] = [];
+  const base = new Date();
+  base.setDate(base.getDate() - 30);
+  let cumIncome = 0,
+    cumRead = 0,
+    cumInteraction = 0;
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(base);
+    d.setDate(d.getDate() + i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const income = Math.round((200 + Math.random() * 600 + (i > 20 ? 150 : 0)) * (1 + Math.sin(i * 0.5) * 0.3));
+    const read = Math.round(800 + Math.random() * 1200 + i * 30);
+    const interaction = Math.round(10 + Math.random() * 30);
+    cumIncome += income;
+    cumRead += read;
+    cumInteraction += interaction;
+    records.push({
+      userId: 'demo',
+      contentId: 'demo-1',
+      contentToken: 'demo-token-1',
+      contentType: 'article',
+      title: '如何高效学习编程：从零到一的实践指南',
+      publishDate: '2025-01-15',
+      recordDate: dateStr,
+      currentIncome: income,
+      currentRead: read,
+      currentInteraction: interaction,
+      totalIncome: cumIncome,
+      totalRead: cumRead,
+      totalInteraction: cumInteraction,
+      collectedAt: Date.now(),
+    });
+  }
+  return records;
+}
+
+function generateDemoDailyRecords(): ContentDailyRecord[] {
+  const records: ContentDailyRecord[] = [];
+  const base = new Date();
+  base.setDate(base.getDate() - 30);
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(base);
+    d.setDate(d.getDate() + i);
+    const dateStr = d.toISOString().slice(0, 10);
+    records.push({
+      userId: 'demo',
+      contentId: 'demo-1',
+      contentToken: 'demo-token-1',
+      contentType: 'article',
+      title: '如何高效学习编程：从零到一的实践指南',
+      date: dateStr,
+      pv: Math.round(800 + Math.random() * 1200 + i * 30),
+      show: Math.round(3000 + Math.random() * 2000),
+      upvote: Math.round(5 + Math.random() * 15),
+      comment: Math.round(1 + Math.random() * 5),
+      like: Math.round(Math.random() * 5),
+      collect: Math.round(2 + Math.random() * 8),
+      share: Math.round(Math.random() * 3),
+      play: 0,
+      collectedAt: Date.now(),
+    });
+  }
+  return records;
+}
+
+const DEMO_INCOME_RECORDS = generateDemoIncomeRecords();
+const DEMO_DAILY_RECORDS = generateDemoDailyRecords();
 
 interface IncomeTooltipParam {
   name: string;
@@ -49,6 +120,7 @@ export function ContentDetailPage({
   publishDate,
   onBack,
   onCompare,
+  demoMode,
 }: Props) {
   const { user } = useCurrentUser();
   const { status } = useCollector();
@@ -57,7 +129,7 @@ export function ContentDetailPage({
   const [fetchMsg, setFetchMsg] = useState('');
 
   const loadData = () => {
-    if (!user) return;
+    if (!user || demoMode) return;
     // Load daily metrics and income records from DB independently
     getContentDailyRecords(user.id, contentToken).then(setDailyRecords);
     db.incomeRecords
@@ -68,15 +140,21 @@ export function ContentDetailPage({
   };
 
   useEffect(() => {
+    if (demoMode) {
+      setIncomeRecords(DEMO_INCOME_RECORDS);
+      setDailyRecords(DEMO_DAILY_RECORDS);
+      return;
+    }
     loadData();
-  }, [user, contentToken, contentId]);
+  }, [user, contentToken, contentId, demoMode]);
 
   // Reload when collection finishes
   const prevCollecting = React.useRef(status.isCollecting);
   useEffect(() => {
+    if (demoMode) return;
     if (prevCollecting.current && !status.isCollecting) loadData();
     prevCollecting.current = status.isCollecting;
-  }, [status.isCollecting]);
+  }, [status.isCollecting, demoMode]);
 
   // Income summary
   const incomeSummary = useMemo(() => {
@@ -195,7 +273,7 @@ export function ContentDetailPage({
       </Flex>
 
       {/* Summary stats */}
-      <Row gutter={[10, 10]} style={{ marginBottom: 20 }}>
+      <Row id="tour-detail-stats" gutter={[10, 10]} style={{ marginBottom: 20 }}>
         <Col span={4}>
           <Card size="small">
             <Statistic
@@ -240,6 +318,7 @@ export function ContentDetailPage({
 
       {/* Tabs */}
       <Tabs
+        id="tour-detail-tabs"
         defaultActiveKey="income"
         type="card"
         items={[
@@ -249,7 +328,7 @@ export function ContentDetailPage({
             children: (
               <Flex vertical gap={16}>
                 {incomeTrendOption && (
-                  <Card title="每日收益" size="small">
+                  <Card id="tour-detail-income-trend" title="每日收益" size="small">
                     <ReactECharts option={incomeTrendOption} style={{ height: 250 }} />
                   </Card>
                 )}

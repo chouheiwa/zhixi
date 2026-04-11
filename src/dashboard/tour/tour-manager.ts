@@ -12,19 +12,29 @@ const DRIVER_BASE_CONFIG = {
   nextBtnText: '下一步',
   prevBtnText: '上一步',
   doneBtnText: '完成',
+  disableActiveInteraction: true,
 } as const;
 
-function buildDriverSteps(tourSteps: TourStep[], switchTab: (tabKey: string) => void): DriveStep[] {
+export interface TourCallbacks {
+  switchTab: (tabKey: string) => void;
+  onAction?: (action: string) => void;
+}
+
+function buildDriverSteps(tourSteps: TourStep[], callbacks: TourCallbacks): DriveStep[] {
   return tourSteps.map((tourStep) => {
-    if (!tourStep.tab) return tourStep.step;
+    const needsPreAction = tourStep.tab || tourStep.action;
+    if (!needsPreAction) return tourStep.step;
     const { element: selector, ...rest } = tourStep.step;
     return {
       ...rest,
       // driver.js resolves the element BEFORE calling onHighlightStarted,
-      // so we use the function form of `element` to switch tabs first,
+      // so we use the function form of `element` to run actions first,
       // ensuring the target DOM node exists when driver.js queries it.
       element: () => {
-        flushSync(() => switchTab(tourStep.tab!));
+        flushSync(() => {
+          if (tourStep.action) callbacks.onAction?.(tourStep.action);
+          if (tourStep.tab) callbacks.switchTab(tourStep.tab);
+        });
         const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
         return (el as Element) ?? document.body;
       },
@@ -66,24 +76,26 @@ export function getNewFeatures(tourState: TourState): FeatureEntry[] {
   return unseen;
 }
 
-export function startCoreTour(switchTab: (tabKey: string) => void, onComplete: () => void): void {
+export function startCoreTour(callbacks: TourCallbacks, onComplete: () => void): void {
   const d = driver({
     ...DRIVER_BASE_CONFIG,
-    steps: buildDriverSteps(CORE_STEPS, switchTab),
+    steps: buildDriverSteps(CORE_STEPS, callbacks),
     onDestroyed: () => {
-      switchTab('overview');
+      callbacks.onAction?.('hide-content-detail');
+      callbacks.switchTab('overview');
       onComplete();
     },
   });
   d.drive();
 }
 
-export function startExtendedTour(switchTab: (tabKey: string) => void, onComplete: () => void): void {
+export function startExtendedTour(callbacks: TourCallbacks, onComplete: () => void): void {
   const d = driver({
     ...DRIVER_BASE_CONFIG,
-    steps: buildDriverSteps(EXTENDED_STEPS, switchTab),
+    steps: buildDriverSteps(EXTENDED_STEPS, callbacks),
     onDestroyed: () => {
-      switchTab('overview');
+      callbacks.onAction?.('ml-demo-reset');
+      callbacks.switchTab('overview');
       onComplete();
     },
   });
