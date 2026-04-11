@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Card, Empty, Alert } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import type { ContentDailyRecord, IncomeRecord } from '@/shared/types';
-import { multipleLinearRegression, elasticityAnalysis, contributionPercentages } from '@/shared/stats';
+import { elasticityAnalysis } from '@/shared/stats';
 import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 import { themeColors } from '../theme';
 
@@ -55,20 +55,27 @@ export function IncomeAttributionChart({ dailyRecords, incomeRecords }: Props) {
     const xs = METRICS.map((m) => matchedDaily.map((r) => m.getter(r)));
     const y = matchedIncome;
 
-    const regression = multipleLinearRegression(xs, y);
-    const contributions = contributionPercentages(regression.coefficients, xs);
-    const { elasticities } = elasticityAnalysis(xs, y);
+    const { elasticities, r2s } = elasticityAnalysis(xs, y);
 
-    // Find top driver
+    // Normalize elasticities to percentages for the bar chart
+    const absElasticities = elasticities.map((e) => Math.max(0, e));
+    const totalElasticity = absElasticities.reduce((a, b) => a + b, 0);
+    const contributions =
+      totalElasticity > 0 ? absElasticities.map((e) => (e / totalElasticity) * 100) : absElasticities.map(() => 0);
+
+    // Find top driver by elasticity
     let topIdx = 0;
-    for (let i = 1; i < contributions.length; i++) {
-      if (contributions[i] > contributions[topIdx]) topIdx = i;
+    for (let i = 1; i < elasticities.length; i++) {
+      if (elasticities[i] > elasticities[topIdx]) topIdx = i;
     }
+
+    // Use average R² across individual regressions as quality indicator
+    const avgR2 = r2s.reduce((a, b) => a + b, 0) / r2s.length;
 
     return {
       contributions,
       elasticities,
-      r2: regression.r2,
+      r2: avgR2,
       topDriver: METRICS[topIdx].label,
       metrics: METRICS,
     };
