@@ -340,7 +340,7 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
           fontSize: 13,
         }}
       >
-        跨内容分析需要至少 3 篇内容的每日详情数据，请在内容明细表中批量拉取详情
+        跨内容分析需要至少 3 篇内容的每日详情数据，请在有收益内容明细表中批量拉取详情
       </div>
     );
   }

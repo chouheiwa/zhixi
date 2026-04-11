@@ -247,7 +247,7 @@ export function MLPredictionPanel({ records, demoMode, demoStep, onDemoAnimating
       const rows = buildFeatureRows(dailyData, allIncomeRecords);
       const res = await trainEnsemble(rows, FEATURE_NAMES, user.id, setTrainingStep);
       if (!res) {
-        setError('数据不足，需要至少 10 条每日数据记录（请先在「内容明细」中拉取每日详情）');
+        setError('数据不足，需要至少 10 条每日数据记录（请先在「有收益内容明细」中拉取每日详情）');
       } else {
         setResult(res);
       }
@@ -508,7 +508,7 @@ export function MLPredictionPanel({ records, demoMode, demoStep, onDemoAnimating
                 type="warning"
                 showIcon
                 message={`当前只有 ${effectiveDataCount} 条数据，至少需要 10 条`}
-                description="请先在「内容明细」标签页中，点击「拉取所有内容详情」来获取每日数据"
+                description="请先在「有收益内容明细」标签页中，点击「拉取所有内容详情」来获取每日数据"
                 style={{ marginBottom: 12, textAlign: 'left' }}
               />
             ) : (

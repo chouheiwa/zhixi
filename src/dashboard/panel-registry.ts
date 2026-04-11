@@ -212,7 +212,7 @@ const panelRegistry: PanelMeta[] = [
   },
   {
     key: 'unmonetizedContent',
-    label: '未产生收益',
+    label: '未产生收益内容',
     tab: 'unmonetized',
     defaultOrder: 0,
     defaultVisible: true,
@@ -240,8 +240,8 @@ export function getDefaultTabs(): TabConfig[] {
   const tabOrder: { key: string; label: string }[] = [
     { key: 'overview', label: '总览' },
     { key: 'ml', label: '智能分析' },
-    { key: 'unmonetized', label: '未产生收益' },
-    { key: 'content', label: '内容明细' },
+    { key: 'unmonetized', label: '未产生收益内容' },
+    { key: 'content', label: '有收益内容明细' },
   ];
 
   return tabOrder.map((t, idx) => ({

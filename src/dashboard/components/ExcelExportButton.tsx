@@ -132,7 +132,7 @@ export function generateExcelReport({ userName, allSummaries, allRecords }: Expo
     ]);
   const ws3 = XLSX.utils.aoa_to_sheet([contentHeader, ...contentRows]);
   ws3['!cols'] = [{ wch: 40 }, { wch: 6 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
-  XLSX.utils.book_append_sheet(wb, ws3, '内容明细');
+  XLSX.utils.book_append_sheet(wb, ws3, '有收益内容明细');
 
   // Sheet 4: Monthly Summary
   const monthAgg = new Map<string, { income: number; read: number; contentIds: Set<string> }>();

@@ -411,7 +411,7 @@ export function generateHtmlReport(data: HtmlReportData): string {
   </section>
 
   <section id="all-content">
-    <h2>全部内容明细（${data.allContent.length} 篇）</h2>
+    <h2>有收益内容明细（${data.allContent.length} 篇）</h2>
     <div style="overflow-x:auto">
       ${allTable}
     </div>

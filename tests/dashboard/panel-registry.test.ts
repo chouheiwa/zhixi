@@ -86,7 +86,7 @@ describe('panel-registry', () => {
 
     const contentTab = tabs.find((t) => t.key === 'content');
     expect(contentTab).toBeTruthy();
-    expect(contentTab!.label).toBe('内容明细');
+    expect(contentTab!.label).toBe('有收益内容明细');
 
     const mlTab = tabs.find((t) => t.key === 'ml');
     expect(mlTab).toBeTruthy();

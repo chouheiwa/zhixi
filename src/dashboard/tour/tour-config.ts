@@ -63,7 +63,7 @@ export const CORE_STEPS: TourStep[] = [
       popover: {
         title: '更多分析维度',
         description:
-          '除了"总览"，还有"智能分析"、"未产生收益"和"内容明细"三个标签页，分别提供不同的数据分析视角。接下来带你快速了解。',
+          '除了"总览"，还有"智能分析"、"未产生收益内容"和"有收益内容明细"三个标签页，分别提供不同的数据分析视角。接下来带你快速了解。',
         side: 'bottom',
         align: 'start',
       },
@@ -86,7 +86,7 @@ export const CORE_STEPS: TourStep[] = [
     step: {
       element: '#tour-unmonetizedContent',
       popover: {
-        title: '未产生收益',
+        title: '未产生收益内容',
         description: '找出你发布的内容中尚未被推荐变现的部分，帮助你了解哪些内容有潜力但还没有产生收益。',
         side: 'top',
         align: 'center',
@@ -98,7 +98,7 @@ export const CORE_STEPS: TourStep[] = [
     step: {
       element: '#tour-content-table',
       popover: {
-        title: '内容明细',
+        title: '有收益内容明细',
         description: '逐篇查看每篇内容的收益数据，支持按收益、阅读量等排序和按内容类型筛选。点击任意内容可进入详情页。',
         side: 'top',
         align: 'center',
