@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Layout,
   Tabs,
@@ -95,6 +95,7 @@ export function Dashboard() {
   const [customizerOpen, setCustomizerOpen] = useState(false);
   const [milestonesOpen, setMilestonesOpen] = useState(false);
   const [accountManagerOpen, setAccountManagerOpen] = useState(false);
+  const [activeTabKey, setActiveTabKey] = useState('overview');
 
   const accountManager = useAccountManager();
   const { user, loading: userLoading } = useCurrentUser(accountManager.activeAccountId ?? undefined);
@@ -156,7 +157,7 @@ export function Dashboard() {
   const hasSetup = !!settings?.collectStartDate;
 
   // Tour management
-  const tour = useTourManagement({ userId: user?.id, allSummaries, allIncomeRecords });
+  const tour = useTourManagement({ userId: user?.id, allSummaries, allIncomeRecords, switchTab: setActiveTabKey });
 
   // Sync orchestration
   const sync = useSyncOrchestration({
@@ -167,6 +168,15 @@ export function Dashboard() {
     refresh,
     refreshAllSummaries,
   });
+
+  // First visit: auto-open setup modal
+  const firstVisitHandledRef = useRef(false);
+  useEffect(() => {
+    if (tour.isFirstVisit && !hasSetup && !firstVisitHandledRef.current) {
+      firstVisitHandledRef.current = true;
+      sync.setSetupOpen(true);
+    }
+  }, [tour.isFirstVisit, hasSetup, sync]);
 
   const totalContentCount = tour.useDemo
     ? new Set(tour.effectiveRecords.map((r) => r.contentId)).size
@@ -536,7 +546,12 @@ export function Dashboard() {
           title="首次设置"
           open={sync.setupOpen}
           onCancel={() => sync.setSetupOpen(false)}
-          onOk={() => sync.handleSyncIncome(sync.setupDate)}
+          onOk={() => {
+            // Start sync in background, then launch tour while data loads
+            sync.handleSyncIncome(sync.setupDate);
+            sync.setSetupOpen(false);
+            tour.startFirstTimeTour();
+          }}
           okText="开始同步"
           okButtonProps={{ disabled: !sync.setupDate || status.isCollecting, loading: status.isCollecting }}
         >
@@ -660,7 +675,8 @@ export function Dashboard() {
             </Row>
             <Tabs
               id="tour-tab-bar"
-              defaultActiveKey="overview"
+              activeKey={activeTabKey}
+              onChange={setActiveTabKey}
               type="card"
               items={
                 layout
@@ -674,20 +690,24 @@ export function Dashboard() {
                             label: `${tab.label} (${totalContentCount})`,
                             children: (
                               <Flex vertical gap={12}>
-                                <Flex justify="flex-end">
-                                  <RangePicker
-                                    value={[dayjs(startDate), dayjs(endDate)]}
-                                    onChange={handleRangeChange}
-                                    presets={Object.entries(quickRanges).map(([label, value]) => ({ label, value }))}
-                                    allowClear={false}
-                                    size="small"
+                                <div id="tour-content-actions">
+                                  <Flex justify="flex-end">
+                                    <RangePicker
+                                      value={[dayjs(startDate), dayjs(endDate)]}
+                                      onChange={handleRangeChange}
+                                      presets={Object.entries(quickRanges).map(([label, value]) => ({ label, value }))}
+                                      allowClear={false}
+                                      size="small"
+                                    />
+                                  </Flex>
+                                </div>
+                                <div id="tour-content-table">
+                                  <ContentTable
+                                    records={records}
+                                    onContentClick={setSelectedContent}
+                                    onCompare={(items) => setCompareItems(items)}
                                   />
-                                </Flex>
-                                <ContentTable
-                                  records={records}
-                                  onContentClick={setSelectedContent}
-                                  onCompare={(items) => setCompareItems(items)}
-                                />
+                                </div>
                               </Flex>
                             ),
                           };

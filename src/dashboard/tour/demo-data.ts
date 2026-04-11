@@ -66,6 +66,20 @@ const DEMO_CONTENTS = [
     title: 'React 18 新特性全面解析与实战',
     publishDate: daysAgo(10),
   },
+  {
+    id: 'demo-6',
+    token: 'demo-token-6',
+    type: 'pin',
+    title: '分享一个提升代码质量的小技巧：善用 TypeScript 的类型收窄',
+    publishDate: daysAgo(25),
+  },
+  {
+    id: 'demo-7',
+    token: 'demo-token-7',
+    type: 'pin',
+    title: '今天发现了一个有趣的 CSS 技巧，用 container queries 替代 media queries',
+    publishDate: daysAgo(15),
+  },
 ];
 
 function generateDemoRecords(): IncomeRecord[] {

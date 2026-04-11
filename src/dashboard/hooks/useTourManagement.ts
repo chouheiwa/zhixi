@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Modal } from 'antd';
 import type { TourState, DailySummary, IncomeRecord } from '@/shared/types';
 import {
@@ -18,15 +18,19 @@ interface UseTourManagementParams {
   userId: string | undefined;
   allSummaries: DailySummary[];
   allIncomeRecords: IncomeRecord[];
+  switchTab: (tabKey: string) => void;
 }
 
-export function useTourManagement({ userId, allSummaries, allIncomeRecords }: UseTourManagementParams) {
+export function useTourManagement({ userId, allSummaries, allIncomeRecords, switchTab }: UseTourManagementParams) {
   const [tourState, setTourState] = useState<TourState | undefined>(undefined);
   const [tourLoaded, setTourLoaded] = useState(false);
   const [showNewFeatureBanner, setShowNewFeatureBanner] = useState(false);
   const [newFeatureCount, setNewFeatureCount] = useState(0);
   const [tourActive, setTourActive] = useState(false);
-  const tourLaunchingRef = useRef(false);
+  const [pendingTour, setPendingTour] = useState(false);
+
+  // First visit: tour state loaded but no record exists
+  const isFirstVisit = tourLoaded && !tourState;
 
   // Load tour state
   useEffect(() => {
@@ -44,67 +48,20 @@ export function useTourManagement({ userId, allSummaries, allIncomeRecords }: Us
     });
   }, [userId]);
 
-  // Auto-trigger first-time tour
-  useEffect(() => {
-    if (!userId || !tourLoaded) return;
-    if (!tourState && !tourLaunchingRef.current) {
-      tourLaunchingRef.current = true;
-      const onTourEnd = () => setTourActive(false);
-      const timer = setTimeout(() => {
-        const initialState: TourState = {
-          userId,
-          completedVersion: TOUR_VERSION,
-          seenFeatures: [],
-          coreCompleted: false,
-          extendedCompleted: false,
-        };
-        saveTourState(initialState).then(() => {
-          setTourState(initialState);
-          setTourActive(true);
-          startCoreTour(() => {
-            markCoreCompleted(userId).then(() => {
-              setTourState((prev) => (prev ? { ...prev, coreCompleted: true } : prev));
-              Modal.confirm({
-                title: '还有更多功能可以探索',
-                content: '要继续了解更多高级功能吗？也可以稍后在设置菜单中查看。',
-                okText: '继续探索',
-                cancelText: '稍后再看',
-                onOk: () => {
-                  startExtendedTour(() => {
-                    markExtendedCompleted(userId);
-                    setTourState((prev) => (prev ? { ...prev, extendedCompleted: true } : prev));
-                    onTourEnd();
-                  });
-                },
-                onCancel: onTourEnd,
-              });
-            });
-          });
-        });
-      }, 800);
-      return () => {
-        clearTimeout(timer);
-        tourLaunchingRef.current = false;
-      };
-    }
-  }, [userId, tourLoaded, tourState]);
-
-  const handleStartTour = () => {
+  // Core tour launcher (shared by first-time and manual restart)
+  const launchCoreTour = useCallback(() => {
     if (!userId) return;
-    resetTourState(userId).then(() => {
-      setTourState((prev) => (prev ? { ...prev, coreCompleted: false, extendedCompleted: false } : prev));
-      setTourActive(true);
-      const onTourEnd = () => setTourActive(false);
-      startCoreTour(() => {
-        markCoreCompleted(userId);
+    const onTourEnd = () => setTourActive(false);
+    startCoreTour(switchTab, () => {
+      markCoreCompleted(userId).then(() => {
         setTourState((prev) => (prev ? { ...prev, coreCompleted: true } : prev));
         Modal.confirm({
-          title: '还有更多功能可以探索',
-          content: '要继续了解更多高级功能吗？也可以稍后在设置菜单中查看。',
+          title: '基础功能介绍完毕',
+          content: '要继续了解高级分析功能吗？也可以稍后在设置菜单中重新查看。',
           okText: '继续探索',
           cancelText: '稍后再看',
           onOk: () => {
-            startExtendedTour(() => {
+            startExtendedTour(switchTab, () => {
               markExtendedCompleted(userId);
               setTourState((prev) => (prev ? { ...prev, extendedCompleted: true } : prev));
               onTourEnd();
@@ -114,7 +71,46 @@ export function useTourManagement({ userId, allSummaries, allIncomeRecords }: Us
         });
       });
     });
-  };
+  }, [userId, switchTab]);
+
+  // Launch tour after DOM has updated (double-raf ensures paint completion)
+  useEffect(() => {
+    if (!pendingTour || !userId) return;
+    const rafId = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        launchCoreTour();
+      });
+    });
+    setPendingTour(false);
+    return () => cancelAnimationFrame(rafId);
+  }, [pendingTour, userId, launchCoreTour]);
+
+  // Called by Dashboard after user confirms first-time setup
+  const startFirstTimeTour = useCallback(() => {
+    if (!userId) return;
+    const initialState: TourState = {
+      userId,
+      completedVersion: TOUR_VERSION,
+      seenFeatures: [],
+      coreCompleted: false,
+      extendedCompleted: false,
+    };
+    saveTourState(initialState).then(() => {
+      setTourState(initialState);
+      setTourActive(true);
+      setPendingTour(true);
+    });
+  }, [userId]);
+
+  // Manual restart from settings menu
+  const handleStartTour = useCallback(() => {
+    if (!userId) return;
+    resetTourState(userId).then(() => {
+      setTourState((prev) => (prev ? { ...prev, coreCompleted: false, extendedCompleted: false } : prev));
+      setTourActive(true);
+      setPendingTour(true);
+    });
+  }, [userId]);
 
   const handleViewNewFeatures = () => {
     if (!userId || !tourState) return;
@@ -152,6 +148,7 @@ export function useTourManagement({ userId, allSummaries, allIncomeRecords }: Us
   }, [effectiveSummaries]);
 
   return {
+    isFirstVisit,
     tourActive,
     useDemo,
     effectiveSummaries,
@@ -159,6 +156,7 @@ export function useTourManagement({ userId, allSummaries, allIncomeRecords }: Us
     effectiveDateRange,
     showNewFeatureBanner,
     newFeatureCount,
+    startFirstTimeTour,
     handleStartTour,
     handleViewNewFeatures,
     handleDismissNewFeatures,

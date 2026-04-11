@@ -75,7 +75,6 @@ export function useSyncOrchestration({
       setSyncMsg(result.synced === 0 ? '收益数据已是最新' : `收益同步完成，补全 ${result.synced} 天`);
       refresh();
       refreshAllSummaries();
-      if (initDate) setSetupOpen(false);
     } catch (err) {
       setSyncMsg(`收益同步失败: ${err instanceof Error ? err.message : '未知错误'}`);
     }

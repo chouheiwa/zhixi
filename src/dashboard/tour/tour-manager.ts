@@ -1,7 +1,9 @@
 import { driver } from 'driver.js';
+import type { DriveStep } from 'driver.js';
+import { flushSync } from 'react-dom';
 import 'driver.js/dist/driver.css';
 import './tour-theme.css';
-import { CORE_STEPS, EXTENDED_STEPS, FEATURE_CHANGELOG, type FeatureEntry } from './tour-config';
+import { CORE_STEPS, EXTENDED_STEPS, FEATURE_CHANGELOG, type FeatureEntry, type TourStep } from './tour-config';
 import type { TourState } from '@/shared/types';
 
 const DRIVER_BASE_CONFIG = {
@@ -11,6 +13,20 @@ const DRIVER_BASE_CONFIG = {
   prevBtnText: '上一步',
   doneBtnText: '完成',
 } as const;
+
+function buildDriverSteps(tourSteps: TourStep[], switchTab: (tabKey: string) => void): DriveStep[] {
+  return tourSteps.map((tourStep) => {
+    if (tourStep.tab) {
+      return {
+        ...tourStep.step,
+        onHighlightStarted: () => {
+          flushSync(() => switchTab(tourStep.tab!));
+        },
+      };
+    }
+    return tourStep.step;
+  });
+}
 
 export function shouldShowTour(tourState: TourState | undefined): 'core' | 'extended' | 'new-features' | null {
   if (!tourState) return 'core';
@@ -46,20 +62,26 @@ export function getNewFeatures(tourState: TourState): FeatureEntry[] {
   return unseen;
 }
 
-export function startCoreTour(onComplete: () => void): void {
+export function startCoreTour(switchTab: (tabKey: string) => void, onComplete: () => void): void {
   const d = driver({
     ...DRIVER_BASE_CONFIG,
-    steps: CORE_STEPS,
-    onDestroyed: onComplete,
+    steps: buildDriverSteps(CORE_STEPS, switchTab),
+    onDestroyed: () => {
+      switchTab('overview');
+      onComplete();
+    },
   });
   d.drive();
 }
 
-export function startExtendedTour(onComplete: () => void): void {
+export function startExtendedTour(switchTab: (tabKey: string) => void, onComplete: () => void): void {
   const d = driver({
     ...DRIVER_BASE_CONFIG,
-    steps: EXTENDED_STEPS,
-    onDestroyed: onComplete,
+    steps: buildDriverSteps(EXTENDED_STEPS, switchTab),
+    onDestroyed: () => {
+      switchTab('overview');
+      onComplete();
+    },
   });
   d.drive();
 }
