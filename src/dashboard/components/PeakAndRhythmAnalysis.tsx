@@ -223,20 +223,18 @@ export function PeakAndRhythmAnalysis({ dailyRecords, incomeRecords, publishDate
   // Growth rate chart
   const growthOption = {
     tooltip: { trigger: 'axis' as const },
-    legend: { data: ['PV 环比', '收益环比'], textStyle: { fontSize: 11 }, right: 0, top: 0 },
-    grid: withZoomGrid({ left: 50, right: 50, top: 35, bottom: 30 }),
+    legend: { data: ['PV 环比', '收益环比'], textStyle: { fontSize: 11 }, left: 'center' as const, top: 0 },
+    grid: withZoomGrid({ left: 50, right: 50, top: 30, bottom: 30 }),
     xAxis: { type: 'category' as const, data: analysis.growth.dates, axisLabel: { fontSize: 10 } },
     yAxis: [
       {
         type: 'value' as const,
-        name: 'PV环比%',
         axisLabel: { formatter: (v: number) => `${v.toFixed(0)}%`, fontSize: 10 },
         position: 'left' as const,
         splitNumber: 4,
       },
       {
         type: 'value' as const,
-        name: '收益环比%',
         axisLabel: { formatter: (v: number) => `${v.toFixed(0)}%`, fontSize: 10 },
         position: 'right' as const,
         splitNumber: 4,
