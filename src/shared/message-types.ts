@@ -18,6 +18,11 @@ export interface FetchProxyRequest {
 
 export interface OpenDashboardRequest {
   action: 'openDashboard';
+  /**
+   * When true, the dashboard URL gets `?action=setup` appended so the setup
+   * modal opens automatically on mount. Used by the popup's onboarding CTA.
+   */
+  withSetup?: boolean;
 }
 
 export interface SyncIncomeRequest {

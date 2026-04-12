@@ -231,6 +231,22 @@ function DashboardInner() {
     }
   }, [tour.isFirstVisit, hasSetup, sync]);
 
+  // URL action trigger: `?action=setup` forces the setup modal open on arrival.
+  // Used by the popup's onboarding CTA so returning-but-unsynced users also get
+  // routed into setup, not just tour.isFirstVisit ones.
+  const urlActionHandledRef = useRef(false);
+  useEffect(() => {
+    if (urlActionHandledRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('action') === 'setup' && !hasSetup) {
+      urlActionHandledRef.current = true;
+      sync.setSetupOpen(true);
+      // Clean the URL so a manual refresh doesn't re-trigger the modal.
+      const cleanUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, '', cleanUrl);
+    }
+  }, [hasSetup, sync]);
+
   const { useDemo, effectiveSummaries, effectiveRecords, effectiveDateRange } = tour;
 
   const totalContentCount = useDemo ? new Set(effectiveRecords.map((r) => r.contentId)).size : realContentCount;

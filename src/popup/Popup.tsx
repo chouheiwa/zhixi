@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Card, DatePicker, Space, Progress, Spin, Flex, Typography, Statistic } from 'antd';
-import { SyncOutlined, ArrowRightOutlined } from '@ant-design/icons';
-import dayjs from 'dayjs';
+import { Button, Card, Progress, Spin, Flex, Typography } from 'antd';
+import { SyncOutlined, ArrowRightOutlined, RocketOutlined } from '@ant-design/icons';
 import { formatDate, getDateRange } from '@/shared/date-utils';
 import { useIncomeData } from '@/hooks/use-income-data';
 import { useCollector } from '@/hooks/use-collector';
@@ -37,13 +36,12 @@ export function Popup() {
 
   const effectiveUserId = accountManager.activeAccountId ?? user?.id ?? '';
 
-  const { settings, loading: settingsLoading, refresh: refreshSettings } = useUserSettings(effectiveUserId);
+  const { settings, loading: settingsLoading } = useUserSettings(effectiveUserId);
   const { summaries, loading, refresh } = useIncomeData(effectiveUserId, startStr, yesterday);
   const { status, sync } = useCollector();
 
   const yesterdaySummary = summaries.find((s) => s.date === yesterday);
 
-  const [startDate, setStartDate] = useState('');
   const [resultMsg, setResultMsg] = useState('');
 
   const prevCollecting = React.useRef(status.isCollecting);
@@ -65,21 +63,8 @@ export function Popup() {
     }
   };
 
-  const handleSetupAndSync = async () => {
-    if (!startDate) return;
-    setResultMsg('');
-    try {
-      const result = await sync(startDate);
-      setResultMsg(`首次同步完成，采集 ${result.synced} 天`);
-      refreshSettings();
-      refresh();
-    } catch (err) {
-      setResultMsg(`同步失败: ${err instanceof Error ? err.message : '未知错误'}`);
-    }
-  };
-
-  const openDashboard = () => {
-    chrome.runtime.sendMessage({ action: 'openDashboard' });
+  const openDashboard = (withSetup = false) => {
+    chrome.runtime.sendMessage({ action: 'openDashboard', withSetup });
     window.close();
   };
 
@@ -104,12 +89,14 @@ export function Popup() {
             </Text>
           )}
         </div>
-        <Button size="small" onClick={openDashboard} icon={<ArrowRightOutlined />}>
-          详细分析
-        </Button>
+        {hasSetup && (
+          <Button size="small" onClick={() => openDashboard()} icon={<ArrowRightOutlined />}>
+            详细分析
+          </Button>
+        )}
       </Flex>
 
-      {hasSetup && (
+      {hasSetup ? (
         <>
           <TodaySummary summary={yesterdaySummary} loading={loading} />
           <div style={{ marginTop: 8 }}>
@@ -118,69 +105,68 @@ export function Popup() {
             </Text>
             <WeekSparkline summaries={summaries} />
           </div>
-        </>
-      )}
 
-      <Card size="small" style={{ marginTop: 10 }}>
-        {hasSetup ? (
-          <Flex justify="space-between" align="center">
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              数据范围：{settings!.collectStartDate} 起
-            </Text>
-            <Button
-              type="primary"
-              size="small"
-              icon={<SyncOutlined />}
-              onClick={handleSync}
-              loading={status.isCollecting}
-            >
-              {status.isCollecting ? '同步中' : '同步数据'}
-            </Button>
-          </Flex>
-        ) : (
-          <div>
-            <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
-              首次使用：设置致知计划开通日期
-            </Text>
-            <Space>
-              <DatePicker
-                size="small"
-                onChange={(date) => setStartDate(date ? date.format('YYYY-MM-DD') : '')}
-                placeholder="选择开始日期"
-              />
+          <Card size="small" style={{ marginTop: 10 }}>
+            <Flex justify="space-between" align="center">
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                数据范围：{settings!.collectStartDate} 起
+              </Text>
               <Button
                 type="primary"
                 size="small"
-                onClick={handleSetupAndSync}
-                disabled={!startDate}
+                icon={<SyncOutlined />}
+                onClick={handleSync}
                 loading={status.isCollecting}
               >
-                {status.isCollecting ? '同步中' : '开始同步'}
+                {status.isCollecting ? '同步中' : '同步数据'}
               </Button>
-            </Space>
-            <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>选择你开通致知计划的大致日期</div>
-          </div>
-        )}
+            </Flex>
 
-        {status.isCollecting && (
-          <div style={{ marginTop: 8 }}>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              {status.currentDate} ({status.progress}/{status.total})
+            {status.isCollecting && (
+              <div style={{ marginTop: 8 }}>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {status.currentDate} ({status.progress}/{status.total})
+                </Text>
+                <Progress
+                  percent={status.total > 0 ? Math.round((status.progress / status.total) * 100) : 0}
+                  size="small"
+                  showInfo={false}
+                />
+              </div>
+            )}
+
+            {resultMsg && (
+              <div style={{ marginTop: 6, fontSize: 11, color: resultMsg.includes('失败') ? '#d32f2f' : '#34a853' }}>
+                {resultMsg}
+              </div>
+            )}
+          </Card>
+        </>
+      ) : (
+        <Card size="small" style={{ marginTop: 4 }}>
+          <Flex vertical align="center" gap={8} style={{ padding: '12px 4px' }}>
+            <RocketOutlined style={{ fontSize: 28, color: '#5b7a9d' }} />
+            <Text strong style={{ fontSize: 13 }}>
+              还没有开始采集数据
             </Text>
-            <Progress
-              percent={status.total > 0 ? Math.round((status.progress / status.total) * 100) : 0}
-              size="small"
-              showInfo={false}
-            />
-          </div>
-        )}
-
-        {resultMsg && (
-          <div style={{ marginTop: 6, fontSize: 11, color: resultMsg.includes('失败') ? '#d32f2f' : '#34a853' }}>
-            {resultMsg}
-          </div>
-        )}
-      </Card>
+            <Text type="secondary" style={{ fontSize: 11, textAlign: 'center', lineHeight: 1.6 }}>
+              为了更好的初次体验，请前往首页完成设置
+              <br />
+              我们会引导你选择致知计划开通日期并自动同步历史数据
+            </Text>
+            <Button
+              type="primary"
+              size="middle"
+              icon={<ArrowRightOutlined />}
+              onClick={() => openDashboard(true)}
+              style={{ marginTop: 6 }}
+              block
+            >
+              前往首页开始设置
+            </Button>
+          </Flex>
+        </Card>
+      )}
 
       {status.error && !resultMsg && (
         <Text type="danger" style={{ fontSize: 11, display: 'block', textAlign: 'center', marginTop: 8 }}>

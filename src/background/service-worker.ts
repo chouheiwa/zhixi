@@ -513,9 +513,9 @@ chrome.runtime.onMessage.addListener(
     switch (message.action) {
       case 'openDashboard': {
         const respond = sendResponse as (response?: OpenDashboardResponse) => void;
-        chrome.tabs.create({
-          url: chrome.runtime.getURL('src/dashboard/index.html'),
-        });
+        const base = chrome.runtime.getURL('src/dashboard/index.html');
+        const url = message.withSetup ? `${base}?action=setup` : base;
+        chrome.tabs.create({ url });
         respond();
         return;
       }
