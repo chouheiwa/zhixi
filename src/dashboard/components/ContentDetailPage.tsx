@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Row, Col, Statistic, Tag, Button, Tabs, Alert, Flex } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import { ReloadOutlined, LineChartOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { timeSeriesZoom, withZoomGrid } from './chartConfig';
 import type { ContentTableItem } from './ContentTable';
@@ -101,6 +101,20 @@ function generateDemoDailyRecords(): ContentDailyRecord[] {
 
 const DEMO_INCOME_RECORDS = generateDemoIncomeRecords();
 const DEMO_DAILY_RECORDS = generateDemoDailyRecords();
+
+/**
+ * Build the URL of Zhihu's creator analytics page for a single piece of content.
+ * Zhihu segments the path by content type: answer / pin / article.
+ * Examples:
+ *   answer  → https://www.zhihu.com/creator/analytics/work/answer/<id>
+ *   pin     → https://www.zhihu.com/creator/analytics/work/pin/<id>
+ *   article → https://www.zhihu.com/creator/analytics/work/article/<id>
+ */
+function buildZhihuAnalyticsUrl(contentType: string, contentId: string): string | null {
+  const segment = contentType === 'article' ? 'article' : contentType === 'pin' ? 'pin' : 'answer';
+  if (!contentId) return null;
+  return `https://www.zhihu.com/creator/analytics/work/${segment}/${contentId}`;
+}
 
 interface IncomeTooltipParam {
   name: string;
@@ -257,6 +271,21 @@ export function ContentDetailPage({
             <span style={{ fontSize: 12, color: '#999' }}>发布于 {publishDate}</span>
           </Flex>
         </div>
+        {!demoMode &&
+          (() => {
+            const analyticsUrl = buildZhihuAnalyticsUrl(contentType, contentId);
+            return analyticsUrl ? (
+              <Button
+                size="small"
+                icon={<LineChartOutlined />}
+                href={analyticsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                流量分析页
+              </Button>
+            ) : null;
+          })()}
         {onCompare && (
           <Button
             size="small"
@@ -272,7 +301,6 @@ export function ContentDetailPage({
                 currentInteraction: 0,
               })
             }
-            style={{ marginLeft: 8 }}
           >
             添加到对比
           </Button>
