@@ -14,18 +14,20 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.VERSION }}
       zip_name: ${{ steps.build.outputs.ZIP_NAME }}
+      firefox_xpi_name: ${{ steps.firefox.outputs.XPI_NAME }}
+      firefox_source_name: ${{ steps.firefox-source.outputs.SOURCE_NAME }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
-          cache: npm
+          cache: yarn
 
       - name: Install dependencies
-        run: npm ci
+        run: yarn install --frozen-lockfile
 
       - name: Extract version from tag
         id: version
@@ -41,16 +43,16 @@ jobs:
           fi
 
       - name: Lint
-        run: npm run lint
+        run: yarn lint
 
       - name: Type check
-        run: npm run type-check
+        run: yarn type-check
 
       - name: Test
-        run: npm run test:coverage
+        run: yarn test:coverage
 
       - name: Build extension
-        run: npm run build
+        run: yarn build
 
       - name: Build ZIP
         id: build
@@ -62,20 +64,71 @@ jobs:
           echo "ZIP_NAME=$ZIP_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: extension-zip
           path: ${{ steps.build.outputs.ZIP_NAME }}
+
+      - name: Build Firefox extension
+        run: yarn build:firefox
+
+      - name: Lint Firefox package
+        run: yarn lint:firefox
+
+      - name: Package Firefox xpi
+        id: firefox
+        run: |
+          yarn package:firefox
+          XPI_NAME="zhihu-analysis-firefox-v${{ steps.version.outputs.VERSION }}.xpi"
+          SRC_ZIP=$(ls web-ext-artifacts/*.zip 2>/dev/null | head -1)
+          if [ -z "$SRC_ZIP" ]; then
+            echo "::error::web-ext build produced no artifacts in web-ext-artifacts/"
+            exit 1
+          fi
+          mv "$SRC_ZIP" "$XPI_NAME"
+          echo "XPI_NAME=$XPI_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Build Firefox source archive
+        id: firefox-source
+        run: |
+          SOURCE_NAME="zhihu-analysis-firefox-source-v${{ steps.version.outputs.VERSION }}.zip"
+          zip -r "$SOURCE_NAME" \
+            src \
+            scripts \
+            package.json \
+            yarn.lock \
+            tsconfig.json \
+            vite.config.ts \
+            docs/firefox-release.md \
+            -x "*.DS_Store" "src/**/*.test.ts" "src/**/*.test.tsx" || true
+          if [ ! -f "$SOURCE_NAME" ]; then
+            echo "::error::Source archive was not created"
+            exit 1
+          fi
+          echo "SOURCE_NAME=$SOURCE_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Firefox artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: firefox-xpi
+          path: |
+            ${{ steps.firefox.outputs.XPI_NAME }}
+            ${{ steps.firefox-source.outputs.SOURCE_NAME }}
 
   github-release:
     needs: build
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
+      - name: Download Chrome artifact
+        uses: actions/download-artifact@v5
         with:
           name: extension-zip
+
+      - name: Download Firefox artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: firefox-xpi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -98,8 +151,14 @@ jobs:
             4. 左下角开启「开发人员模式」
             5. 点击「加载解压缩的扩展」，选择解压后的文件夹
 
+            ### Firefox
+            正式版请在 Firefox Add-ons 商店搜索 “知析” 安装。
+            如需手动安装 `${{ needs.build.outputs.firefox_xpi_name }}`，请使用 Firefox Developer Edition / Nightly 并在 `about:config` 中将 `xpinstall.signatures.required` 设为 `false` 后拖拽安装（正式版 Firefox 仅接受 AMO 签名的扩展）。
+
             打开知析 Dashboard 即可查看收益分析数据。
-          files: ${{ needs.build.outputs.zip_name }}
+          files: |
+            ${{ needs.build.outputs.zip_name }}
+            ${{ needs.build.outputs.firefox_xpi_name }}
 
   # ==========================================
   # Chrome Web Store 自动发布（Service Account + Chrome Web Store API V2）
@@ -115,7 +174,7 @@ jobs:
 
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: extension-zip
 
@@ -210,7 +269,7 @@ jobs:
 
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: extension-zip
 
@@ -221,3 +280,40 @@ jobs:
           zip-path: ${{ needs.build.outputs.zip_name }}
           client-id: ${{ secrets.EDGE_CLIENT_ID }}
           api-key: ${{ secrets.EDGE_API_KEY }}
+
+  # ==========================================
+  # Firefox Add-ons (AMO) 自动发布
+  # ==========================================
+  # 需要在仓库 Settings → Secrets 中配置：
+  #   AMO_JWT_ISSUER  — addons.mozilla.org API key issuer
+  #   AMO_JWT_SECRET  — addons.mozilla.org API key secret
+  # 并在 Variables 中将 FIREFOX_STORE_ENABLED 设为 'true'
+  publish-firefox:
+    needs: build
+    if: vars.FIREFOX_STORE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Firefox artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: firefox-xpi
+
+      - name: Publish to Firefox Add-ons
+        uses: wdzeng/firefox-addon@v1
+        with:
+          addon-guid: zhixi@chouheiwa.dev
+          xpi-path: ${{ needs.build.outputs.firefox_xpi_name }}
+          source-file-path: ${{ needs.build.outputs.firefox_source_name }}
+          jwt-issuer: ${{ secrets.AMO_JWT_ISSUER }}
+          jwt-secret: ${{ secrets.AMO_JWT_SECRET }}
+          approval-notes: |
+            Build environment: Node 20 (ubuntu-latest)
+            Build commands:
+              yarn install --frozen-lockfile
+              yarn build:firefox
+            Output: dist-firefox/ — matches the uploaded xpi byte-for-byte.
+            Reproducibility info is in dist-firefox/.build-info.json
+            See docs/firefox-release.md in the source archive for full details.
+          release-notes: |
+            {"zh-CN": "版本 ${{ needs.build.outputs.version }} — 详见 GitHub Release"}
