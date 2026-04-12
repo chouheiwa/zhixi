@@ -136,7 +136,7 @@ vi.mock('@/db/database', () => ({
 }));
 
 // Extend chrome mock for service worker needs
-const chromeMock = globalThis.chrome as Record<string, unknown>;
+const chromeMock = (globalThis as unknown as { chrome: Record<string, unknown> }).chrome;
 Object.assign(chromeMock, {
   tabs: {
     create: vi.fn(),
@@ -158,7 +158,14 @@ Object.assign(chromeMock, {
     },
   },
 });
-const runtime = (chromeMock as Record<string, Record<string, unknown>>).runtime;
+interface RuntimeMock {
+  onMessage: { addListener: ReturnType<typeof vi.fn> };
+  onInstalled: { addListener: ReturnType<typeof vi.fn> };
+  onStartup: { addListener: ReturnType<typeof vi.fn> };
+  getURL: (path: string) => string;
+  sendMessage: ReturnType<typeof vi.fn>;
+}
+const runtime = (chromeMock as unknown as { runtime: RuntimeMock }).runtime;
 runtime.onInstalled = { addListener: vi.fn() };
 runtime.onStartup = { addListener: vi.fn() };
 runtime.getURL = vi.fn((path: string) => `chrome-extension://test/${path}`);
@@ -169,7 +176,7 @@ let messageHandler: (message: Record<string, unknown>, sender: unknown, sendResp
 
 beforeAll(async () => {
   await import('@/background/service-worker');
-  const addListenerSpy = runtime.onMessage.addListener as ReturnType<typeof vi.fn>;
+  const addListenerSpy = runtime.onMessage.addListener;
   const calls = addListenerSpy.mock.calls;
   messageHandler = calls[calls.length - 1][0];
 });
@@ -303,9 +310,9 @@ describe('auto-sync alarm handler', () => {
     const alarmHandler = alarmsMock.alarms.onAlarm.addListener.mock.calls[0]?.[0];
     if (!alarmHandler) return;
 
-    // getUserSettings returns null (no collectStartDate)
+    // getUserSettings returns undefined (no collectStartDate)
     const { getUserSettings } = await import('@/db/income-store');
-    vi.mocked(getUserSettings).mockResolvedValueOnce(null);
+    vi.mocked(getUserSettings).mockResolvedValueOnce(undefined);
 
     await alarmHandler({ name: 'autoSync' });
     // Should fetch user, then get null settings, then return

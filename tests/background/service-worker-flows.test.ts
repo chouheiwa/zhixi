@@ -16,11 +16,11 @@
  * than on intermediate state.
  */
 import { describe, expect, it, vi, beforeEach, beforeAll } from 'vitest';
-import type { CurrentUser, IncomeRecord, DailySummary } from '@/shared/types';
+import type { ZhihuUser, IncomeRecord, DailySummary } from '@/shared/types';
 
-const MOCK_USER: CurrentUser = { id: 'flows-user', urlToken: 'fu', name: 'FlowsUser', avatarUrl: '' };
+const MOCK_USER: ZhihuUser = { id: 'flows-user', urlToken: 'fu', name: 'FlowsUser', avatarUrl: '' };
 
-const mockFetchCurrentUser = vi.fn(() => Promise.resolve(MOCK_USER));
+const mockFetchZhihuUser = vi.fn(() => Promise.resolve(MOCK_USER));
 const mockFetchDayIncome = vi.fn();
 const mockFetchContentDaily = vi.fn();
 const mockParseContentDaily = vi.fn();
@@ -64,7 +64,7 @@ vi.mock('@/shared/host-permissions', () => ({
 }));
 
 vi.mock('@/api/zhihu-income', () => ({
-  fetchCurrentUser: mockFetchCurrentUser,
+  fetchCurrentUser: mockFetchZhihuUser,
   fetchDayIncome: mockFetchDayIncome,
 }));
 
@@ -110,9 +110,14 @@ vi.mock('@/db/creations-store', () => ({
   setCreationsLastSyncedAt: mockSetCreationsLastSyncedAt,
 }));
 
+interface ContentDailyCacheRow {
+  userId: string;
+  contentId: string;
+  collectedAt: number;
+}
 const contentDailyCache = {
   delete: vi.fn(() => Promise.resolve()),
-  toArray: vi.fn(() => Promise.resolve([])),
+  toArray: vi.fn<() => Promise<ContentDailyCacheRow[]>>(() => Promise.resolve([])),
 };
 
 const incomeRecordsTable = {
@@ -137,7 +142,7 @@ vi.mock('@/db/database', () => ({
 
 // ---------- Extend the global chrome mock with worker-specific APIs ----------
 
-const chromeAny = globalThis.chrome as unknown as Record<string, unknown>;
+const chromeAny = (globalThis as unknown as { chrome: Record<string, unknown> }).chrome;
 Object.assign(chromeAny, {
   tabs: {
     create: vi.fn(),
@@ -194,7 +199,7 @@ beforeEach(() => {
   // tests. Note: mockReset would also drop implementations, so we use
   // mockClear + explicit default implementations below.
   [
-    mockFetchCurrentUser,
+    mockFetchZhihuUser,
     mockFetchDayIncome,
     mockFetchContentDaily,
     mockParseContentDaily,
@@ -231,7 +236,7 @@ beforeEach(() => {
 
   // Default happy-path responses for mocks. Individual tests override via
   // mockResolvedValueOnce / mockReturnValueOnce as needed.
-  mockFetchCurrentUser.mockResolvedValue(MOCK_USER);
+  mockFetchZhihuUser.mockResolvedValue(MOCK_USER);
   mockGetMissingDates.mockResolvedValue(['2024-01-10', '2024-01-11']);
   mockFetchDayIncome.mockResolvedValue([
     {
@@ -286,7 +291,7 @@ describe('syncIncome message flow', () => {
     const response = await invoke({ action: 'syncIncome' });
 
     expect(response).toMatchObject({ ok: true });
-    expect(mockFetchCurrentUser).toHaveBeenCalled();
+    expect(mockFetchZhihuUser).toHaveBeenCalled();
     expect(mockGetUserSettings).toHaveBeenCalledWith(MOCK_USER.id);
     expect(mockGetMissingDates).toHaveBeenCalled();
     expect(mockFetchDayIncome).toHaveBeenCalledTimes(2);
@@ -658,11 +663,11 @@ describe('host permission gating', () => {
       tab: { url?: string },
     ) => Promise<void>;
 
-    mockFetchCurrentUser.mockClear();
+    mockFetchZhihuUser.mockClear();
     await tabHandler(1, { status: 'complete' }, { url: 'https://www.zhihu.com/' });
 
     // Without permission, runSync should not even start.
-    expect(mockFetchCurrentUser).not.toHaveBeenCalled();
+    expect(mockFetchZhihuUser).not.toHaveBeenCalled();
   });
 
   it('alarm auto-sync skips when host_permissions are missing', async () => {
@@ -674,9 +679,9 @@ describe('host permission gating', () => {
       name: string;
     }) => Promise<void>;
 
-    mockFetchCurrentUser.mockClear();
+    mockFetchZhihuUser.mockClear();
     await alarmHandler({ name: 'autoSync' });
 
-    expect(mockFetchCurrentUser).not.toHaveBeenCalled();
+    expect(mockFetchZhihuUser).not.toHaveBeenCalled();
   });
 });

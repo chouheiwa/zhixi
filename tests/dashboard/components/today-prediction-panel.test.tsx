@@ -16,13 +16,22 @@ vi.mock('echarts-for-react', () => ({
   default: vi.fn(() => React.createElement('div', { 'data-testid': 'echarts-mock' })),
 }));
 
-const mockUser = { id: 'user-1', urlToken: 'test', name: 'Test', avatarUrl: '' };
-const mockUseCurrentUser = vi.fn(() => ({ user: mockUser, loading: false }));
+interface ZhihuUserMock {
+  id: string;
+  urlToken: string;
+  name: string;
+  avatarUrl: string;
+}
+const mockUser: ZhihuUserMock = { id: 'user-1', urlToken: 'test', name: 'Test', avatarUrl: '' };
+const mockUseCurrentUser = vi.fn<() => { user: ZhihuUserMock | null; loading: boolean }>(() => ({
+  user: mockUser,
+  loading: false,
+}));
 vi.mock('@/hooks/use-current-user', () => ({
   useCurrentUser: mockUseCurrentUser,
 }));
 
-const mockGetAllRealtimeAggr = vi.fn(() => Promise.resolve([]));
+const mockGetAllRealtimeAggr = vi.fn<() => Promise<unknown[]>>(() => Promise.resolve([]));
 const mockGetAllDailySummaries = vi.fn(() => Promise.resolve(makeDailySummaries(30)));
 
 vi.mock('@/db/realtime-store', () => ({
@@ -41,7 +50,7 @@ vi.mock('@/db/income-store', () => ({
   markDateSynced: vi.fn(() => Promise.resolve()),
 }));
 
-const mockMlModelsGet = vi.fn(() => Promise.resolve(null));
+const mockMlModelsGet = vi.fn<() => Promise<unknown>>(() => Promise.resolve(null));
 const mockMlModelsPut = vi.fn(() => Promise.resolve());
 
 vi.mock('@/db/database', () => ({
@@ -54,7 +63,7 @@ vi.mock('@/db/database', () => ({
 }));
 
 // Mock ml-realtime module
-const mockBuildRealtimeTrainingRows = vi.fn(() => []);
+const mockBuildRealtimeTrainingRows = vi.fn<() => unknown[]>(() => []);
 const mockBuildTodayFeatures = vi.fn(() => [1, 2, 3]);
 const mockTrainRealtimeModel = vi.fn(() => null);
 const mockPredictWithRealtimeModel = vi.fn(() => 42.5);

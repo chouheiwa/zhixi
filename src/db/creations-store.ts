@@ -105,7 +105,7 @@ export async function setCreationsLastSyncedAt(userId: string, ts: number): Prom
 
 async function readLastSyncedMap(): Promise<LastSyncedMap> {
   return new Promise((resolve) => {
-    chrome.storage.local.get(LAST_SYNCED_STORAGE_KEY, (result) => {
+    chrome.storage.local.get(LAST_SYNCED_STORAGE_KEY, (result: Record<string, unknown>) => {
       const raw = result?.[LAST_SYNCED_STORAGE_KEY];
       if (raw && typeof raw === 'object') {
         resolve(raw as LastSyncedMap);

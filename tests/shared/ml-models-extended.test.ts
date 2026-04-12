@@ -186,6 +186,7 @@ describe('trainEnsemble', () => {
   it('returns null when rows < 10', async () => {
     const { trainEnsemble } = await import('@/shared/ml-models');
     const rows = Array.from({ length: 9 }, (_, i) => ({
+      contentId: `content-${i}`,
       date: `2024-01-${String(i + 1).padStart(2, '0')}`,
       features: [i * 10, i * 2, i],
       label: i * 5,
@@ -198,6 +199,7 @@ describe('trainEnsemble', () => {
     const { trainEnsemble } = await import('@/shared/ml-models');
     // 10 rows, 80% train = 8 rows, 20% test = 2 rows => testX < 3 => returns null
     const rows = Array.from({ length: 10 }, (_, i) => ({
+      contentId: `content-${i}`,
       date: `2024-01-${String(i + 1).padStart(2, '0')}`,
       features: [i * 10, i * 2, i],
       label: i * 50 + 100,
@@ -211,6 +213,7 @@ describe('trainEnsemble', () => {
     // 20 rows => 80% = 16 train, 20% = 4 test => trainX >= 5, testX >= 3 ... wait 4 < 3? No, 4 >= 3
     // Actually 20 * 0.8 = 16 train, 20 * 0.2 = 4 test. trainX=16 >= 5, testX=4 >= 3 ✓
     const rows = Array.from({ length: 20 }, (_, i) => ({
+      contentId: `content-${i}`,
       date: `2024-01-${String(i + 1).padStart(2, '0')}`,
       features: [i * 100 + 50, i * 10 + 5, i * 3 + 1, i * 2],
       label: i * 100 + 200,
@@ -236,6 +239,7 @@ describe('trainEnsemble', () => {
   it('trains and saves to DB when successful', async () => {
     const { trainEnsemble } = await import('@/shared/ml-models');
     const rows = Array.from({ length: 20 }, (_, i) => ({
+      contentId: `content-${i}`,
       date: `2024-02-${String(i + 1).padStart(2, '0')}`,
       features: [i * 100 + 50, i * 10 + 5, i * 3 + 1],
       label: i * 100 + 200,

@@ -82,7 +82,7 @@ describe('startCoreTour', () => {
   it('calls driver.drive()', async () => {
     const { driver } = await import('driver.js');
     const mockDrive = vi.fn();
-    vi.mocked(driver).mockReturnValueOnce({ drive: mockDrive } as ReturnType<typeof driver>);
+    vi.mocked(driver).mockReturnValueOnce({ drive: mockDrive } as unknown as ReturnType<typeof driver>);
 
     const { startCoreTour } = await import('@/dashboard/tour/tour-manager');
     const onComplete = vi.fn();
@@ -95,7 +95,7 @@ describe('startCoreTour', () => {
     let capturedOnDestroyed: (() => void) | undefined;
     vi.mocked(driver).mockImplementationOnce((config) => {
       capturedOnDestroyed = config?.onDestroyed as (() => void) | undefined;
-      return { drive: vi.fn() } as ReturnType<typeof driver>;
+      return { drive: vi.fn() } as unknown as ReturnType<typeof driver>;
     });
 
     const { startCoreTour } = await import('@/dashboard/tour/tour-manager');
@@ -110,7 +110,7 @@ describe('startExtendedTour', () => {
   it('calls driver.drive()', async () => {
     const { driver } = await import('driver.js');
     const mockDrive = vi.fn();
-    vi.mocked(driver).mockReturnValueOnce({ drive: mockDrive } as ReturnType<typeof driver>);
+    vi.mocked(driver).mockReturnValueOnce({ drive: mockDrive } as unknown as ReturnType<typeof driver>);
 
     const { startExtendedTour } = await import('@/dashboard/tour/tour-manager');
     startExtendedTour(tourCallbacks, vi.fn());
@@ -122,7 +122,7 @@ describe('startExtendedTour', () => {
     let capturedOnDestroyed: (() => void) | undefined;
     vi.mocked(driver).mockImplementationOnce((config) => {
       capturedOnDestroyed = config?.onDestroyed as (() => void) | undefined;
-      return { drive: vi.fn() } as ReturnType<typeof driver>;
+      return { drive: vi.fn() } as unknown as ReturnType<typeof driver>;
     });
 
     const { startExtendedTour } = await import('@/dashboard/tour/tour-manager');
@@ -137,7 +137,7 @@ describe('startNewFeatureTour', () => {
   it('calls driver.drive() with feature steps', async () => {
     const { driver } = await import('driver.js');
     const mockDrive = vi.fn();
-    vi.mocked(driver).mockReturnValueOnce({ drive: mockDrive } as ReturnType<typeof driver>);
+    vi.mocked(driver).mockReturnValueOnce({ drive: mockDrive } as unknown as ReturnType<typeof driver>);
 
     const { startNewFeatureTour } = await import('@/dashboard/tour/tour-manager');
     const features = [
@@ -157,7 +157,7 @@ describe('startNewFeatureTour', () => {
     let capturedOnDestroyed: (() => void) | undefined;
     vi.mocked(driver).mockImplementationOnce((config) => {
       capturedOnDestroyed = config?.onDestroyed as (() => void) | undefined;
-      return { drive: vi.fn() } as ReturnType<typeof driver>;
+      return { drive: vi.fn() } as unknown as ReturnType<typeof driver>;
     });
 
     const { startNewFeatureTour } = await import('@/dashboard/tour/tour-manager');

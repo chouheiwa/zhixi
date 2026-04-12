@@ -19,7 +19,7 @@ function makeCreationItem(
   extra?: Partial<{
     title: string;
     excerpt: string;
-    content: { type: 'text' | 'image'; own_text?: string; content?: string }[];
+    content: { type: 'text' | 'image'; own_text?: string; content?: string; url?: string }[];
     read_count: number;
     vote_up_count: number;
     comment_count: number;

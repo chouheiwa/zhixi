@@ -27,7 +27,7 @@ function makeCollectorMock() {
     syncIncome: vi.fn(() => Promise.resolve({ count: 10, synced: 5, total: 5 })),
     syncRealtimeAggr: vi.fn(() => Promise.resolve({ count: 3 })),
     fetchContentDaily: vi.fn(() => Promise.resolve({ count: 20 })),
-    fetchAllCreations: vi.fn(() => Promise.resolve([])),
+    fetchAllCreations: vi.fn<() => Promise<unknown[]>>(() => Promise.resolve([])),
     fetchTodayContentDaily: vi.fn(() => Promise.resolve({ count: 5, cached: 0 })),
     fetchTodayRealtime: vi.fn(() => Promise.resolve({ today: null })),
     logs: [],

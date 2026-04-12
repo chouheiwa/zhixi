@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { makeDailySummaries, makeIncomeRecords } from '../../helpers/mock-data';
 
@@ -34,6 +34,8 @@ vi.mock('@/dashboard/tour/demo-data', () => ({
 
 import { useTourManagement } from '@/dashboard/hooks/useTourManagement';
 
+const tourCallbacks = { switchTab: vi.fn(), onAction: vi.fn() };
+
 describe('useTourManagement', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -46,6 +48,7 @@ describe('useTourManagement', () => {
         userId: undefined,
         allSummaries: [],
         allIncomeRecords: [],
+        tourCallbacks,
       }),
     );
 
@@ -69,6 +72,7 @@ describe('useTourManagement', () => {
         userId: 'user-1',
         allSummaries: makeDailySummaries(7),
         allIncomeRecords: makeIncomeRecords(5),
+        tourCallbacks,
       }),
     );
 
@@ -99,6 +103,7 @@ describe('useTourManagement', () => {
         userId: 'user-1',
         allSummaries: makeDailySummaries(7),
         allIncomeRecords: makeIncomeRecords(5),
+        tourCallbacks,
       }),
     );
 
@@ -127,6 +132,7 @@ describe('useTourManagement', () => {
         userId: 'user-1',
         allSummaries: makeDailySummaries(7),
         allIncomeRecords: makeIncomeRecords(5),
+        tourCallbacks,
       }),
     );
 
@@ -150,6 +156,7 @@ describe('useTourManagement', () => {
         userId: 'user-1',
         allSummaries: summaries,
         allIncomeRecords: [],
+        tourCallbacks,
       }),
     );
 
@@ -163,6 +170,7 @@ describe('useTourManagement', () => {
         userId: 'user-1',
         allSummaries: [],
         allIncomeRecords: [],
+        tourCallbacks,
       }),
     );
 

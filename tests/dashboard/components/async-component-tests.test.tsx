@@ -93,7 +93,11 @@ vi.mock('@dnd-kit/utilities', () => ({
 }));
 
 // Mock hooks
-const mockCurrentUser = vi.fn(() => ({
+interface CurrentUserMock {
+  user: { id: string; urlToken: string; name: string; avatarUrl: string } | null;
+  loading: boolean;
+}
+const mockCurrentUser = vi.fn<() => CurrentUserMock>(() => ({
   user: { id: 'user-1', urlToken: 'test', name: 'Test User', avatarUrl: '' },
   loading: false,
 }));
@@ -146,11 +150,17 @@ vi.mock('@/shared/ml-realtime', () => ({
 }));
 
 // Mock DB stores
+interface IncomeGoalMock {
+  userId: string;
+  period: string;
+  targetAmount: number;
+  createdAt: number;
+}
 const mockGoalStore = {
-  getGoal: vi.fn(() => Promise.resolve(null)),
+  getGoal: vi.fn<() => Promise<IncomeGoalMock | null>>(() => Promise.resolve(null)),
   saveGoal: vi.fn(() => Promise.resolve()),
   deleteGoal: vi.fn(() => Promise.resolve()),
-  getIncomeGoal: vi.fn(() => Promise.resolve(null)),
+  getIncomeGoal: vi.fn<() => Promise<IncomeGoalMock | null>>(() => Promise.resolve(null)),
   saveIncomeGoal: vi.fn(() => Promise.resolve()),
 };
 vi.mock('@/db/goal-store', () => mockGoalStore);
@@ -353,7 +363,7 @@ describe('UnmonetizedContentPanel', () => {
 
   it('renders with items loaded via chrome message', async () => {
     // Mock chrome.runtime.sendMessage to return items
-    const chromeMock = globalThis.chrome as Record<string, unknown>;
+    const chromeMock = (globalThis as unknown as { chrome: Record<string, unknown> }).chrome;
     const runtimeMock = chromeMock.runtime as Record<string, unknown>;
     const origSendMessage = runtimeMock.sendMessage;
     runtimeMock.sendMessage = vi.fn((_msg: unknown, cb: (r: unknown) => void) => {
@@ -402,7 +412,7 @@ describe('UnmonetizedContentPanel', () => {
   });
 
   it('renders empty state when all items are monetized', async () => {
-    const chromeMock = globalThis.chrome as Record<string, unknown>;
+    const chromeMock = (globalThis as unknown as { chrome: Record<string, unknown> }).chrome;
     const runtimeMock = chromeMock.runtime as Record<string, unknown>;
     const origSendMessage = runtimeMock.sendMessage;
     runtimeMock.sendMessage = vi.fn((_msg: unknown, cb: (r: unknown) => void) => {
@@ -440,7 +450,7 @@ describe('UnmonetizedContentPanel', () => {
   });
 
   it('handles chrome message error', async () => {
-    const chromeMock = globalThis.chrome as Record<string, unknown>;
+    const chromeMock = (globalThis as unknown as { chrome: Record<string, unknown> }).chrome;
     const runtimeMock = chromeMock.runtime as Record<string, unknown>;
     const origSendMessage = runtimeMock.sendMessage;
     runtimeMock.sendMessage = vi.fn((_msg: unknown, cb: (r: unknown) => void) => {
@@ -461,7 +471,7 @@ describe('UnmonetizedContentPanel', () => {
   });
 
   it('filters out monetized content tokens', async () => {
-    const chromeMock = globalThis.chrome as Record<string, unknown>;
+    const chromeMock = (globalThis as unknown as { chrome: Record<string, unknown> }).chrome;
     const runtimeMock = chromeMock.runtime as Record<string, unknown>;
     const origSendMessage = runtimeMock.sendMessage;
     runtimeMock.sendMessage = vi.fn((_msg: unknown, cb: (r: unknown) => void) => {
@@ -679,15 +689,13 @@ describe('WeeklySeasonalityChart', () => {
   it('renders with summaries', async () => {
     const { WeeklySeasonalityChart } = await import('@/dashboard/components/WeeklySeasonalityChart');
     const summaries = makeDailySummaries(30, '2024-01-01');
-    const { container } = render(
-      <WeeklySeasonalityChart summaries={summaries} startDate="2024-01-01" endDate="2024-01-30" />,
-    );
+    const { container } = render(<WeeklySeasonalityChart summaries={summaries} />);
     expect(container).toBeTruthy();
   });
 
   it('renders with empty summaries', async () => {
     const { WeeklySeasonalityChart } = await import('@/dashboard/components/WeeklySeasonalityChart');
-    const { container } = render(<WeeklySeasonalityChart summaries={[]} startDate="2024-01-01" endDate="2024-01-07" />);
+    const { container } = render(<WeeklySeasonalityChart summaries={[]} />);
     expect(container).toBeTruthy();
   });
 });

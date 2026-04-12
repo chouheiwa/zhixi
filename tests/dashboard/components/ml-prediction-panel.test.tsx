@@ -44,9 +44,9 @@ vi.mock('@/shared/ml-features', () => ({
   FEATURE_NAMES: ['pv', 'upvote', 'comment'],
 }));
 
-const mockLoadSavedModel = vi.fn(() => Promise.resolve(null));
-const mockTrainEnsemble = vi.fn(() => Promise.resolve(null));
-const mockPredictWithSavedModel = vi.fn(() => Promise.resolve(null));
+const mockLoadSavedModel = vi.fn<() => Promise<unknown>>(() => Promise.resolve(null));
+const mockTrainEnsemble = vi.fn<(...args: unknown[]) => Promise<unknown>>(() => Promise.resolve(null));
+const mockPredictWithSavedModel = vi.fn<(...args: unknown[]) => Promise<unknown>>(() => Promise.resolve(null));
 
 vi.mock('@/shared/ml-models', () => ({
   loadSavedModel: mockLoadSavedModel,
