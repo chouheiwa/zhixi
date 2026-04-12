@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Progress, Spin, Flex, Typography } from 'antd';
-import { SyncOutlined, ArrowRightOutlined, RocketOutlined } from '@ant-design/icons';
+import { SyncOutlined, ArrowRightOutlined, RocketOutlined, SafetyOutlined } from '@ant-design/icons';
 import { formatDate, getDateRange } from '@/shared/date-utils';
+import { hasZhihuHostPermission, requestZhihuHostPermission } from '@/shared/host-permissions';
 import { useIncomeData } from '@/hooks/use-income-data';
 import { useCollector } from '@/hooks/use-collector';
 import { useCurrentUser } from '@/hooks/use-current-user';
@@ -18,7 +19,87 @@ function getYesterday(): string {
   return formatDate(d);
 }
 
+/**
+ * Firefox MV3 treats host_permissions as optional. This gate runs first and
+ * prevents the real popup (and its data hooks) from mounting until the user
+ * has granted access to zhihu.com. On Chrome the check resolves to true
+ * immediately because host_permissions are granted at install time.
+ */
 export function Popup() {
+  const [granted, setGranted] = useState<boolean | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    hasZhihuHostPermission().then((result) => {
+      if (!cancelled) setGranted(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleGrant = useCallback(async () => {
+    setError(null);
+    const ok = await requestZhihuHostPermission();
+    if (ok) {
+      window.location.reload();
+      return;
+    }
+    setGranted(false);
+    setError('未授权访问 zhihu.com，无法同步数据');
+  }, []);
+
+  if (granted === null) {
+    return (
+      <Flex justify="center" align="center" style={{ width: 340, padding: 40 }}>
+        <Spin tip="正在检查权限..." />
+      </Flex>
+    );
+  }
+
+  if (!granted) {
+    return (
+      <div style={{ width: 340, padding: 12 }}>
+        <Flex justify="space-between" align="center" style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>知析</div>
+        </Flex>
+        <Card size="small">
+          <Flex vertical align="center" gap={10} style={{ padding: '12px 4px' }}>
+            <SafetyOutlined style={{ fontSize: 28, color: '#5b7a9d' }} />
+            <Text strong style={{ fontSize: 13 }}>
+              需要授权访问 zhihu.com
+            </Text>
+            <Text type="secondary" style={{ fontSize: 11, textAlign: 'center', lineHeight: 1.6 }}>
+              知析需要读取你在 zhihu.com 上的创作者数据才能分析收益。
+              <br />
+              点击下方按钮，在弹窗中确认授权。
+            </Text>
+            <Button
+              type="primary"
+              size="middle"
+              icon={<SafetyOutlined />}
+              onClick={handleGrant}
+              block
+              style={{ marginTop: 6 }}
+            >
+              授权访问 zhihu.com
+            </Button>
+            {error && (
+              <Text type="danger" style={{ fontSize: 11, textAlign: 'center' }}>
+                {error}
+              </Text>
+            )}
+          </Flex>
+        </Card>
+      </div>
+    );
+  }
+
+  return <PopupInner />;
+}
+
+function PopupInner() {
   const yesterday = getYesterday();
   const { start: weekStart } = getDateRange(7);
   const startStr = formatDate(weekStart);

@@ -17,6 +17,11 @@ yarn lint            # ESLint on src/
 yarn lint:fix        # ESLint autofix
 yarn type-check      # tsc --noEmit
 yarn format          # Prettier write
+
+yarn build:firefox   # Build Firefox MV3 package into dist-firefox/
+yarn lint:firefox    # web-ext lint on the Firefox package
+yarn run:firefox     # Temporarily install into Firefox Developer Edition
+yarn package:firefox # Produce the .zip for AMO upload (web-ext-artifacts/)
 ```
 
 Run a single test file or test name:
@@ -32,12 +37,15 @@ Path alias: `@/` → `src/` (configured in both `tsconfig.json` and `vite.config
 
 ## Architecture
 
-Chrome MV3 extension with four runtime surfaces that communicate via `chrome.runtime.sendMessage`:
+Chrome + Firefox MV3 extension with three runtime surfaces that communicate via `chrome.runtime.sendMessage`:
 
-1. **Service worker** (`src/background/service-worker.ts`) — the only place that calls Zhihu APIs. Holds the single source of truth for collection status (`isCollecting`, `progress`, logs), runs auto-sync on `chrome.alarms`, and persists data to IndexedDB. All API calls go through `src/api/fetch-proxy.ts` which uses `credentials: 'include'` (cookie auth works because `host_permissions` includes `https://www.zhihu.com/*`).
+1. **Service worker / event page** (`src/background/service-worker.ts`) — the only place that calls Zhihu APIs. Holds the single source of truth for collection status (`isCollecting`, `progress`, logs), runs auto-sync on `chrome.alarms`, and persists data to IndexedDB. All API calls go through `src/api/fetch-proxy.ts` which uses `credentials: 'include'` (cookie auth works because `host_permissions` includes `https://www.zhihu.com/*`). On Firefox this runs as an event page rather than a true service worker — see "Firefox build" below.
 2. **Dashboard SPA** (`src/dashboard/`) — the main UI, built as a standalone HTML entry (`src/dashboard/index.html`) by Vite's `rollupOptions.input`. Reads from IndexedDB directly for rendering; mutations (sync, fetch) are dispatched as messages to the service worker.
 3. **Popup** (`src/popup/`) — small status widget surfaced by `action.default_popup`.
-4. **Content script** (`src/content/fetch-bridge.ts`) — page-context bridge used when a fetch must happen from the zhihu.com tab (not all APIs are reachable from the SW alone).
+
+### Firefox build
+
+`yarn build:firefox` produces `dist-firefox/` on top of the Chrome output by running `scripts/build-firefox.mjs`, which re-bundles the service worker from source via esbuild (single-file IIFE, required because Firefox 115 ESR doesn't support `background.type: "module"`) and rewrites the manifest (`background.scripts` + `browser_specific_settings.gecko`). Host permissions on Firefox are **optional** — `src/shared/host-permissions.ts` wraps `chrome.permissions.contains/request` and both popup + dashboard gate their UI behind a user-gesture authorization flow. Full release checklist: `docs/firefox-release.md`.
 
 **Typed messages.** Every message between surfaces has a request + response interface in `src/shared/message-types.ts`. When adding a new message, update that file first — service worker's dispatcher narrows on `action` and the UI hooks rely on the response types.
 

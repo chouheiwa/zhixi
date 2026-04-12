@@ -43,7 +43,6 @@ export default defineConfig({
         // Entry point files (bootstrapping only, not testable in unit tests)
         'src/popup/main.tsx',
         'src/dashboard/main.tsx',
-        'src/content/fetch-bridge.ts',
       ],
       thresholds: {
         lines: 80,

@@ -33,10 +33,12 @@ import {
   BarChartOutlined,
   FileTextOutlined,
   ThunderboltOutlined,
+  SafetyOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import { formatDate, getDateRange } from '@/shared/date-utils';
+import { hasZhihuHostPermission, requestZhihuHostPermission } from '@/shared/host-permissions';
 import { useIncomeData } from '@/hooks/use-income-data';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { useAccountManager } from '@/hooks/use-account-manager';
@@ -91,9 +93,84 @@ const cardHeaderStyles = {
 export function Dashboard() {
   return (
     <CurrencyProvider>
-      <DashboardInner />
+      <HostPermissionGate>
+        <DashboardInner />
+      </HostPermissionGate>
     </CurrencyProvider>
   );
+}
+
+/**
+ * Firefox MV3 exposes `host_permissions` as an optional grant. On first launch
+ * (and whenever the user has revoked access) we short-circuit the dashboard
+ * with an authorization prompt. Chrome users see this check complete
+ * instantly because the permission is always held at install time.
+ */
+function HostPermissionGate({ children }: { children: React.ReactNode }) {
+  const [granted, setGranted] = useState<boolean | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    hasZhihuHostPermission().then((result) => {
+      if (!cancelled) setGranted(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleGrant = useCallback(async () => {
+    setError(null);
+    const ok = await requestZhihuHostPermission();
+    if (ok) {
+      // Full reload ensures every downstream hook re-initializes with
+      // host_permissions in place.
+      window.location.reload();
+      return;
+    }
+    setError('未授权访问 zhihu.com，无法同步或分析数据');
+    setGranted(false);
+  }, []);
+
+  if (granted === null) {
+    return (
+      <Flex justify="center" align="center" style={{ minHeight: 300 }}>
+        <Spin size="large" tip="正在检查权限..." />
+      </Flex>
+    );
+  }
+
+  if (!granted) {
+    return (
+      <Flex justify="center" align="center" style={{ minHeight: '60vh', padding: 24 }}>
+        <Card style={{ maxWidth: 480, width: '100%' }}>
+          <Flex vertical align="center" gap={12} style={{ padding: 16 }}>
+            <SafetyOutlined style={{ fontSize: 40, color: '#5b7a9d' }} />
+            <div style={{ fontSize: 16, fontWeight: 600 }}>需要授权访问 zhihu.com</div>
+            <div
+              style={{
+                fontSize: 13,
+                color: themeColors.muted,
+                textAlign: 'center',
+                lineHeight: 1.7,
+              }}
+            >
+              知析需要读取你在 zhihu.com 上的创作者数据，才能计算收益和进行分析。
+              <br />
+              点击下方按钮，在浏览器弹窗中确认授权后即可继续使用。
+            </div>
+            <Button type="primary" size="large" icon={<SafetyOutlined />} onClick={handleGrant}>
+              授权访问 zhihu.com
+            </Button>
+            {error && <Alert type="error" showIcon message={error} style={{ width: '100%' }} />}
+          </Flex>
+        </Card>
+      </Flex>
+    );
+  }
+
+  return <>{children}</>;
 }
 
 function DashboardInner() {

@@ -105,30 +105,29 @@ const DEMO_DAILY_RECORDS = generateDemoDailyRecords();
 
 /**
  * Build the URL of Zhihu's creator analytics page for a single piece of content.
- * Zhihu segments the path by content type: answer / pin / article.
- * Examples:
- *   answer  → https://www.zhihu.com/creator/analytics/work/answer/<id>
- *   pin     → https://www.zhihu.com/creator/analytics/work/pin/<id>
- *   article → https://www.zhihu.com/creator/analytics/work/article/<id>
+ * Zhihu segments the path by content type and uses the content's url token
+ * (not the numeric content_id) as the path parameter — this matches the token
+ * accepted by the realtime/content/daily API.
  */
-function buildZhihuAnalyticsUrl(contentType: string, contentId: string): string | null {
+function buildZhihuAnalyticsUrl(contentType: string, contentToken: string): string | null {
   const segment = contentType === 'article' ? 'article' : contentType === 'pin' ? 'pin' : 'answer';
-  if (!contentId) return null;
-  return `https://www.zhihu.com/creator/analytics/work/${segment}/${contentId}`;
+  if (!contentToken) return null;
+  return `https://www.zhihu.com/creator/analytics/work/${segment}/${contentToken}`;
 }
 
 /**
  * Build the public-facing URL of a piece of content on Zhihu.
- * Each content type lives on a different host / path:
- *   answer  → https://www.zhihu.com/answer/<id>  (redirects to the canonical question page)
- *   pin     → https://www.zhihu.com/pin/<id>
- *   article → https://zhuanlan.zhihu.com/p/<id> (专栏)
+ * Uses the url token (content_token) rather than content_id — for answers the
+ * income API's content_id is not the answer id used in public URLs.
+ *   answer  → https://www.zhihu.com/answer/<token>  (redirects to the canonical question page)
+ *   pin     → https://www.zhihu.com/pin/<token>
+ *   article → https://zhuanlan.zhihu.com/p/<token> (专栏)
  */
-function buildZhihuContentUrl(contentType: string, contentId: string): string | null {
-  if (!contentId) return null;
-  if (contentType === 'article') return `https://zhuanlan.zhihu.com/p/${contentId}`;
-  if (contentType === 'pin') return `https://www.zhihu.com/pin/${contentId}`;
-  return `https://www.zhihu.com/answer/${contentId}`;
+function buildZhihuContentUrl(contentType: string, contentToken: string): string | null {
+  if (!contentToken) return null;
+  if (contentType === 'article') return `https://zhuanlan.zhihu.com/p/${contentToken}`;
+  if (contentType === 'pin') return `https://www.zhihu.com/pin/${contentToken}`;
+  return `https://www.zhihu.com/answer/${contentToken}`;
 }
 
 interface IncomeTooltipParam {
@@ -288,8 +287,8 @@ export function ContentDetailPage({
         </div>
         {!demoMode &&
           (() => {
-            const contentUrl = buildZhihuContentUrl(contentType, contentId);
-            const analyticsUrl = buildZhihuAnalyticsUrl(contentType, contentId);
+            const contentUrl = buildZhihuContentUrl(contentType, contentToken);
+            const analyticsUrl = buildZhihuAnalyticsUrl(contentType, contentToken);
             if (!contentUrl && !analyticsUrl) return null;
 
             const items: MenuProps['items'] = [];

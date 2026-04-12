@@ -1,5 +1,7 @@
 *.har
 node_modules/
 dist/
+dist-firefox/
+web-ext-artifacts/
 .superpowers/brainstorm
 coverage

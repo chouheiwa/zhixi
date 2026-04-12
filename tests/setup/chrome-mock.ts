@@ -7,7 +7,22 @@ const listeners = new Set<RuntimeListener>();
 // In-memory backing store for chrome.storage.local mock.
 const storageLocalBacking: Record<string, unknown> = {};
 
+// Default permission grant state — tests can mutate via chromeMock.permissions._setGranted.
+let permissionsGranted = true;
+
 export const chromeMock = {
+  permissions: {
+    contains: vi.fn(async (_permissions: { origins?: string[]; permissions?: string[] }) => {
+      return permissionsGranted;
+    }),
+    request: vi.fn(async (_permissions: { origins?: string[]; permissions?: string[] }) => {
+      permissionsGranted = true;
+      return true;
+    }),
+    _setGranted(granted: boolean): void {
+      permissionsGranted = granted;
+    },
+  },
   runtime: {
     lastError: null as { message: string } | null,
     sendMessage: vi.fn((_message?: unknown, callback?: (response?: unknown) => void) => {
@@ -66,6 +81,9 @@ export const chromeMock = {
     },
   },
   reset() {
+    permissionsGranted = true;
+    this.permissions.contains.mockClear();
+    this.permissions.request.mockClear();
     this.runtime.lastError = null;
     this.runtime.sendMessage.mockReset();
     this.runtime.sendMessage.mockImplementation((_message?: unknown, callback?: (response?: unknown) => void) => {

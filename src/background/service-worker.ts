@@ -7,6 +7,7 @@ import {
   AUTO_SYNC_INTERVAL_MINUTES,
 } from '@/shared/constants';
 import { randomDelay } from '@/shared/utils';
+import { hasZhihuHostPermission } from '@/shared/host-permissions';
 import { fetchDayIncome, fetchCurrentUser } from '@/api/zhihu-income';
 import { fetchContentDaily, parseContentDailyResponse } from '@/api/zhihu-content-daily';
 import { fetchRealtimeAggr, fetchTodayRealtime } from '@/api/zhihu-realtime';
@@ -652,6 +653,11 @@ chrome.tabs.onUpdated.addListener(async (_tabId: number, changeInfo: { status?: 
   if (changeInfo.status !== 'complete') return;
   if (!tab.url?.startsWith('https://www.zhihu.com/')) return;
 
+  // Firefox treats host_permissions as optional. Skip silently if the user
+  // has not yet granted access to zhihu.com; they will be prompted from the
+  // popup/dashboard before any manual sync.
+  if (!(await hasZhihuHostPermission())) return;
+
   const today = formatDate(new Date());
   const result = await chrome.storage.local.get(STORAGE_KEYS.LAST_COLLECT_DATE);
   if (result[STORAGE_KEYS.LAST_COLLECT_DATE] === today) return;
@@ -681,6 +687,9 @@ chrome.runtime.onStartup.addListener(() => {
 
 chrome.alarms.onAlarm.addListener(async (alarm: { name: string }) => {
   if (alarm.name !== 'autoSync') return;
+
+  // Firefox: bail out when the user has not granted host_permissions yet.
+  if (!(await hasZhihuHostPermission())) return;
 
   try {
     // Check if user has set up

@@ -1,6 +1,6 @@
 import React from 'react';
-import { render } from '@testing-library/react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { render, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { makeDailySummaries, makeIncomeRecords, makeDefaultTabs } from '../helpers/mock-data';
 
 // Mock echarts
@@ -189,11 +189,12 @@ vi.mock('@/dashboard/tour/NewFeatureBanner', () => ({
 }));
 
 describe('Dashboard', () => {
+  // Dashboard is wrapped in a HostPermissionGate that resolves asynchronously.
+  // Tests must waitFor the first post-check render before asserting on content.
   it('renders main dashboard with data', async () => {
     const { Dashboard } = await import('@/dashboard/Dashboard');
     const { container } = render(<Dashboard />);
-    expect(container).toBeTruthy();
-    expect(container.textContent).toContain('知析');
+    await waitFor(() => expect(container.textContent).toContain('知析'));
     expect(container.textContent).toContain('TestUser');
   });
 
@@ -201,7 +202,7 @@ describe('Dashboard', () => {
     const { Dashboard } = await import('@/dashboard/Dashboard');
     const { container } = render(<Dashboard />);
     // Check that summary card headers exist
-    expect(container.textContent).toContain('昨日');
+    await waitFor(() => expect(container.textContent).toContain('昨日'));
     expect(container.textContent).toContain('本月');
     expect(container.textContent).toContain('总览');
   });
@@ -212,6 +213,15 @@ describe('Dashboard', () => {
 
     const { Dashboard } = await import('@/dashboard/Dashboard');
     const { container } = render(<Dashboard />);
-    expect(container.textContent).toContain('正在连接知乎');
+    await waitFor(() => expect(container.textContent).toContain('正在连接知乎'));
+  });
+
+  it('prompts for host permission when not granted', async () => {
+    const { chromeMock } = await import('../setup/chrome-mock');
+    chromeMock.permissions._setGranted(false);
+
+    const { Dashboard } = await import('@/dashboard/Dashboard');
+    const { container } = render(<Dashboard />);
+    await waitFor(() => expect(container.textContent).toContain('授权访问 zhihu.com'));
   });
 });
