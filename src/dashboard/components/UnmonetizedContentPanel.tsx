@@ -1,8 +1,46 @@
-import React, { useState, useCallback } from 'react';
-import { Card, Button, Table, Tag, Flex, Alert, Empty } from 'antd';
-import { FileSearchOutlined, ReloadOutlined } from '@ant-design/icons';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Card, Button, Table, Tag, Flex, Alert, Empty, Tooltip, message } from 'antd';
+import { FileSearchOutlined, ReloadOutlined, SyncOutlined, LoadingOutlined } from '@ant-design/icons';
 import type { CreationItem } from '@/api/zhihu-creations';
+import type { CreationRecord } from '@/db/database';
+import type { LoadCreationsCacheResponse, RefreshCreationsResponse } from '@/shared/message-types';
 import { contentTypeLabel, contentTypeColor } from '@/shared/content-type';
+
+/** Skip auto-incremental refresh if the cache was refreshed within this window. */
+const AUTO_REFRESH_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * Convert a CreationRecord to the shape the legacy CreationItem rendering
+ * expects. CreationRecord is a strict superset so this is a no-op cast.
+ */
+function toCreationItem(row: CreationRecord): CreationItem {
+  return {
+    contentId: row.contentId,
+    contentToken: row.contentToken,
+    contentType: row.contentType,
+    title: row.title,
+    publishDate: row.publishDate,
+    readCount: row.readCount,
+    upvoteCount: row.upvoteCount,
+    commentCount: row.commentCount,
+    collectCount: row.collectCount,
+  };
+}
+
+function formatRelativeTime(ts: number | null | undefined): string {
+  if (!ts) return '从未同步';
+  const diff = Date.now() - ts;
+  if (diff < 0) return '刚刚';
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return '刚刚';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} 分钟前`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} 小时前`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} 天前`;
+  return new Date(ts).toLocaleDateString('zh-CN');
+}
 
 const DEMO_UNMONETIZED: CreationItem[] = [
   {
@@ -46,45 +84,110 @@ interface Props {
   demoMode?: boolean;
 }
 
-export function UnmonetizedContentPanel({ monetizedContentTokens, demoMode }: Props) {
-  const [loading, setLoading] = useState(false);
-  const [items, setItems] = useState<CreationItem[] | null>(null);
-  const [error, setError] = useState('');
-
-  const handleFetch = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const resp = await new Promise<{ ok: boolean; items?: CreationItem[]; error?: string }>((resolve, reject) => {
-        chrome.runtime.sendMessage(
-          { action: 'fetchAllCreations' },
-          (r: { ok: boolean; items?: CreationItem[]; error?: string }) => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-              return;
-            }
-            resolve(r);
-          },
-        );
-      });
-
-      if (!resp.ok || !resp.items) {
-        setError(resp.error ?? '获取失败');
+function sendMessage<T>(request: unknown): Promise<T> {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(request, (resp: T) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
         return;
       }
+      resolve(resp);
+    });
+  });
+}
 
-      // Filter: only show content NOT in monetizedContentTokens
-      // Creations API uses url_token as contentToken, income API also stores url_token as contentToken
-      const unmonetized = resp.items.filter((item) => !monetizedContentTokens.has(item.contentToken));
-      setItems(unmonetized);
+export function UnmonetizedContentPanel({ monetizedContentTokens, demoMode }: Props) {
+  const [items, setItems] = useState<CreationRecord[] | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState<false | 'incremental' | 'force'>(false);
+  const [backgroundRefreshing, setBackgroundRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const hasAutoRefreshedRef = useRef(false);
+
+  const runRefresh = useCallback(async (mode: 'incremental' | 'force', silent = false): Promise<void> => {
+    if (!silent) setRefreshing(mode);
+    if (silent) setBackgroundRefreshing(true);
+    setError('');
+    try {
+      const resp = await sendMessage<RefreshCreationsResponse>({ action: 'refreshCreations', mode });
+      if (!resp.ok) {
+        setError(resp.error);
+        if (!silent) message.error(`刷新失败: ${resp.error}`);
+        return;
+      }
+      setItems(resp.items);
+      setLastSyncedAt(resp.lastSyncedAt);
+
+      if (mode === 'incremental') {
+        if (resp.addedCount > 0) {
+          message.success(`已新增 ${resp.addedCount} 条内容`);
+        } else if (!silent) {
+          message.info('没有新发布的内容');
+        }
+      } else {
+        const parts = [`已更新 ${resp.addedCount} 条`];
+        if (resp.deletedCount > 0) parts.push(`清理 ${resp.deletedCount} 条已删除`);
+        message.success(parts.join('，'));
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '获取失败');
+      const msg = err instanceof Error ? err.message : '刷新失败';
+      setError(msg);
+      if (!silent) message.error(`刷新失败: ${msg}`);
     } finally {
-      setLoading(false);
+      if (!silent) setRefreshing(false);
+      if (silent) setBackgroundRefreshing(false);
     }
-  }, [monetizedContentTokens]);
+  }, []);
 
-  const displayItems = demoMode ? DEMO_UNMONETIZED : items;
+  // Mount: load cache immediately, then optionally kick off a background incremental refresh.
+  useEffect(() => {
+    if (demoMode) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const resp = await sendMessage<LoadCreationsCacheResponse>({ action: 'loadCreationsCache' });
+        if (cancelled) return;
+        if (!resp.ok) {
+          setError(resp.error);
+          return;
+        }
+        setItems(resp.items);
+        setLastSyncedAt(resp.lastSyncedAt);
+
+        // Weak TTL: skip auto refresh if last sync was very recent
+        const fresh = resp.lastSyncedAt && Date.now() - resp.lastSyncedAt < AUTO_REFRESH_TTL_MS;
+        if (fresh) return;
+        if (hasAutoRefreshedRef.current) return;
+        hasAutoRefreshedRef.current = true;
+        await runRefresh('incremental', true);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : '读取缓存失败');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [demoMode, runRefresh]);
+
+  const handleIncrementalClick = useCallback(() => {
+    void runRefresh('incremental', false);
+  }, [runRefresh]);
+
+  const handleForceClick = useCallback(() => {
+    void runRefresh('force', false);
+  }, [runRefresh]);
+
+  // Filter + normalize for rendering
+  const displayItems: CreationItem[] | null = demoMode
+    ? DEMO_UNMONETIZED
+    : items
+      ? items.filter((row) => !monetizedContentTokens.has(row.contentToken)).map(toCreationItem)
+      : null;
+
+  const showFooterMeta = !demoMode && items !== null;
 
   return (
     <Card
@@ -96,17 +199,36 @@ export function UnmonetizedContentPanel({ monetizedContentTokens, demoMode }: Pr
       size="small"
       extra={
         !demoMode && (
-          <Button size="small" icon={<ReloadOutlined />} onClick={handleFetch} loading={loading}>
-            {items !== null ? '刷新' : '获取列表'}
-          </Button>
+          <Flex gap={4}>
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={handleIncrementalClick}
+              loading={refreshing === 'incremental'}
+              disabled={refreshing !== false}
+            >
+              {items !== null ? '刷新' : '获取列表'}
+            </Button>
+            <Tooltip title="完整扫描全部内容并清理已删除的项，请求次数较多，用于偶尔的对账">
+              <Button
+                size="small"
+                icon={<SyncOutlined />}
+                onClick={handleForceClick}
+                loading={refreshing === 'force'}
+                disabled={refreshing !== false}
+              >
+                深度同步
+              </Button>
+            </Tooltip>
+          </Flex>
         )
       }
     >
-      {error && !demoMode && <Alert type="error" message={error} showIcon style={{ marginBottom: 12 }} />}
+      {error && !demoMode && <Alert type="error" message={error} showIcon style={{ marginBottom: 12 }} closable />}
 
       {displayItems === null ? (
         <Flex justify="center" style={{ padding: 16, color: '#999', fontSize: 13 }}>
-          点击右上角按钮，获取所有已发表内容并筛选出未产生收益的
+          正在读取缓存...
         </Flex>
       ) : displayItems.length === 0 ? (
         <Empty description="所有内容都已产生收益" image={Empty.PRESENTED_IMAGE_SIMPLE} />
@@ -114,6 +236,18 @@ export function UnmonetizedContentPanel({ monetizedContentTokens, demoMode }: Pr
         <>
           <div style={{ fontSize: 12, color: '#999', marginBottom: 8 }}>
             共 {displayItems.length} 篇内容尚未被致知计划收录或产生收益
+            {showFooterMeta && (
+              <>
+                {' · '}上次同步于 {formatRelativeTime(lastSyncedAt)}
+                {backgroundRefreshing && (
+                  <>
+                    {' '}
+                    <LoadingOutlined style={{ marginLeft: 4 }} />
+                    <span style={{ marginLeft: 4 }}>后台刷新中...</span>
+                  </>
+                )}
+              </>
+            )}
           </div>
           <Table
             dataSource={displayItems}

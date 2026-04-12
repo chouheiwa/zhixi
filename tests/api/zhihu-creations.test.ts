@@ -236,6 +236,67 @@ describe('fetchAllCreations', () => {
     await expect(fetchAllCreations()).resolves.toHaveLength(1);
   });
 
+  describe('stopAt (incremental short-circuit)', () => {
+    it('stops when a known contentId is encountered and omits it from the result', async () => {
+      const page1Items = [
+        makeCreationItem('new-1', 'answer'),
+        makeCreationItem('new-2', 'article'),
+        makeCreationItem('known-1', 'answer'),
+        makeCreationItem('new-3', 'article'),
+      ];
+      mockFetchWithRetry.mockResolvedValueOnce(makeApiResponse(page1Items, false, 10));
+
+      const result = await fetchAllCreations({ stopAt: new Set(['known-1']) });
+
+      expect(result.map((r) => r.contentId)).toEqual(['new-1', 'new-2']);
+      // Only one page fetched; no subsequent request
+      expect(mockFetchWithRetry).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls through to multiple pages when no known id is seen', async () => {
+      const page1 = [makeCreationItem('a', 'answer'), makeCreationItem('b', 'article')];
+      const page2 = [makeCreationItem('c', 'answer')];
+      mockFetchWithRetry
+        .mockResolvedValueOnce(makeApiResponse(page1, false, 3))
+        .mockResolvedValueOnce(makeApiResponse(page2, true, 3));
+
+      const result = await fetchAllCreations({ stopAt: new Set(['not-in-result']) });
+
+      expect(result).toHaveLength(3);
+      expect(mockFetchWithRetry).toHaveBeenCalledTimes(2);
+    });
+
+    it('behaves identically to the no-options form when stopAt is omitted', async () => {
+      const items = [makeCreationItem('x', 'answer')];
+      mockFetchWithRetry.mockResolvedValueOnce(makeApiResponse(items));
+
+      const result = await fetchAllCreations({});
+      expect(result).toHaveLength(1);
+    });
+
+    it('still accepts the legacy callback form as onProgress', async () => {
+      const items = [makeCreationItem('y', 'answer')];
+      mockFetchWithRetry.mockResolvedValueOnce(makeApiResponse(items));
+      const progress = vi.fn();
+
+      await fetchAllCreations(progress);
+
+      expect(progress).toHaveBeenCalledWith(1, 1);
+    });
+
+    it('stops at the first known id even if later items on the page are unknown', async () => {
+      const page1Items = [
+        makeCreationItem('alpha', 'answer'),
+        makeCreationItem('known-1', 'article'),
+        makeCreationItem('beta', 'answer'),
+      ];
+      mockFetchWithRetry.mockResolvedValueOnce(makeApiResponse(page1Items, false, 5));
+
+      const result = await fetchAllCreations({ stopAt: new Set(['known-1']) });
+      expect(result.map((r) => r.contentId)).toEqual(['alpha']);
+    });
+  });
+
   it('reaction fields default to 0 when reaction is missing', async () => {
     const item = {
       type: 'answer',

@@ -35,6 +35,27 @@ export interface IncomeGoal {
   createdAt: number;
 }
 
+/**
+ * A locally cached row from Zhihu's "all creations" API. These rows are
+ * maintained by the creations-store module and drive panels such as
+ * "未产生收益内容". See docs/superpowers/specs/2026-04-12-creations-cache-design.md
+ * for the full design.
+ */
+export interface CreationRecord {
+  userId: string;
+  contentId: string;
+  contentToken: string;
+  contentType: 'article' | 'answer' | 'pin';
+  title: string;
+  publishDate: string; // ISO YYYY-MM-DD
+  readCount: number;
+  upvoteCount: number;
+  commentCount: number;
+  collectCount: number;
+  firstSeenAt: number; // ms timestamp — first time this row was cached locally
+  lastFetchedAt: number; // ms timestamp — last time the row was (re)fetched from the API
+}
+
 class ZhihuAnalysisDB extends Dexie {
   incomeRecords!: Table<IncomeRecord>;
   userSettings!: Table<UserSettings>;
@@ -47,6 +68,7 @@ class ZhihuAnalysisDB extends Dexie {
   panelLayout!: Table<PanelLayout>;
   tourState!: Table<TourState>;
   savedAccounts!: Table<SavedAccount, string>;
+  creations!: Table<CreationRecord>;
 
   constructor() {
     super('zhihu-income-analysis-v2');
@@ -138,6 +160,10 @@ class ZhihuAnalysisDB extends Dexie {
 
     this.version(11).stores({
       savedAccounts: 'userId, lastUsedAt',
+    });
+
+    this.version(12).stores({
+      creations: '[userId+contentId], userId, [userId+contentType], [userId+publishDate]',
     });
   }
 }

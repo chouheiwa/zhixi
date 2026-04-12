@@ -46,16 +46,36 @@ function resolveTitle(apiType: string, data: ZhihuCreationData): string {
   return data.title ?? '';
 }
 
+export interface FetchAllCreationsOptions {
+  onProgress?: (fetched: number, total: number) => void;
+  /**
+   * If provided, stop paginating as soon as any item's contentId is present in
+   * this set. All items encountered *before* the first known id on the current
+   * page are still collected. Used to implement the incremental short-circuit
+   * path: the API returns results sorted by created_time desc, so hitting a
+   * known id means every subsequent page is already cached locally.
+   */
+  stopAt?: Set<string>;
+}
+
 /**
  * Fetch all creations with pagination.
+ *
+ * Accepts either a `FetchAllCreationsOptions` object or the legacy progress
+ * callback form for backward compatibility with older callers.
  */
 export async function fetchAllCreations(
-  onProgress?: (fetched: number, total: number) => void,
+  optionsOrCallback?: FetchAllCreationsOptions | ((fetched: number, total: number) => void),
 ): Promise<CreationItem[]> {
+  const options: FetchAllCreationsOptions =
+    typeof optionsOrCallback === 'function' ? { onProgress: optionsOrCallback } : (optionsOrCallback ?? {});
+  const { onProgress, stopAt } = options;
+
   const limit = 50;
   let offset = 0;
   let total = 0;
   const items: CreationItem[] = [];
+  let shortCircuited = false;
 
   do {
     const url = `${CREATIONS_API}?start=0&end=0&limit=${limit}&offset=${offset}&need_co_creation=1&sort_type=created`;
@@ -64,8 +84,13 @@ export async function fetchAllCreations(
     total = resp.paging.totals;
 
     for (const item of resp.data) {
+      const contentId = item.data.id;
+      if (stopAt && stopAt.has(contentId)) {
+        shortCircuited = true;
+        break;
+      }
       items.push({
-        contentId: item.data.id,
+        contentId,
         contentToken: item.data.url_token,
         contentType: resolveContentType(item.type),
         title: resolveTitle(item.type, item.data),
@@ -80,6 +105,7 @@ export async function fetchAllCreations(
     offset += resp.data.length;
     onProgress?.(items.length, total);
 
+    if (shortCircuited) break;
     if (resp.paging.is_end || resp.data.length === 0) break;
 
     await randomDelay(REQUEST_INTERVAL_MIN, REQUEST_INTERVAL_MAX);

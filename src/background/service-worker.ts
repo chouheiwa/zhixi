@@ -21,6 +21,14 @@ import {
 } from '@/db/income-store';
 import { upsertContentDailyRecords, getContentDailyLatestDate } from '@/db/content-daily-store';
 import { upsertRealtimeAggr, getRealtimeAggrLatestDate } from '@/db/realtime-store';
+import {
+  getCreations,
+  getCreationContentIds,
+  upsertCreations,
+  reconcileCreations,
+  getCreationsLastSyncedAt,
+  setCreationsLastSyncedAt,
+} from '@/db/creations-store';
 import { db } from '@/db/database';
 import type {
   ContentCollectionItem,
@@ -29,7 +37,9 @@ import type {
   FetchTodayContentDailyResponse,
   FetchTodayRealtimeResponse,
   GetCollectStatusResponse,
+  LoadCreationsCacheResponse,
   OpenDashboardResponse,
+  RefreshCreationsResponse,
   Request,
   SyncIncomeResponse,
   SyncRealtimeAggrResponse,
@@ -443,6 +453,59 @@ async function runFetchTodayContentDaily(): Promise<{ count: number; cached: num
   }
 }
 
+// ============ Creations Cache ============
+
+async function runLoadCreationsCache(): Promise<{
+  items: Awaited<ReturnType<typeof getCreations>>;
+  lastSyncedAt: number | null;
+}> {
+  const user = await fetchCurrentUser();
+  const [items, lastSyncedAt] = await Promise.all([getCreations(user.id), getCreationsLastSyncedAt(user.id)]);
+  return { items, lastSyncedAt };
+}
+
+async function runRefreshCreations(mode: 'incremental' | 'force'): Promise<{
+  items: Awaited<ReturnType<typeof getCreations>>;
+  lastSyncedAt: number;
+  addedCount: number;
+  deletedCount: number;
+}> {
+  const user = await fetchCurrentUser();
+
+  if (mode === 'incremental') {
+    const stopAt = await getCreationContentIds(user.id);
+    addLog('正在增量刷新创作列表...');
+    const fresh = await fetchAllCreations({
+      stopAt,
+      onProgress: (fetched, total) => {
+        addLog(`已扫描 ${fetched}/${total} 篇`);
+      },
+    });
+    const { addedCount } = await upsertCreations(user.id, fresh);
+    const ts = Date.now();
+    await setCreationsLastSyncedAt(user.id, ts);
+    addLog(`增量刷新完成，新增 ${addedCount} 条`);
+    const items = await getCreations(user.id);
+    return { items, lastSyncedAt: ts, addedCount, deletedCount: 0 };
+  }
+
+  // force
+  addLog('正在深度同步创作列表...');
+  const fresh = await fetchAllCreations({
+    onProgress: (fetched, total) => {
+      addLog(`已扫描 ${fetched}/${total} 篇`);
+    },
+  });
+  const { addedCount } = await upsertCreations(user.id, fresh);
+  const aliveIds = new Set(fresh.map((c) => c.contentId));
+  const { deletedCount } = await reconcileCreations(user.id, aliveIds);
+  const ts = Date.now();
+  await setCreationsLastSyncedAt(user.id, ts);
+  addLog(`深度同步完成，新增 ${addedCount} 条，清理 ${deletedCount} 条`);
+  const items = await getCreations(user.id);
+  return { items, lastSyncedAt: ts, addedCount, deletedCount };
+}
+
 // ============ Message Handling ============
 
 chrome.runtime.onMessage.addListener(
@@ -483,6 +546,22 @@ chrome.runtime.onMessage.addListener(
             addLog(`获取完成，共 ${items.length} 篇内容`);
             respond({ ok: true, items });
           })
+          .catch((err: Error) => respond({ ok: false, error: err.message }));
+        return true;
+      }
+
+      case 'loadCreationsCache': {
+        const respond = sendResponse as (response: LoadCreationsCacheResponse) => void;
+        runLoadCreationsCache()
+          .then((result) => respond({ ok: true, ...result }))
+          .catch((err: Error) => respond({ ok: false, error: err.message }));
+        return true;
+      }
+
+      case 'refreshCreations': {
+        const respond = sendResponse as (response: RefreshCreationsResponse) => void;
+        runRefreshCreations(message.mode)
+          .then((result) => respond({ ok: true, ...result }))
           .catch((err: Error) => respond({ ok: false, error: err.message }));
         return true;
       }

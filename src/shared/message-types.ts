@@ -1,4 +1,5 @@
 import type { CreationItem } from '@/api/zhihu-creations';
+import type { CreationRecord } from '@/db/database';
 import type { CollectionStatus, RealtimeAggrRecord } from '@/shared/types';
 
 export type ContentCollectionItem = Pick<
@@ -33,6 +34,15 @@ export interface FetchAllCreationsRequest {
   action: 'fetchAllCreations';
 }
 
+export interface LoadCreationsCacheRequest {
+  action: 'loadCreationsCache';
+}
+
+export interface RefreshCreationsRequest {
+  action: 'refreshCreations';
+  mode: 'incremental' | 'force';
+}
+
 export interface FetchTodayContentDailyRequest {
   action: 'fetchTodayContentDaily';
 }
@@ -55,6 +65,8 @@ export type Request =
   | SyncIncomeRequest
   | FetchContentDailyRequest
   | FetchAllCreationsRequest
+  | LoadCreationsCacheRequest
+  | RefreshCreationsRequest
   | FetchTodayContentDailyRequest
   | SyncRealtimeAggrRequest
   | FetchTodayRealtimeRequest
@@ -95,6 +107,24 @@ export type FetchAllCreationsResponse =
   | {
       ok: true;
       items: CreationItem[];
+    }
+  | ErrorResponse;
+
+export type LoadCreationsCacheResponse =
+  | {
+      ok: true;
+      items: CreationRecord[];
+      lastSyncedAt: number | null;
+    }
+  | ErrorResponse;
+
+export type RefreshCreationsResponse =
+  | {
+      ok: true;
+      items: CreationRecord[];
+      lastSyncedAt: number;
+      addedCount: number;
+      deletedCount: number;
     }
   | ErrorResponse;
 
@@ -149,6 +179,14 @@ export interface MessageMap {
   fetchAllCreations: {
     request: FetchAllCreationsRequest;
     response: FetchAllCreationsResponse;
+  };
+  loadCreationsCache: {
+    request: LoadCreationsCacheRequest;
+    response: LoadCreationsCacheResponse;
+  };
+  refreshCreations: {
+    request: RefreshCreationsRequest;
+    response: RefreshCreationsResponse;
   };
   fetchTodayContentDaily: {
     request: FetchTodayContentDailyRequest;
