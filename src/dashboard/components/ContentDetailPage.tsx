@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Row, Col, Statistic, Tag, Button, Tabs, Alert, Flex } from 'antd';
-import { ReloadOutlined, LineChartOutlined } from '@ant-design/icons';
+import { ReloadOutlined, LineChartOutlined, FileTextOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { timeSeriesZoom, withZoomGrid } from './chartConfig';
 import type { ContentTableItem } from './ContentTable';
@@ -114,6 +114,20 @@ function buildZhihuAnalyticsUrl(contentType: string, contentId: string): string 
   const segment = contentType === 'article' ? 'article' : contentType === 'pin' ? 'pin' : 'answer';
   if (!contentId) return null;
   return `https://www.zhihu.com/creator/analytics/work/${segment}/${contentId}`;
+}
+
+/**
+ * Build the public-facing URL of a piece of content on Zhihu.
+ * Each content type lives on a different host / path:
+ *   answer  → https://www.zhihu.com/answer/<id>  (redirects to the canonical question page)
+ *   pin     → https://www.zhihu.com/pin/<id>
+ *   article → https://zhuanlan.zhihu.com/p/<id> (专栏)
+ */
+function buildZhihuContentUrl(contentType: string, contentId: string): string | null {
+  if (!contentId) return null;
+  if (contentType === 'article') return `https://zhuanlan.zhihu.com/p/${contentId}`;
+  if (contentType === 'pin') return `https://www.zhihu.com/pin/${contentId}`;
+  return `https://www.zhihu.com/answer/${contentId}`;
 }
 
 interface IncomeTooltipParam {
@@ -271,6 +285,21 @@ export function ContentDetailPage({
             <span style={{ fontSize: 12, color: '#999' }}>发布于 {publishDate}</span>
           </Flex>
         </div>
+        {!demoMode &&
+          (() => {
+            const contentUrl = buildZhihuContentUrl(contentType, contentId);
+            return contentUrl ? (
+              <Button
+                size="small"
+                icon={<FileTextOutlined />}
+                href={contentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                打开原文
+              </Button>
+            ) : null;
+          })()}
         {!demoMode &&
           (() => {
             const analyticsUrl = buildZhihuAnalyticsUrl(contentType, contentId);
