@@ -76,6 +76,7 @@ export function IncomeAttributionChart({ dailyRecords, incomeRecords }: Props) {
     return {
       contributions,
       elasticities,
+      r2s,
       r2: avgR2,
       topDriver: METRICS[topIdx].label,
       metrics: METRICS,
@@ -112,8 +113,12 @@ export function IncomeAttributionChart({ dailyRecords, incomeRecords }: Props) {
       color: m.color,
       contribution: result.contributions[i],
       elasticity: result.elasticities[i],
+      r2: result.r2s[i],
     }))
     .sort((a, b) => b.contribution - a.contribution);
+
+  /** Per-metric R² threshold below which we warn the user that the elasticity is unreliable. */
+  const LOW_R2_THRESHOLD = 0.1;
 
   const barOption = {
     tooltip: {
@@ -123,7 +128,11 @@ export function IncomeAttributionChart({ dailyRecords, incomeRecords }: Props) {
         if (!m) return params[0].name;
         const elasticityText =
           m.elasticity > 0.01 ? `提升 10% → 收益约提升 ${(m.elasticity * 10).toFixed(1)}%` : '提升效果不明显';
-        return `${m.label}<br/>贡献度: ${m.contribution.toFixed(1)}%<br/>${elasticityText}`;
+        const r2Line =
+          m.elasticity > 0.01
+            ? `<br/>拟合度 R² = ${m.r2.toFixed(2)}${m.r2 < LOW_R2_THRESHOLD ? '（可信度低）' : ''}`
+            : '';
+        return `${m.label}<br/>贡献度: ${m.contribution.toFixed(1)}%<br/>${elasticityText}${r2Line}`;
       },
     },
     grid: { left: 70, right: 30, top: 10, bottom: 10 },
@@ -166,16 +175,31 @@ export function IncomeAttributionChart({ dailyRecords, incomeRecords }: Props) {
       </div>
       <ReactECharts option={barOption} style={{ height: 200 }} />
       <div style={{ marginTop: 12, fontSize: 12, color: themeColors.muted }}>
-        {sortedMetrics.map((m) => (
-          <div key={m.label} style={{ marginBottom: 4 }}>
-            <span style={{ color: m.color, fontWeight: 500 }}>{m.label}</span>
-            {m.elasticity > 0.01 ? `：提升 10%，收益预计提升约 ${(m.elasticity * 10).toFixed(1)}%` : '：提升效果不明显'}
-          </div>
-        ))}
+        {sortedMetrics.map((m) => {
+          const hasSignal = m.elasticity > 0.01;
+          const lowR2 = m.r2 < LOW_R2_THRESHOLD;
+          return (
+            <div key={m.label} style={{ marginBottom: 4 }}>
+              <span style={{ color: m.color, fontWeight: 500 }}>{m.label}</span>
+              {hasSignal ? `：提升 10%，收益预计提升约 ${(m.elasticity * 10).toFixed(1)}%` : '：提升效果不明显'}
+              {hasSignal && (
+                <>
+                  <span style={{ marginLeft: 6, color: themeColors.subtle }}>· R² = {m.r2.toFixed(2)}</span>
+                  {lowR2 && <span style={{ marginLeft: 4, color: themeColors.amber }}>（拟合度低，结果仅供参考）</span>}
+                </>
+              )}
+            </div>
+          );
+        })}
       </div>
       <FormulaBlock
         title="收益归因分析 — 基于弹性（Elasticity）"
         items={[
+          {
+            name: '统计单位（重要）',
+            formula: '同一篇内容在不同日子的日间弹性',
+            desc: '本图回答的是"这篇文章的某一天某指标上升 1% 时，同一天的收益提升多少 %"。这与"我哪几篇文章收益高、收藏也多"这种跨文章相关性不是同一个问题——一个指标在跨文章层面挂钩度高，在同一篇文章内的日间波动里完全可能是另一回事。例如收藏通常是"加入书签"的私人行为，不直接带来新阅读，因此在日度弹性上往往不是最大驱动力。',
+          },
           {
             name: '弹性系数（log-log 回归）',
             formula: 'ln(收益) = a + β · ln(指标)',
@@ -188,8 +212,13 @@ export function IncomeAttributionChart({ dailyRecords, incomeRecords }: Props) {
           },
           {
             name: '拟合质量 R²',
-            formula: 'R² = 各指标独立回归的 R² 平均',
-            desc: 'R² 越接近 1 表示该指标与收益的对数关系越稳定；过低说明数据波动较随机，归因结论可信度降低。',
+            formula: '每个指标一个 R²（图表下方显示），卡片右上角为平均 R²',
+            desc: 'R² 越接近 1 表示该指标与收益的对数关系越稳定。某个指标 R² < 0.1 会被标注"拟合度低，结果仅供参考"——此时它的贡献度数字虽然算得出来，但背后信号弱，不应作为决策依据。',
+          },
+          {
+            name: '零值过滤的注意事项',
+            formula: '仅在 x > 0 且 y > 0 的日子参与回归',
+            desc: '日度分享、评论这类指标常有很多零值，取对数需要丢弃零值对。这会让"有分享的日子"构成一个有偏子样本（因为这些天通常也恰好是文章在被二次传播的日子），可能人为放大这类稀疏指标的弹性。结合 R² 与实际情况综合判断。',
           },
           {
             name: '数据要求',
