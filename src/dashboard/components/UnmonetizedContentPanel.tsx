@@ -253,7 +253,16 @@ export function UnmonetizedContentPanel({ monetizedContentTokens, demoMode }: Pr
             dataSource={displayItems}
             rowKey="contentId"
             size="small"
-            pagination={displayItems.length > 10 ? { pageSize: 10, size: 'small' } : false}
+            pagination={
+              displayItems.length > 10
+                ? {
+                    defaultPageSize: 10,
+                    size: 'small',
+                    showSizeChanger: true,
+                    pageSizeOptions: ['10', '20', '50', '100'],
+                  }
+                : false
+            }
             columns={[
               {
                 title: '内容',
