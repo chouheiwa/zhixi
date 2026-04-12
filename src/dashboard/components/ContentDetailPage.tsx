@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, Row, Col, Statistic, Tag, Button, Tabs, Alert, Flex } from 'antd';
-import { ReloadOutlined, LineChartOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Statistic, Tag, Button, Tabs, Alert, Flex, Dropdown } from 'antd';
+import type { MenuProps } from 'antd';
+import { ReloadOutlined, LineChartOutlined, FileTextOutlined, ExportOutlined, DownOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { timeSeriesZoom, withZoomGrid } from './chartConfig';
 import type { ContentTableItem } from './ContentTable';
@@ -288,32 +289,34 @@ export function ContentDetailPage({
         {!demoMode &&
           (() => {
             const contentUrl = buildZhihuContentUrl(contentType, contentId);
-            return contentUrl ? (
-              <Button
-                size="small"
-                icon={<FileTextOutlined />}
-                href={contentUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                打开原文
-              </Button>
-            ) : null;
-          })()}
-        {!demoMode &&
-          (() => {
             const analyticsUrl = buildZhihuAnalyticsUrl(contentType, contentId);
-            return analyticsUrl ? (
-              <Button
-                size="small"
-                icon={<LineChartOutlined />}
-                href={analyticsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                流量分析页
-              </Button>
-            ) : null;
+            if (!contentUrl && !analyticsUrl) return null;
+
+            const items: MenuProps['items'] = [];
+            if (contentUrl) {
+              items.push({
+                key: 'content',
+                icon: <FileTextOutlined />,
+                label: '打开原文',
+                onClick: () => window.open(contentUrl, '_blank', 'noopener,noreferrer'),
+              });
+            }
+            if (analyticsUrl) {
+              items.push({
+                key: 'analytics',
+                icon: <LineChartOutlined />,
+                label: '流量分析页',
+                onClick: () => window.open(analyticsUrl, '_blank', 'noopener,noreferrer'),
+              });
+            }
+
+            return (
+              <Dropdown menu={{ items }} trigger={['click']}>
+                <Button size="small" icon={<ExportOutlined />}>
+                  跳转知乎 <DownOutlined style={{ fontSize: 10 }} />
+                </Button>
+              </Dropdown>
+            );
           })()}
         {onCompare && (
           <Button
