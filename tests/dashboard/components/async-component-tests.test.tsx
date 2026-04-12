@@ -9,7 +9,7 @@
  * ContentDetailPage, ContentComparePage, TopContentRanking, MultiDimensionRanking.
  */
 import React from 'react';
-import { render, cleanup, fireEvent, act } from '@testing-library/react';
+import { render, cleanup, fireEvent, act } from '../../helpers/render';
 import { describe, expect, it, vi, afterEach, beforeEach } from 'vitest';
 import {
   makeIncomeRecords,

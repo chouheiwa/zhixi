@@ -25,72 +25,90 @@ export function useAccountManager() {
   const [activeAccountId, setActiveAccountId] = useState<string | null>(() => getStoredActiveAccountId());
 
   const loadAccounts = useCallback(async () => {
-    const list = await getSavedAccounts();
-    setAccounts(list);
+    try {
+      const list = await getSavedAccounts();
+      setAccounts(list);
+    } catch {
+      // IndexedDB may be unavailable (tests, private browsing, quota errors).
+      // Keep an empty list rather than propagating an unhandled rejection.
+    }
   }, []);
 
   useEffect(() => {
-    loadAccounts();
+    void loadAccounts();
   }, [loadAccounts]);
 
   const switchAccount = useCallback(async (userId: string) => {
     storeActiveAccountId(userId);
     setActiveAccountId(userId);
-    await updateLastUsed(userId);
-    // Reload accounts to reflect updated lastUsedAt
-    const list = await getSavedAccounts();
-    setAccounts(list);
+    try {
+      await updateLastUsed(userId);
+      // Reload accounts to reflect updated lastUsedAt
+      const list = await getSavedAccounts();
+      setAccounts(list);
+    } catch {
+      // Swallow IndexedDB failures — switching the active account id in-memory
+      // is the primary goal; the persisted list will catch up on next load.
+    }
   }, []);
 
   const addCurrentAccount = useCallback(
     async (user: ZhihuUser) => {
-      const existing = accounts.find((a) => a.userId === user.id);
-      const now = Date.now();
-      const account: SavedAccount = {
-        userId: user.id,
-        name: user.name,
-        urlToken: user.urlToken,
-        avatarUrl: user.avatarUrl,
-        addedAt: existing?.addedAt ?? now,
-        lastUsedAt: now,
-      };
-      await saveAccount(account);
+      try {
+        const existing = accounts.find((a) => a.userId === user.id);
+        const now = Date.now();
+        const account: SavedAccount = {
+          userId: user.id,
+          name: user.name,
+          urlToken: user.urlToken,
+          avatarUrl: user.avatarUrl,
+          addedAt: existing?.addedAt ?? now,
+          lastUsedAt: now,
+        };
+        await saveAccount(account);
 
-      // Set as active if no active account is set
-      if (!activeAccountId) {
-        storeActiveAccountId(user.id);
-        setActiveAccountId(user.id);
+        // Set as active if no active account is set
+        if (!activeAccountId) {
+          storeActiveAccountId(user.id);
+          setActiveAccountId(user.id);
+        }
+
+        const list = await getSavedAccounts();
+        setAccounts(list);
+      } catch {
+        // ignore DB errors — caller will see the account missing from the list
       }
-
-      const list = await getSavedAccounts();
-      setAccounts(list);
     },
     [accounts, activeAccountId],
   );
 
   const handleRemoveAccount = useCallback(
     async (userId: string) => {
-      await removeAccount(userId);
-      // If removing the active account, switch to the most-recently-used other account
-      if (userId === activeAccountId) {
-        const list = await getSavedAccounts();
-        const next = list.find((a) => a.userId !== userId);
-        const nextId = next?.userId ?? null;
-        if (nextId) {
-          storeActiveAccountId(nextId);
-          setActiveAccountId(nextId);
-        } else {
-          try {
-            localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
-          } catch {
-            // ignore
+      try {
+        await removeAccount(userId);
+        // If removing the active account, switch to the most-recently-used other account
+        if (userId === activeAccountId) {
+          const list = await getSavedAccounts();
+          const next = list.find((a) => a.userId !== userId);
+          const nextId = next?.userId ?? null;
+          if (nextId) {
+            storeActiveAccountId(nextId);
+            setActiveAccountId(nextId);
+          } else {
+            try {
+              localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
+            } catch {
+              // ignore
+            }
+            setActiveAccountId(null);
           }
-          setActiveAccountId(null);
+          setAccounts(list.filter((a) => a.userId !== userId));
+        } else {
+          const list = await getSavedAccounts();
+          setAccounts(list);
         }
-        setAccounts(list.filter((a) => a.userId !== userId));
-      } else {
-        const list = await getSavedAccounts();
-        setAccounts(list);
+      } catch {
+        // ignore DB errors
       }
     },
     [activeAccountId],

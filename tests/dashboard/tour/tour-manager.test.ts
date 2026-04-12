@@ -73,6 +73,11 @@ describe('getNewFeatures', () => {
   });
 });
 
+// startCoreTour / startExtendedTour take (callbacks, onComplete) where
+// callbacks carries a switchTab (and optional onAction) used when the tour
+// hops between dashboard tabs. Tests mock switchTab with a no-op.
+const tourCallbacks = { switchTab: vi.fn() };
+
 describe('startCoreTour', () => {
   it('calls driver.drive()', async () => {
     const { driver } = await import('driver.js');
@@ -81,7 +86,7 @@ describe('startCoreTour', () => {
 
     const { startCoreTour } = await import('@/dashboard/tour/tour-manager');
     const onComplete = vi.fn();
-    startCoreTour(onComplete);
+    startCoreTour(tourCallbacks, onComplete);
     expect(mockDrive).toHaveBeenCalled();
   });
 
@@ -95,7 +100,7 @@ describe('startCoreTour', () => {
 
     const { startCoreTour } = await import('@/dashboard/tour/tour-manager');
     const onComplete = vi.fn();
-    startCoreTour(onComplete);
+    startCoreTour(tourCallbacks, onComplete);
     capturedOnDestroyed?.();
     expect(onComplete).toHaveBeenCalled();
   });
@@ -108,7 +113,7 @@ describe('startExtendedTour', () => {
     vi.mocked(driver).mockReturnValueOnce({ drive: mockDrive } as ReturnType<typeof driver>);
 
     const { startExtendedTour } = await import('@/dashboard/tour/tour-manager');
-    startExtendedTour(vi.fn());
+    startExtendedTour(tourCallbacks, vi.fn());
     expect(mockDrive).toHaveBeenCalled();
   });
 
@@ -122,7 +127,7 @@ describe('startExtendedTour', () => {
 
     const { startExtendedTour } = await import('@/dashboard/tour/tour-manager');
     const onComplete = vi.fn();
-    startExtendedTour(onComplete);
+    startExtendedTour(tourCallbacks, onComplete);
     capturedOnDestroyed?.();
     expect(onComplete).toHaveBeenCalled();
   });

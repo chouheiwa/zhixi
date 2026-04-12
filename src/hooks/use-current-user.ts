@@ -15,7 +15,17 @@ export function useCurrentUser(overrideUserId?: string) {
       return null;
     }
   });
-  const [loading, setLoading] = useState(true);
+  // When we successfully hydrate from cache, skip the loading flicker — the
+  // component can render with the cached user immediately while the background
+  // refetch updates it in place. Without a cache we still start in a loading
+  // state until the first API response comes back.
+  const [loading, setLoading] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem(CACHE_KEY) === null;
+    } catch {
+      return true;
+    }
+  });
 
   useEffect(() => {
     if (overrideUserId) {
@@ -43,19 +53,24 @@ export function useCurrentUser(overrideUserId?: string) {
         .then((u) => {
           setUser(u);
           sessionStorage.setItem(CACHE_KEY, JSON.stringify(u));
-          // Auto-save to savedAccounts
+          // Auto-save to savedAccounts. The full getSavedAccounts → saveAccount
+          // chain is best-effort — any failure (missing IndexedDB in tests,
+          // storage quota, etc.) is swallowed to avoid leaking unhandled
+          // rejections up to the caller.
           const now = Date.now();
-          getSavedAccounts().then((accounts) => {
-            const existing = accounts.find((a) => a.userId === u.id);
-            saveAccount({
-              userId: u.id,
-              name: u.name,
-              urlToken: u.urlToken,
-              avatarUrl: u.avatarUrl,
-              addedAt: existing?.addedAt ?? now,
-              lastUsedAt: now,
-            }).catch(() => {});
-          });
+          getSavedAccounts()
+            .then((accounts) => {
+              const existing = accounts.find((a) => a.userId === u.id);
+              return saveAccount({
+                userId: u.id,
+                name: u.name,
+                urlToken: u.urlToken,
+                avatarUrl: u.avatarUrl,
+                addedAt: existing?.addedAt ?? now,
+                lastUsedAt: now,
+              });
+            })
+            .catch(() => {});
         })
         .catch(() => {
           // Keep cached user if fetch fails

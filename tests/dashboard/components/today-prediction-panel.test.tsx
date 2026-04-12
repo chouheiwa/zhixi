@@ -2,7 +2,7 @@
  * Tests for TodayPredictionPanel with various states.
  */
 import React from 'react';
-import { render, cleanup, waitFor } from '@testing-library/react';
+import { render, cleanup, waitFor } from '../../helpers/render';
 import { describe, expect, it, vi, afterEach, beforeEach } from 'vitest';
 import { makeDailySummaries } from '../../helpers/mock-data';
 

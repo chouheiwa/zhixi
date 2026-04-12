@@ -127,8 +127,10 @@ vi.mock('@/db/database', () => ({
 }));
 
 vi.mock('@/db/goal-store', () => ({
-  getIncomeGoal: vi.fn(() => Promise.resolve(null)),
-  saveIncomeGoal: vi.fn(),
+  getGoal: vi.fn(() => Promise.resolve(undefined)),
+  saveGoal: vi.fn(),
+  deleteGoal: vi.fn(),
+  getAllGoals: vi.fn(() => Promise.resolve([])),
 }));
 
 vi.mock('@/db/realtime-store', () => ({

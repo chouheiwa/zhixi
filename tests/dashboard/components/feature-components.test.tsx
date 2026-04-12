@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, cleanup } from '@testing-library/react';
+import { render, cleanup } from '../../helpers/render';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { makeDailySummaries, makeIncomeRecords, makeDefaultTabs } from '../../helpers/mock-data';
 
