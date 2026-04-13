@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Progress, Spin, Flex, Typography } from 'antd';
 import { SyncOutlined, ArrowRightOutlined, RocketOutlined, SafetyOutlined } from '@ant-design/icons';
-import { formatDate, getDateRange } from '@/shared/date-utils';
+import { formatDate, getDateRange, parseDateString } from '@/shared/date-utils';
 import { hasZhihuHostPermission, requestZhihuHostPermission } from '@/shared/host-permissions';
 import { useIncomeData } from '@/hooks/use-income-data';
 import { useCollector } from '@/hooks/use-collector';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { useAccountManager } from '@/hooks/use-account-manager';
 import { useUserSettings } from '@/hooks/use-user-settings';
-import { TodaySummary } from './components/TodaySummary';
+import { YesterdaySummary } from './components/YesterdaySummary';
 import { WeekSparkline } from './components/WeekSparkline';
 
 const { Text } = Typography;
@@ -101,8 +101,12 @@ export function Popup() {
 
 function PopupInner() {
   const yesterday = getYesterday();
-  const { start: weekStart } = getDateRange(7);
+  // Zhihu settles income with one day of lag, so the week range ends at
+  // yesterday (not today); otherwise the last sparkline bar always renders
+  // as zero.
+  const { start: weekStart, end: weekEnd } = getDateRange(7, parseDateString(yesterday));
   const startStr = formatDate(weekStart);
+  const endStr = formatDate(weekEnd);
 
   const accountManager = useAccountManager();
   const { user, loading: userLoading } = useCurrentUser(accountManager.activeAccountId ?? undefined);
@@ -118,7 +122,7 @@ function PopupInner() {
   const effectiveUserId = accountManager.activeAccountId ?? user?.id ?? '';
 
   const { settings, loading: settingsLoading } = useUserSettings(effectiveUserId);
-  const { summaries, loading, refresh } = useIncomeData(effectiveUserId, startStr, yesterday);
+  const { summaries, loading, refresh } = useIncomeData(effectiveUserId, startStr, endStr);
   const { status, sync } = useCollector();
 
   const yesterdaySummary = summaries.find((s) => s.date === yesterday);
@@ -179,7 +183,7 @@ function PopupInner() {
 
       {hasSetup ? (
         <>
-          <TodaySummary summary={yesterdaySummary} loading={loading} />
+          <YesterdaySummary summary={yesterdaySummary} loading={loading} />
           <div style={{ marginTop: 8 }}>
             <Text type="secondary" style={{ fontSize: 12 }}>
               近 7 天收益趋势

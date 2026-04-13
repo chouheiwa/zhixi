@@ -8,24 +8,25 @@ vi.mock('echarts-for-react', () => ({
   default: vi.fn(() => React.createElement('div', { 'data-testid': 'echarts-mock' })),
 }));
 
-describe('TodaySummary', () => {
+describe('YesterdaySummary', () => {
   it('renders with summary data', async () => {
-    const { TodaySummary } = await import('@/popup/components/TodaySummary');
+    const { YesterdaySummary } = await import('@/popup/components/YesterdaySummary');
     const summary = makeDailySummary({ totalIncome: 5000, totalRead: 2000 });
-    const { container } = render(<TodaySummary summary={summary} loading={false} />);
+    const { container } = render(<YesterdaySummary summary={summary} loading={false} />);
     expect(container).toBeTruthy();
     expect(container.textContent).toContain('50.00');
+    expect(container.textContent).toContain('昨日收益');
   });
 
   it('renders loading state', async () => {
-    const { TodaySummary } = await import('@/popup/components/TodaySummary');
-    const { container } = render(<TodaySummary summary={undefined} loading={true} />);
+    const { YesterdaySummary } = await import('@/popup/components/YesterdaySummary');
+    const { container } = render(<YesterdaySummary summary={undefined} loading={true} />);
     expect(container.textContent).toContain('加载中');
   });
 
   it('renders with undefined summary', async () => {
-    const { TodaySummary } = await import('@/popup/components/TodaySummary');
-    const { container } = render(<TodaySummary summary={undefined} loading={false} />);
+    const { YesterdaySummary } = await import('@/popup/components/YesterdaySummary');
+    const { container } = render(<YesterdaySummary summary={undefined} loading={false} />);
     expect(container).toBeTruthy();
   });
 });

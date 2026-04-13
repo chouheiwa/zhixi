@@ -15,7 +15,11 @@ interface Props {
 
 function WeekSparklineInner({ summaries }: Props) {
   const unit = getCurrencyUnit();
-  const { start, end } = getDateRange(7);
+  // Zhihu settles income one day late; the 7-day window ends at yesterday so
+  // the last bar always has a real value.
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const { start, end } = getDateRange(7, yesterday);
   const days = eachDayInRange(formatDate(start), formatDate(end));
 
   const summaryMap = new Map(summaries.map((s) => [s.date, s]));
