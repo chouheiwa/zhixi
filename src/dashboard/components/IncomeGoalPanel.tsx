@@ -29,8 +29,17 @@ export function IncomeGoalPanel({ userId, monthIncome, monthDaysElapsed, monthDa
   }, [userId, period]);
 
   useEffect(() => {
-    loadGoal();
-  }, [loadGoal]);
+    let cancelled = false;
+    void (async () => {
+      const g = await getGoal(userId, period);
+      if (cancelled) return;
+      setGoal(g ?? null);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, period]);
 
   const handleSave = async () => {
     if (!inputValue || inputValue <= 0) return;

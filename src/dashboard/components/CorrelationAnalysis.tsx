@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Card as AntCard, Row, Col, Statistic, Progress, Tag, Empty, Table } from 'antd';
+import { Card as AntCard, Row, Col } from 'antd';
 import type { IncomeRecord, ContentDailyRecord } from '@/shared/types';
 import { db } from '@/db/database';
 import { useCurrentUser } from '@/hooks/use-current-user';

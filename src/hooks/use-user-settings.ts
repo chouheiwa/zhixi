@@ -18,8 +18,17 @@ export function useUserSettings(userId: string) {
   }, [userId]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    let cancelled = false;
+    void (async () => {
+      const s = userId ? await getUserSettings(userId) : null;
+      if (cancelled) return;
+      setSettings(s ?? null);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   return { settings, loading, refresh };
 }

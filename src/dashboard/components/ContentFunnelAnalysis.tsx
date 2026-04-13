@@ -31,14 +31,12 @@ function pctDiff(current: number, baseline: number): { value: number; color: str
 export function ContentFunnelAnalysis({ dailyRecords, incomeRecords, demoMode }: Props) {
   const { user } = useCurrentUser();
   const currency = useCurrency();
-  const [benchmark, setBenchmark] = useState<Benchmark | null>(null);
+  const [benchmark, setBenchmark] = useState<Benchmark | null>(() =>
+    demoMode ? { ctr: 25, engagementRate: 2.5, rpm: 3.0 } : null,
+  );
 
   useEffect(() => {
-    if (demoMode) {
-      setBenchmark({ ctr: 25, engagementRate: 2.5, rpm: 3.0 });
-      return;
-    }
-    if (!user) return;
+    if (demoMode || !user) return;
 
     (async () => {
       const allDaily = await db.contentDaily.where('userId').equals(user.id).toArray();

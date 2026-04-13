@@ -8,27 +8,26 @@ export function usePanelLayout(userId: string) {
   const [loading, setLoading] = useState(true);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadLayout = useCallback(async () => {
-    if (!userId) {
-      setLayout(null);
-      setLoading(false);
-      return;
-    }
-
-    const saved = await db.panelLayout.get(userId);
-    if (saved) {
-      const defaults = getDefaultTabs();
-      const merged = mergeWithDefaults(saved.tabs, defaults);
-      setLayout({ userId, tabs: merged });
-    } else {
-      setLayout({ userId, tabs: getDefaultTabs() });
-    }
-    setLoading(false);
-  }, [userId]);
-
   useEffect(() => {
-    loadLayout();
-  }, [loadLayout]);
+    let cancelled = false;
+    void (async () => {
+      const saved = userId ? await db.panelLayout.get(userId) : null;
+      if (cancelled) return;
+      if (!userId) {
+        setLayout(null);
+      } else if (saved) {
+        const defaults = getDefaultTabs();
+        const merged = mergeWithDefaults(saved.tabs, defaults);
+        setLayout({ userId, tabs: merged });
+      } else {
+        setLayout({ userId, tabs: getDefaultTabs() });
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   const updateLayout = useCallback(
     (tabs: TabConfig[]) => {

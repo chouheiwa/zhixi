@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Card, Row, Col, Statistic } from 'antd';
+import { Card, Statistic } from 'antd';
 import { ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { timeSeriesZoom, withZoomGrid } from './chartConfig';
@@ -88,61 +88,6 @@ export function RPMForecastPanel({ summaries, startDate, endDate }: Props) {
         itemStyle: { color: themeColors.warmRed },
         lineStyle: { width: 2 },
         symbol: 'none',
-      },
-    ],
-    ...timeSeriesZoom,
-  };
-
-  const forecastOption = {
-    tooltip: { trigger: 'axis' as const },
-    legend: { data: ['实际收益', '趋势线', '预测'], textStyle: { fontSize: 11 }, right: 0, top: 0 },
-    grid: withZoomGrid({ left: 50, right: 30, top: 30, bottom: 25 }),
-    title: { text: '未来一周收益预测', textStyle: { fontSize: 13, fontWeight: 600 }, left: 0 },
-    xAxis: {
-      type: 'category' as const,
-      data: [...dates, ...analysis.forecastDates],
-      axisLabel: { fontSize: 10 },
-      axisTick: { show: false },
-    },
-    yAxis: {
-      type: 'value' as const,
-      axisLabel: { fontSize: 10, formatter: (v: number) => currency.fmtAxis(v) },
-      splitNumber: 3,
-    },
-    series: [
-      {
-        name: '实际收益',
-        type: 'bar',
-        data: [...analysis.incomes, ...new Array(analysis.forecast.length).fill(null)],
-        large: true,
-        largeThreshold: 500,
-        itemStyle: { color: 'rgba(184, 134, 78, 0.25)', borderRadius: [2, 2, 0, 0] },
-        barMaxWidth: 10,
-      },
-      {
-        name: '趋势线',
-        type: 'line',
-        data: [...analysis.holtSmoothed, ...new Array(analysis.forecast.length).fill(null)],
-        sampling: 'lttb',
-        smooth: true,
-        itemStyle: { color: themeColors.sage },
-        lineStyle: { width: 2 },
-        symbol: 'none',
-      },
-      {
-        name: '预测',
-        type: 'line',
-        data: [
-          ...new Array(analysis.incomes.length - 1).fill(null),
-          analysis.holtSmoothed[analysis.holtSmoothed.length - 1],
-          ...analysis.forecast,
-        ],
-        sampling: 'lttb',
-        smooth: true,
-        itemStyle: { color: themeColors.warmRed },
-        lineStyle: { width: 2, type: 'dashed' },
-        symbol: 'none',
-        areaStyle: { color: 'rgba(196, 89, 74, 0.08)' },
       },
     ],
     ...timeSeriesZoom,

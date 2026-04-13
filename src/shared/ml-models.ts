@@ -483,7 +483,6 @@ export async function trainEnsemble(
   });
   await yieldUI();
   let mlpBestEpoch = 0;
-  let mlpStoppedEarly = false;
   const {
     result: mlpResult,
     labelMean,
@@ -502,8 +501,6 @@ export async function trainEnsemble(
         const minVal = Math.min(...vlh);
         mlpBestEpoch = vlh.indexOf(minVal) + 1;
       }
-      mlpStoppedEarly = epoch < totalEpochs && (lossHistory?.length ?? 0) === epoch;
-
       onProgress?.({
         step: 4,
         total: 6,

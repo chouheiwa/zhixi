@@ -82,13 +82,18 @@ export function useTourManagement({ userId, allSummaries, allIncomeRecords, tour
   // Launch tour after DOM has updated (double-raf ensures paint completion)
   useEffect(() => {
     if (!pendingTour || !userId) return;
-    const rafId = requestAnimationFrame(() => {
+    let cancelled = false;
+    const outerRafId = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        if (cancelled) return;
         launchCoreTour();
+        setPendingTour(false);
       });
     });
-    setPendingTour(false);
-    return () => cancelAnimationFrame(rafId);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(outerRafId);
+    };
   }, [pendingTour, userId, launchCoreTour]);
 
   // Called by Dashboard after user confirms first-time setup

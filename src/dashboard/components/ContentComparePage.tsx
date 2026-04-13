@@ -27,7 +27,7 @@ interface Props {
 
 const COLORS = [themeColors.warmBlue, themeColors.warmRed, themeColors.sage];
 
-export function ContentComparePage({ initialItems, allContentOptions, onBack }: Props) {
+export function ContentComparePage({ initialItems, allContentOptions, onBack: _onBack }: Props) {
   const { user } = useCurrentUser();
   const currency = useCurrency();
   const [selected, setSelected] = useState<ContentOption[]>(initialItems ?? []);
@@ -59,14 +59,6 @@ export function ContentComparePage({ initialItems, allContentOptions, onBack }: 
     };
     loadData();
   }, [user, selected]);
-
-  const handleAdd = (contentId: string) => {
-    if (selected.length >= 3) return;
-    const item = allContentOptions.find((o) => o.contentId === contentId);
-    if (item && !selected.find((s) => s.contentId === contentId)) {
-      setSelected([...selected, item]);
-    }
-  };
 
   const handleRemove = (contentId: string) => {
     setSelected(selected.filter((s) => s.contentId !== contentId));
@@ -186,7 +178,7 @@ export function ContentComparePage({ initialItems, allContentOptions, onBack }: 
       }
       return row;
     });
-  }, [selected, incomeMap]);
+  }, [selected, incomeMap, currency]);
 
   const [searchText, setSearchText] = useState('');
 

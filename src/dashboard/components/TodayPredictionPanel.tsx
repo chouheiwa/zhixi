@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Card, Row, Col, Statistic, Button, Tag, Flex, Alert, Steps, Progress, Space, Tabs } from 'antd';
+import { Card, Row, Col, Button, Tag, Flex, Alert, Steps, Progress, Space, Tabs } from 'antd';
 import {
   ReloadOutlined,
   ExperimentOutlined,
   LoadingOutlined,
-  CheckCircleOutlined,
   ClockCircleOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
@@ -27,8 +26,6 @@ import {
 import { FormulaBlock } from './FormulaHelp';
 import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 import { themeColors } from '../theme';
-
-const MODEL_DB_KEY = 'realtimeModel';
 
 interface TodayRealtimePayload {
   date: string;
@@ -265,7 +262,7 @@ export function TodayPredictionPanel() {
     } finally {
       setFetchingToday(false);
     }
-  }, [user, savedModel, summaries]);
+  }, [user, savedModel, summaries, currency]);
 
   const trainingRows = buildRealtimeTrainingRows(aggrRecords, summaries);
   const hasEnoughData = trainingRows.length >= 10;

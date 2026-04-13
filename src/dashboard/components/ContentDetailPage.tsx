@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, Row, Col, Statistic, Tag, Button, Tabs, Alert, Flex, Dropdown } from 'antd';
 import type { MenuProps } from 'antd';
 import { ReloadOutlined, LineChartOutlined, FileTextOutlined, ExportOutlined, DownOutlined } from '@ant-design/icons';
@@ -17,7 +17,7 @@ import { ContentFunnelAnalysis } from './ContentFunnelAnalysis';
 import { EngagementEfficiencyChart } from './EngagementEfficiencyChart';
 import { IncomeAttributionChart } from './IncomeAttributionChart';
 import { PeakAndRhythmAnalysis } from './PeakAndRhythmAnalysis';
-import { computeRPM, percentileRanks } from '@/shared/stats';
+import { computeRPM } from '@/shared/stats';
 import { contentTypeLabel, contentTypeColor } from '@/shared/content-type';
 import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 import { themeColors } from '../theme';
@@ -152,18 +152,18 @@ export function ContentDetailPage({
   contentType,
   title,
   publishDate,
-  onBack,
+  onBack: _onBack,
   onCompare,
   demoMode,
 }: Props) {
   const { user } = useCurrentUser();
   const { status } = useCollector();
   const currency = useCurrency();
-  const [dailyRecords, setDailyRecords] = useState<ContentDailyRecord[]>([]);
-  const [incomeRecords, setIncomeRecords] = useState<IncomeRecord[]>([]);
+  const [dailyRecords, setDailyRecords] = useState<ContentDailyRecord[]>(() => (demoMode ? DEMO_DAILY_RECORDS : []));
+  const [incomeRecords, setIncomeRecords] = useState<IncomeRecord[]>(() => (demoMode ? DEMO_INCOME_RECORDS : []));
   const [fetchMsg, setFetchMsg] = useState('');
 
-  const loadData = () => {
+  const loadData = useCallback(() => {
     if (!user || demoMode) return;
     // Load daily metrics and income records from DB independently
     getContentDailyRecords(user.id, contentToken).then(setDailyRecords);
@@ -172,16 +172,11 @@ export function ContentDetailPage({
       .between([user.id, contentId, ''], [user.id, contentId, '\uffff'])
       .sortBy('recordDate')
       .then(setIncomeRecords);
-  };
+  }, [user, contentToken, contentId, demoMode]);
 
   useEffect(() => {
-    if (demoMode) {
-      setIncomeRecords(DEMO_INCOME_RECORDS);
-      setDailyRecords(DEMO_DAILY_RECORDS);
-      return;
-    }
     loadData();
-  }, [user, contentToken, contentId, demoMode]);
+  }, [loadData]);
 
   // Reload when collection finishes
   const prevCollecting = React.useRef(status.isCollecting);
@@ -189,7 +184,7 @@ export function ContentDetailPage({
     if (demoMode) return;
     if (prevCollecting.current && !status.isCollecting) loadData();
     prevCollecting.current = status.isCollecting;
-  }, [status.isCollecting, demoMode]);
+  }, [status.isCollecting, demoMode, loadData]);
 
   // Income summary
   const incomeSummary = useMemo(() => {
@@ -203,7 +198,7 @@ export function ContentDetailPage({
     }
     const rpm = computeRPM(currency.convert(totalIncome), totalRead);
     return { totalIncome, totalRead, totalInteraction, days: incomeRecords.length, rpm };
-  }, [incomeRecords]);
+  }, [incomeRecords, currency]);
 
   // Daily summary from daily records
   const dailySummary = useMemo(() => {
@@ -272,7 +267,7 @@ export function ContentDetailPage({
       ],
       ...timeSeriesZoom,
     };
-  }, [incomeRecords]);
+  }, [incomeRecords, currency]);
 
   return (
     <div>

@@ -8,6 +8,11 @@ on:
 permissions:
   contents: write
 
+# Opt into Node 24 for JavaScript actions ahead of the June 2026 forced switch.
+# actions/upload-artifact@v5 (and a few others) still ship Node 20 binaries.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   build:
     runs-on: ubuntu-latest

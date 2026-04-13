@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Card, Button, DatePicker, Space, Progress, Alert, Flex } from 'antd';
 import { SyncOutlined } from '@ant-design/icons';
-import dayjs from 'dayjs';
 import { useCollector } from '@/hooks/use-collector';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { useUserSettings } from '@/hooks/use-user-settings';

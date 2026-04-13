@@ -252,7 +252,7 @@ export function ShareCardButton({ allSummaries, allRecords }: Props) {
         const url = URL.createObjectURL(blob);
         setPreviewUrl(url);
       }
-    } catch (err) {
+    } catch {
       void message.error('生成卡片失败，请重试');
     } finally {
       setGenerating(false);

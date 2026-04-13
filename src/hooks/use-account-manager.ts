@@ -24,19 +24,22 @@ export function useAccountManager() {
   const [accounts, setAccounts] = useState<SavedAccount[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(() => getStoredActiveAccountId());
 
-  const loadAccounts = useCallback(async () => {
-    try {
-      const list = await getSavedAccounts();
-      setAccounts(list);
-    } catch {
-      // IndexedDB may be unavailable (tests, private browsing, quota errors).
-      // Keep an empty list rather than propagating an unhandled rejection.
-    }
-  }, []);
-
   useEffect(() => {
-    void loadAccounts();
-  }, [loadAccounts]);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const list = await getSavedAccounts();
+        if (cancelled) return;
+        setAccounts(list);
+      } catch {
+        // IndexedDB may be unavailable (tests, private browsing, quota errors).
+        // Keep an empty list rather than propagating an unhandled rejection.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const switchAccount = useCallback(async (userId: string) => {
     storeActiveAccountId(userId);

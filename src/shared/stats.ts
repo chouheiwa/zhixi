@@ -415,7 +415,7 @@ export function powerLawDecayFit(values: number[]): { A: number; alpha: number; 
 
 export function earlyPerformanceMultiplier(
   contentIncomes: { firstNDays: number; total: number }[],
-  n: number,
+  _n: number,
 ): { multiplier: number; sampleSize: number } {
   const valid = contentIncomes.filter((c) => c.firstNDays > 0 && c.total > 0);
   if (valid.length === 0) return { multiplier: 0, sampleSize: 0 };

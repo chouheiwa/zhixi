@@ -3,7 +3,6 @@ import { Card } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import type { IncomeRecord } from '@/shared/types';
 import { contentTypeChartColor } from '@/shared/content-type';
-import { themeColors } from '../theme';
 import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 
 interface RankTooltipParam {

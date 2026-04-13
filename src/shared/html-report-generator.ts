@@ -1,11 +1,5 @@
 /** Generates a fully self-contained HTML report for Zhihu income analysis. */
-import {
-  getCurrencyUnit,
-  formatIncome as formatCurrencyIncome,
-  convertFromSalt,
-  currencyLabel,
-  currencyPrefix,
-} from './currency';
+import { getCurrencyUnit, formatIncome as formatCurrencyIncome, convertFromSalt, currencyLabel } from './currency';
 import type { CurrencyUnit } from './currency';
 
 export interface HtmlReportData {

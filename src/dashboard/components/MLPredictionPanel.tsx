@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Card, Row, Col, Statistic, Button, Tag, Progress, Flex, Empty, Alert, Space, Steps, Table } from 'antd';
+import { Card, Row, Col, Button, Tag, Progress, Flex, Alert, Space, Steps, Table } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   ExperimentOutlined,
@@ -198,7 +198,7 @@ function accuracyLevel(r2: number): { text: string; color: string; desc: string 
   return { text: '不太准', color: themeColors.warmRed, desc: '数据量可能不足，或收益波动太大' };
 }
 
-export function MLPredictionPanel({ records, demoMode, demoStep, onDemoAnimating }: Props) {
+export function MLPredictionPanel({ records: _records, demoMode, demoStep, onDemoAnimating }: Props) {
   const { user } = useCurrentUser();
   const [dailyData, setDailyData] = useState<ContentDailyRecord[]>([]);
   const [allIncomeRecords, setAllIncomeRecords] = useState<IncomeRecord[]>([]);
@@ -258,8 +258,6 @@ export function MLPredictionPanel({ records, demoMode, demoStep, onDemoAnimating
       setTrainingStep(null);
     }
   }, [dailyData, allIncomeRecords, user]);
-
-  const CACHE_TTL_MS = 30 * 60 * 1000;
 
   const handlePredict = useCallback(async () => {
     if (!user) return;

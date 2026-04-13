@@ -25,8 +25,29 @@ export function useIncomeData(userId: string, startDate: string, endDate: string
   }, [userId, startDate, endDate]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    let cancelled = false;
+    void (async () => {
+      if (!userId) {
+        const empty: [IncomeRecord[], DailySummary[]] = [[], []];
+        if (cancelled) return;
+        setRecords(empty[0]);
+        setSummaries(empty[1]);
+        setLoading(false);
+        return;
+      }
+      const [recs, sums] = await Promise.all([
+        getRecordsByDateRange(userId, startDate, endDate),
+        getDailySummaries(userId, startDate, endDate),
+      ]);
+      if (cancelled) return;
+      setRecords(recs);
+      setSummaries(sums);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, startDate, endDate]);
 
   return { records, summaries, loading, refresh };
 }
