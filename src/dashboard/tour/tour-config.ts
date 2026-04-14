@@ -1,6 +1,6 @@
 import type { DriveStep } from 'driver.js';
 
-export const TOUR_VERSION = '1.0.0';
+export const TOUR_VERSION = '1.0.1';
 
 export interface TourStep {
   tab?: string; // 'overview' | 'ml' | 'unmonetized' | 'content'
@@ -386,4 +386,5 @@ export interface FeatureEntry {
 
 export const FEATURE_CHANGELOG: Record<string, FeatureEntry[]> = {
   '1.0.0': [],
+  '1.0.1': [],
 };
