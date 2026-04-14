@@ -55,6 +55,18 @@
 - 一键导出 xlsx 完整记录；也可以生成自包含的 HTML 收益报告
 - 支持 **盐粒 / 元** 两种货币单位实时切换
 
+## 界面预览
+
+> 以下截图均来自内置 Demo 模式的合成数据，未包含任何真实账号信息。
+
+![Dashboard 总览：日收益趋势、内容类型对比与摘要卡片](docs/screenshots/dashboard-overview.png)
+
+![有收益内容明细：按日期范围列出所有变现内容的多维指标](docs/screenshots/with-income.png)
+
+![未产生收益内容面板：识别尚未变现的发文](docs/screenshots/no-income.png)
+
+![单篇内容诊断：RPM 趋势、漏斗与归因分析](docs/screenshots/article-detail.png)
+
 ## 隐私承诺
 
 - 不向任何第三方服务器发送请求
@@ -98,6 +110,8 @@ Firefox 115 ESR 不支持 `background.type: "module"`，所以构建脚本会用
 3. 点「同步」等数据拉取完成（回填若干天的话可能要 1-2 分钟）
 4. 打开 Dashboard，首次进入会有引导式 Tour 演示所有面板
 5. 没有数据也能体验：打开 Demo 模式（Dashboard 右上角）用合成数据看所有图表长什么样
+
+![知析 Popup 弹窗：昨日收益概览、同步进度与一键打开 Dashboard 的入口](docs/screenshots/popup.png)
 
 ## 技术架构
 

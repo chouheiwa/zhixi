@@ -411,6 +411,14 @@ function DashboardInner() {
     }
   };
 
+  const handleYesterdayContentClick = useCallback(() => {
+    if (stats.yesterdayContentCount <= 0) return;
+    const yStr = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
+    setStartDate(yStr);
+    setEndDate(yStr);
+    setActiveTabKey('content');
+  }, [stats.yesterdayContentCount]);
+
   // Loading / sub-pages
   if (userLoading)
     return (
@@ -771,12 +779,34 @@ function DashboardInner() {
                       value={stats.yesterdayRead}
                       valueStyle={{ fontSize: 20, color: themeColors.ink }}
                     />
-                    <Statistic
-                      title="内容"
-                      value={stats.yesterdayContentCount}
-                      suffix="篇"
-                      valueStyle={{ fontSize: 20, color: themeColors.ink }}
-                    />
+                    <div
+                      onClick={handleYesterdayContentClick}
+                      role={stats.yesterdayContentCount > 0 ? 'button' : undefined}
+                      tabIndex={stats.yesterdayContentCount > 0 ? 0 : -1}
+                      onKeyDown={(e) => {
+                        if (stats.yesterdayContentCount > 0 && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault();
+                          handleYesterdayContentClick();
+                        }
+                      }}
+                      style={{
+                        cursor: stats.yesterdayContentCount > 0 ? 'pointer' : 'default',
+                      }}
+                      title={stats.yesterdayContentCount > 0 ? '点击查看昨日有收益内容明细' : undefined}
+                    >
+                      <Statistic
+                        title="内容"
+                        value={stats.yesterdayContentCount}
+                        suffix="篇"
+                        valueStyle={{
+                          fontSize: 20,
+                          color: stats.yesterdayContentCount > 0 ? themeColors.warmBlue : themeColors.ink,
+                          textDecoration: stats.yesterdayContentCount > 0 ? 'underline' : undefined,
+                          textDecorationStyle: 'dotted',
+                          textUnderlineOffset: 4,
+                        }}
+                      />
+                    </div>
                   </Flex>
                 </Card>
               </Col>
