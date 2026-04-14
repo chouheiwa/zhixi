@@ -6,3 +6,4 @@ web-ext-artifacts/
 .superpowers/brainstorm
 coverage
 package-lock.json
+tmp/

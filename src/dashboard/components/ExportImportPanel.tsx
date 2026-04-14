@@ -42,10 +42,15 @@ export function ExportImportPanel({ onImported }: Props) {
     try {
       const text = await file.text();
       const result = await importFromJSON(text);
+
+      const tableEntries = Object.entries(result.tables).filter(([, count]) => (count ?? 0) > 0);
+      const tableSummary =
+        tableEntries.length > 0 ? tableEntries.map(([name, count]) => `${name}: ${count}`).join('，') : undefined;
       const errorSummary =
-        result.skipped > 0
+        result.errors.length > 0
           ? `${result.errors.slice(0, 3).join('；')}${result.errors.length > 3 ? `；另有 ${result.errors.length - 3} 条错误` : ''}`
           : undefined;
+      const description = [tableSummary, errorSummary].filter(Boolean).join(' | ') || undefined;
 
       setFeedback({
         type: 'success',
@@ -53,7 +58,7 @@ export function ExportImportPanel({ onImported }: Props) {
           result.skipped > 0
             ? `导入完成，成功 ${result.imported} 条，跳过 ${result.skipped} 条记录`
             : `导入成功，共 ${result.imported} 条记录`,
-        description: errorSummary,
+        description,
       });
       onImported();
     } catch (err) {
