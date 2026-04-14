@@ -36,7 +36,12 @@ const SW_SOURCE = join(ROOT, 'src/background/service-worker.ts');
 const TSCONFIG = join(ROOT, 'tsconfig.json');
 
 const GECKO_ID = 'zhixi@chouheiwa.dev';
-const GECKO_MIN_VERSION = '115.0';
+// Firefox 140 (desktop) and Firefox for Android 142 are the first versions that
+// understand `browser_specific_settings.gecko.data_collection_permissions`.
+// Setting a lower floor makes addons-linter emit
+// KEY_FIREFOX_UNSUPPORTED_BY_MIN_VERSION / KEY_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION.
+const GECKO_MIN_VERSION = '140.0';
+const GECKO_ANDROID_MIN_VERSION = '142.0';
 
 /** @param {string} msg */
 function log(msg) {
@@ -127,6 +132,18 @@ manifest.browser_specific_settings = {
   gecko: {
     id: GECKO_ID,
     strict_min_version: GECKO_MIN_VERSION,
+    // 知析 does not collect or transmit any user data to third parties:
+    // API calls go directly from the browser to zhihu.com with the user's
+    // own session cookie, and every byte of collected data stays in the
+    // extension's private IndexedDB. Declaring `["none"]` is required by
+    // AMO as of 2025 — omitting it fails validation with
+    // "data_collection_permissions property is missing".
+    data_collection_permissions: {
+      required: ['none'],
+    },
+  },
+  gecko_android: {
+    strict_min_version: GECKO_ANDROID_MIN_VERSION,
   },
 };
 

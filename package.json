@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:firefox": "yarn build && node scripts/build-firefox.mjs",
-    "lint:firefox": "web-ext lint --source-dir=dist-firefox",
+    "lint:firefox": "web-ext lint --source-dir=dist-firefox --ignore-files \"assets/antd-*.js\" \"assets/echarts-*.js\" \"assets/driver-*.js\"",
     "run:firefox": "web-ext run --source-dir=dist-firefox --start-url=about:debugging",
     "package:firefox": "web-ext build --source-dir=dist-firefox --artifacts-dir=web-ext-artifacts --overwrite-dest",
     "test": "vitest",

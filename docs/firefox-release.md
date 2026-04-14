@@ -26,7 +26,7 @@ yarn package:firefox  # web-ext build 生成可上传 AMO 的 .zip
 3. 改写 `dist-firefox/manifest.json`：
    - 移除 `background.service_worker` 与 `background.type`
    - 加入 `background.scripts: ["background.js"]`
-   - 注入 `browser_specific_settings.gecko.{id, strict_min_version}`
+   - 注入 `browser_specific_settings.gecko.{id, strict_min_version: "140.0", data_collection_permissions}` 和 `gecko_android.strict_min_version: "142.0"`；`data_collection_permissions: { required: ["none"] }` 是 AMO 2025 起强制要求，而 `data_collection_permissions` 本身要求 Firefox 桌面 140+ / Android 142+，因此 `strict_min_version` 必须同步上调
 4. 清理 `dist-firefox/service-worker-loader.js` 和 `dist-firefox/assets/service-worker.ts-*.js`（已被 `background.js` 取代）
 5. 写 `dist-firefox/.build-info.json`，记录构建时间戳、git SHA、Node 版本，便于 AMO 审核员复现
 
@@ -48,7 +48,8 @@ Service worker 的两处 auto-sync（知乎标签页打开、`chrome.alarms.onAl
 
 ```js
 const GECKO_ID = 'zhixi@chouheiwa.dev';
-const GECKO_MIN_VERSION = '115.0';
+const GECKO_MIN_VERSION = '140.0';
+const GECKO_ANDROID_MIN_VERSION = '142.0';
 ```
 
 这个 ID 在首次上传到 AMO 时被锁定，之后**不能修改**（否则 Firefox 会把新版本当成完全不同的扩展）。如果需要在本地调试时用不同的 ID 可以改脚本常量再跑 `yarn build:firefox`，但正式上传到 AMO 请严格用 `zhixi@chouheiwa.dev`。

@@ -21,6 +21,10 @@ export default defineConfig({
           tfjs: ['@tensorflow/tfjs'],
           antd: ['antd', '@ant-design/icons'],
           echarts: ['echarts', 'echarts-for-react'],
+          // Isolated so web-ext lint can ignore driver.js's internal
+          // `.innerHTML = …` calls without muting warnings that originate
+          // from our own dashboard code.
+          driver: ['driver.js'],
         },
       },
     },
