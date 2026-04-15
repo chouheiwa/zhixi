@@ -113,4 +113,31 @@ describe('bootstrapCoefficientCI', () => {
     const labels = [ci.stability[1], ci.stability[2]];
     expect(labels.some((s) => s === 'unstable' || s === 'dropped')).toBe(true);
   });
+
+  it('reports successCount for each bootstrap run', () => {
+    const x1 = Array.from({ length: 30 }, (_, i) => (i % 10) + 1);
+    const x2 = Array.from({ length: 30 }, (_, i) => ((i * 7) % 10) + 1);
+    const y = x1.map((v, i) => 2 * v + 3 * x2[i]);
+    const B = 30;
+    const ci = bootstrapCoefficientCI([x1, x2], y, (xs, y2) => multipleLinearRegression(xs, y2), B);
+    // Happy path: all B iterations should succeed
+    expect(ci.successCount).toBe(B);
+  });
+
+  it('degrades gracefully when regressionFn always throws', () => {
+    const x1 = [1, 2, 3, 4, 5];
+    const y = [2, 4, 6, 8, 10];
+    const ci = bootstrapCoefficientCI(
+      [x1],
+      y,
+      () => {
+        throw new Error('always fails');
+      },
+      20,
+    );
+    expect(ci.successCount).toBe(0);
+    // No samples → every coefficient tagged "dropped" via sorted.length === 0 path
+    expect(ci.stability[0]).toBe('dropped');
+    expect(ci.stability[1]).toBe('dropped');
+  });
 });

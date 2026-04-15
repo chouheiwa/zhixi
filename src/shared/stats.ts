@@ -282,6 +282,13 @@ export type StabilityLabel = 'stable' | 'unstable' | 'dropped';
  * @param regressionFn - Regression function returning { coefficients, r2 }
  * @param B  - Number of bootstrap iterations (default 200)
  * @param ciLevel - Confidence level in (0, 1), default 0.95
+ *
+ * @remarks
+ * Performance: each iteration calls `regressionFn` on a fresh resampled dataset.
+ * For B=200 with n >= 1000 rows and p >= 5 features using Lawson-Hanson NNLS,
+ * synchronous execution can take 200-500ms on a modern laptop — enough to drop
+ * animation frames. For dashboard use, consider running in a Web Worker or
+ * lowering B.
  */
 export function bootstrapCoefficientCI(
   xs: number[][],
@@ -289,7 +296,13 @@ export function bootstrapCoefficientCI(
   regressionFn: (xs: number[][], y: number[]) => { coefficients: number[]; r2: number },
   B: number = 200,
   ciLevel: number = 0.95,
-): { lo: number[]; median: number[]; hi: number[]; stability: StabilityLabel[] } {
+): {
+  lo: number[];
+  median: number[];
+  hi: number[];
+  stability: StabilityLabel[];
+  successCount: number;
+} {
   const n = y.length;
   const p = xs.length;
   const m = p + 1;
@@ -299,12 +312,14 @@ export function bootstrapCoefficientCI(
       median: new Array(m).fill(0),
       hi: new Array(m).fill(0),
       stability: new Array(m).fill('dropped'),
+      successCount: 0,
     };
   }
 
   // samples[j] collects the j-th coefficient across B resamples
   const samples: number[][] = Array.from({ length: m }, () => []);
 
+  let successCount = 0;
   for (let b = 0; b < B; b++) {
     const resampledXs: number[][] = xs.map(() => new Array(n));
     const resampledY: number[] = new Array(n);
@@ -320,6 +335,7 @@ export function bootstrapCoefficientCI(
     } catch {
       continue;
     }
+    successCount++;
     for (let j = 0; j < m; j++) samples[j].push(result.coefficients[j] ?? 0);
   }
 
@@ -348,17 +364,26 @@ export function bootstrapCoefficientCI(
       continue;
     }
 
+    // A feature is "effectively dropped" if ≥95% of bootstrap resamples zero it
+    // out — the conventional bootstrap threshold for treating a coefficient as
+    // consistently eliminated by the active-set solver.
     const zeroFraction = sorted.filter((v) => Math.abs(v) < 1e-9).length / sorted.length;
     if (zeroFraction >= 0.95) {
       stability[j] = 'dropped';
-    } else if (Math.abs(median[j]) > 1e-9 && (hi[j] - lo[j]) / Math.abs(median[j]) < 0.5) {
+    } else if (
+      Math.abs(median[j]) > 1e-9 &&
+      // A CI width of less than 50% of the median magnitude is a "tight enough"
+      // heuristic for bootstrap stability — below this the point estimate
+      // communicates meaningful information about the underlying parameter.
+      (hi[j] - lo[j]) / Math.abs(median[j]) < 0.5
+    ) {
       stability[j] = 'stable';
     } else {
       stability[j] = 'unstable';
     }
   }
 
-  return { lo, median, hi, stability };
+  return { lo, median, hi, stability, successCount };
 }
 
 /**
