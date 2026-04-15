@@ -28,94 +28,28 @@ export function pearsonCorrelation(x: number[], y: number[]): number {
 }
 
 /**
- * Non-negative multiple linear regression (NNLS).
- * Fits: y = b0 + b1*x1 + b2*x2 + ... + bn*xn
- * where b1..bn >= 0 (intercept b0 is unconstrained).
+ * Non-negative multiple linear regression.
  *
- * Uses iterative elimination: OLS → remove features with negative coefficients → re-fit.
+ * Fits: y = b0 + b1*x1 + b2*x2 + ... + bn*xn  where b1..bn >= 0
+ * (intercept b0 is unconstrained).
+ *
+ * Internally delegates to {@link lawsonHansonNNLS}, which uses the Lawson-Hanson
+ * active-set method and is guaranteed to find the KKT-optimal constrained
+ * solution. The old iterative-elimination heuristic was replaced in 2026-04.
+ *
+ * ⚠️ Multicollinearity caveat: with highly correlated features (|r| > 0.7), the
+ * non-zero coefficients are sample-sensitive — the same data cut differently
+ * (e.g. 5-fold CV) can produce very different per-feature answers. UIs that
+ * display these coefficients SHOULD also call {@link bootstrapCoefficientCI}
+ * and {@link featureCorrelationMatrix} so users see the instability.
  *
  * @param xs - Array of feature arrays, each feature is a number[]
  * @param y - Target array
  * @returns coefficients [b0, b1, b2, ...bn] and r2 score
  */
 export function multipleLinearRegression(xs: number[][], y: number[]): { coefficients: number[]; r2: number } {
-  const n = y.length;
-  const p = xs.length;
-
-  if (n < 2) {
-    return { coefficients: new Array(p + 1).fill(0), r2: 0 };
-  }
-
-  // Track which features are active (not eliminated)
-  let activeIndices = xs.map((_, i) => i);
-  const finalCoeffs = new Array(p + 1).fill(0);
-
-  for (let iter = 0; iter < p + 1; iter++) {
-    if (activeIndices.length === 0) break;
-
-    const activeXs = activeIndices.map((i) => xs[i]);
-    const result = olsFit(activeXs, y);
-    if (!result) break;
-
-    // Check for negative feature coefficients (skip intercept at index 0)
-    const negatives = [];
-    for (let i = 0; i < activeIndices.length; i++) {
-      if (result[i + 1] < 0) negatives.push(i);
-    }
-
-    if (negatives.length === 0) {
-      // All non-negative — we're done
-      finalCoeffs[0] = result[0]; // intercept
-      for (let i = 0; i < activeIndices.length; i++) {
-        finalCoeffs[activeIndices[i] + 1] = result[i + 1];
-      }
-      break;
-    }
-
-    // Remove features with negative coefficients
-    const toRemove = new Set(negatives.map((i) => activeIndices[i]));
-    activeIndices = activeIndices.filter((i) => !toRemove.has(i));
-
-    // If this was the last iteration or no active features left, use what we have
-    if (activeIndices.length === 0) {
-      // Just intercept
-      let yMean = 0;
-      for (let i = 0; i < n; i++) yMean += y[i];
-      finalCoeffs[0] = yMean / n;
-    }
-  }
-
-  // If we still have active features, do a final fit
-  if (activeIndices.length > 0 && finalCoeffs.every((c) => c === 0)) {
-    const activeXs = activeIndices.map((i) => xs[i]);
-    const result = olsFit(activeXs, y);
-    if (result) {
-      finalCoeffs[0] = result[0];
-      for (let i = 0; i < activeIndices.length; i++) {
-        finalCoeffs[activeIndices[i] + 1] = Math.max(0, result[i + 1]);
-      }
-    }
-  }
-
-  // Calculate R²
-  let yMean = 0;
-  for (let i = 0; i < n; i++) yMean += y[i];
-  yMean /= n;
-
-  let ssTot = 0,
-    ssRes = 0;
-  for (let i = 0; i < n; i++) {
-    let predicted = finalCoeffs[0];
-    for (let j = 0; j < p; j++) {
-      predicted += finalCoeffs[j + 1] * xs[j][i];
-    }
-    ssRes += (y[i] - predicted) ** 2;
-    ssTot += (y[i] - yMean) ** 2;
-  }
-
-  const r2 = ssTot === 0 ? 0 : Math.max(0, 1 - ssRes / ssTot);
-
-  return { coefficients: finalCoeffs, r2 };
+  const result = lawsonHansonNNLS(xs, y);
+  return { coefficients: result.coefficients, r2: result.r2 };
 }
 
 /** OLS fit with intercept. Returns [b0, b1, ...] or null if singular. */
