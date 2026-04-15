@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { bootstrapCoefficientCI, lawsonHansonNNLS, multipleLinearRegression } from '@/shared/stats';
+import {
+  bootstrapCoefficientCI,
+  featureCorrelationMatrix,
+  lawsonHansonNNLS,
+  multipleLinearRegression,
+} from '@/shared/stats';
 
 describe('lawsonHansonNNLS', () => {
   // Test 1: known closed-form solution y = 2·x1 + 3·x2
@@ -139,5 +144,36 @@ describe('bootstrapCoefficientCI', () => {
     // No samples → every coefficient tagged "dropped" via sorted.length === 0 path
     expect(ci.stability[0]).toBe('dropped');
     expect(ci.stability[1]).toBe('dropped');
+  });
+});
+
+describe('featureCorrelationMatrix', () => {
+  it('returns a symmetric p×p matrix with 1s on the diagonal', () => {
+    const x1 = [1, 2, 3, 4, 5];
+    const x2 = [5, 4, 3, 2, 1];
+    const x3 = [2, 2, 3, 4, 4];
+    const m = featureCorrelationMatrix([x1, x2, x3]);
+    expect(m.length).toBe(3);
+    expect(m[0].length).toBe(3);
+    // diagonal
+    expect(m[0][0]).toBeCloseTo(1, 10);
+    expect(m[1][1]).toBeCloseTo(1, 10);
+    expect(m[2][2]).toBeCloseTo(1, 10);
+    // symmetric
+    expect(m[0][1]).toBeCloseTo(m[1][0], 10);
+    expect(m[0][2]).toBeCloseTo(m[2][0], 10);
+    // x1 vs x2 perfectly anti-correlated
+    expect(m[0][1]).toBeCloseTo(-1, 5);
+  });
+
+  it('reports |r| > 0.9 for highly collinear features', () => {
+    const x1 = [1, 2, 3, 4, 5, 6, 7, 8];
+    const x2 = x1.map((v) => v * 2 + 0.01);
+    const m = featureCorrelationMatrix([x1, x2]);
+    expect(Math.abs(m[0][1])).toBeGreaterThan(0.99);
+  });
+
+  it('returns empty matrix for empty input', () => {
+    expect(featureCorrelationMatrix([])).toEqual([]);
   });
 });

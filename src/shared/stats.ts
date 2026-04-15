@@ -387,6 +387,28 @@ export function bootstrapCoefficientCI(
 }
 
 /**
+ * Pairwise Pearson correlation matrix between features.
+ * Returns a p×p symmetric matrix where entry [i][j] = corr(xs[i], xs[j]).
+ * The diagonal is always 1. Useful for diagnosing multicollinearity before
+ * interpreting multivariate regression coefficients — when any off-diagonal
+ * |r| > 0.7, the corresponding regression coefficients should be considered
+ * sample-sensitive and reported alongside {@link bootstrapCoefficientCI}.
+ */
+export function featureCorrelationMatrix(xs: number[][]): number[][] {
+  const p = xs.length;
+  const M: number[][] = Array.from({ length: p }, () => new Array(p).fill(0));
+  for (let i = 0; i < p; i++) {
+    M[i][i] = 1;
+    for (let j = i + 1; j < p; j++) {
+      const r = pearsonCorrelation(xs[i], xs[j]);
+      M[i][j] = r;
+      M[j][i] = r;
+    }
+  }
+  return M;
+}
+
+/**
  * Spearman rank correlation coefficient.
  * Measures monotonic (not necessarily linear) relationship.
  * Computed as Pearson correlation of ranked values.
