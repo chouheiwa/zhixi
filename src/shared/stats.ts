@@ -255,6 +255,112 @@ export function lawsonHansonNNLS(
   return { coefficients: [...x], r2, iterations: outerIterations };
 }
 
+/** Stability label returned by {@link bootstrapCoefficientCI}. */
+export type StabilityLabel = 'stable' | 'unstable' | 'dropped';
+
+/**
+ * Bootstrap confidence intervals for regression coefficients.
+ *
+ * Runs the regression B times on data resampled with replacement and returns
+ * the sampling distribution of each coefficient (including the intercept at
+ * index 0) as (lo, median, hi) percentiles plus a stability tag.
+ *
+ * Use this to communicate coefficient uncertainty to users before showing a
+ * single point estimate. Critical under multicollinearity, where NNLS point
+ * estimates are highly sample-sensitive.
+ *
+ * Stability classification:
+ *  - `dropped`: the coefficient is 0 in ≥ 95% of resamples
+ *  - `stable`:  |median| > 0 and (hi - lo) / |median| < 0.5
+ *  - `unstable`: neither of the above
+ *
+ * The intercept column (index 0) is always tagged `'stable'` — its stability
+ * is not meaningful in the same sense as feature columns.
+ *
+ * @param xs - Feature arrays
+ * @param y  - Target array
+ * @param regressionFn - Regression function returning { coefficients, r2 }
+ * @param B  - Number of bootstrap iterations (default 200)
+ * @param ciLevel - Confidence level in (0, 1), default 0.95
+ */
+export function bootstrapCoefficientCI(
+  xs: number[][],
+  y: number[],
+  regressionFn: (xs: number[][], y: number[]) => { coefficients: number[]; r2: number },
+  B: number = 200,
+  ciLevel: number = 0.95,
+): { lo: number[]; median: number[]; hi: number[]; stability: StabilityLabel[] } {
+  const n = y.length;
+  const p = xs.length;
+  const m = p + 1;
+  if (n < 2 || p === 0) {
+    return {
+      lo: new Array(m).fill(0),
+      median: new Array(m).fill(0),
+      hi: new Array(m).fill(0),
+      stability: new Array(m).fill('dropped'),
+    };
+  }
+
+  // samples[j] collects the j-th coefficient across B resamples
+  const samples: number[][] = Array.from({ length: m }, () => []);
+
+  for (let b = 0; b < B; b++) {
+    const resampledXs: number[][] = xs.map(() => new Array(n));
+    const resampledY: number[] = new Array(n);
+    for (let i = 0; i < n; i++) {
+      const idx = Math.floor(Math.random() * n);
+      for (let j = 0; j < p; j++) resampledXs[j][i] = xs[j][idx];
+      resampledY[i] = y[idx];
+    }
+
+    let result: { coefficients: number[]; r2: number };
+    try {
+      result = regressionFn(resampledXs, resampledY);
+    } catch {
+      continue;
+    }
+    for (let j = 0; j < m; j++) samples[j].push(result.coefficients[j] ?? 0);
+  }
+
+  const alpha = (1 - ciLevel) / 2;
+  const lo = new Array(m).fill(0);
+  const median = new Array(m).fill(0);
+  const hi = new Array(m).fill(0);
+  const stability: StabilityLabel[] = new Array(m).fill('dropped');
+
+  for (let j = 0; j < m; j++) {
+    const sorted = [...samples[j]].sort((a, b) => a - b);
+    if (sorted.length === 0) {
+      stability[j] = 'dropped';
+      continue;
+    }
+    const loIdx = Math.max(0, Math.floor(alpha * sorted.length));
+    const hiIdx = Math.min(sorted.length - 1, Math.ceil((1 - alpha) * sorted.length) - 1);
+    const medIdx = Math.floor(sorted.length / 2);
+    lo[j] = sorted[loIdx];
+    median[j] = sorted[medIdx];
+    hi[j] = sorted[hiIdx];
+
+    if (j === 0) {
+      // Intercept: stability is not meaningful in the same sense; always tag stable
+      stability[j] = 'stable';
+      continue;
+    }
+
+    const zeroFraction = sorted.filter((v) => Math.abs(v) < 1e-9).length / sorted.length;
+    if (zeroFraction >= 0.95) {
+      stability[j] = 'dropped';
+    } else if (Math.abs(median[j]) > 1e-9 && (hi[j] - lo[j]) / Math.abs(median[j]) < 0.5) {
+      stability[j] = 'stable';
+    } else {
+      stability[j] = 'unstable';
+    }
+  }
+
+  return { lo, median, hi, stability };
+}
+
 /**
  * Spearman rank correlation coefficient.
  * Measures monotonic (not necessarily linear) relationship.

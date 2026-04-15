@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { lawsonHansonNNLS, multipleLinearRegression } from '@/shared/stats';
+import { bootstrapCoefficientCI, lawsonHansonNNLS, multipleLinearRegression } from '@/shared/stats';
 
 describe('lawsonHansonNNLS', () => {
   // Test 1: known closed-form solution y = 2·x1 + 3·x2
@@ -71,5 +71,46 @@ describe('multipleLinearRegression (backward-compat wrapper)', () => {
     const result = multipleLinearRegression([x1, x2], y);
     expect(result.coefficients[1]).toBeGreaterThanOrEqual(0);
     expect(result.coefficients[2]).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('bootstrapCoefficientCI', () => {
+  it('produces narrow CIs on clean linear data', () => {
+    // y = 2·x1 + 3·x2
+    const x1 = Array.from({ length: 60 }, (_, i) => (i % 10) + 1);
+    const x2 = Array.from({ length: 60 }, (_, i) => ((i * 7) % 10) + 1);
+    const y = x1.map((v, i) => 2 * v + 3 * x2[i]);
+    const ci = bootstrapCoefficientCI([x1, x2], y, (xs, y2) => multipleLinearRegression(xs, y2), 50);
+    // Medians close to ground truth (indexes 1, 2 — index 0 is intercept)
+    expect(ci.median[1]).toBeCloseTo(2, 1);
+    expect(ci.median[2]).toBeCloseTo(3, 1);
+    // CI width should be small
+    expect(ci.hi[1] - ci.lo[1]).toBeLessThan(0.5);
+    expect(ci.hi[2] - ci.lo[2]).toBeLessThan(0.5);
+    expect(ci.stability[1]).toBe('stable');
+    expect(ci.stability[2]).toBe('stable');
+  });
+
+  it('tags features that are always zero as "dropped"', () => {
+    // x3 is pure zero that NNLS will always eliminate
+    const x1 = Array.from({ length: 40 }, (_, i) => i + 1);
+    const x2 = Array.from({ length: 40 }, (_, i) => ((i * 3) % 8) + 1);
+    const x3 = x1.map(() => 0); // always zero → always eliminated
+    const y = x1.map((v, i) => 2 * v + x2[i]);
+    const ci = bootstrapCoefficientCI([x1, x2, x3], y, (xs, y2) => multipleLinearRegression(xs, y2), 50);
+    expect(ci.stability[3]).toBe('dropped');
+  });
+
+  it('tags unstable features (wide CI relative to median) as "unstable"', () => {
+    // Two nearly collinear features with noisy y; NNLS oscillates which
+    // one carries the weight across bootstrap samples. The noise is required
+    // so the active-set algorithm actually has to choose between the two
+    // columns — a perfectly-solvable problem would stay stable.
+    const x1 = Array.from({ length: 50 }, (_, i) => i + 1);
+    const x2 = x1.map((v) => v * 0.99 + Math.random() * 0.5);
+    const y = x1.map((v, i) => v + x2[i] + (Math.random() - 0.5) * 5);
+    const ci = bootstrapCoefficientCI([x1, x2], y, (xs, y2) => multipleLinearRegression(xs, y2), 100);
+    const labels = [ci.stability[1], ci.stability[2]];
+    expect(labels.some((s) => s === 'unstable' || s === 'dropped')).toBe(true);
   });
 });
