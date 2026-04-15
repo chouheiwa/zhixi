@@ -156,7 +156,9 @@ function olsFit(xs: number[][], y: number[]): number[] | null {
  *
  * @param xs - Feature arrays (each entry is one feature column)
  * @param y - Target array
- * @returns coefficients [b0, b1, ...] with b1..bn >= 0, plus r2 and iteration count
+ * @returns coefficients [b0, b1, ...] with b1..bn >= 0, r2, and the number of
+ *   outer active-set iterations performed (inner interpolation steps are not
+ *   counted).
  */
 export function lawsonHansonNNLS(
   xs: number[][],
@@ -194,7 +196,6 @@ export function lawsonHansonNNLS(
     return out;
   };
   const matTVec = (M: number[][], v: number[]): number[] => {
-    if (M.length === 0) return [];
     const cols = M[0].length;
     const out = new Array(cols).fill(0);
     for (let k = 0; k < cols; k++) {
@@ -215,14 +216,17 @@ export function lawsonHansonNNLS(
       }
     }
     const sol = solveLinearSystem(AtA, Atb);
+    // If the active subsystem is singular (e.g. duplicate columns), fall back to
+    // the zero vector. The inner feasibility check will then drop all active
+    // feature columns back to R, letting the outer loop pick a different jMax.
     return sol ?? new Array(k).fill(0);
   };
 
-  let iterations = 0;
-  while (iterations < maxIter) {
-    iterations++;
+  let outerIterations = 0;
+  while (outerIterations < maxIter) {
+    outerIterations++;
     const Ax = matVec(A, x);
-    const resid = new Array(n);
+    const resid = new Array(n).fill(0);
     for (let i = 0; i < n; i++) resid[i] = y[i] - Ax[i];
     const w = matTVec(A, resid);
 
@@ -235,21 +239,28 @@ export function lawsonHansonNNLS(
         jMax = j;
       }
     }
-    if (jMax === -1) break; // KKT satisfied
+    if (jMax === -1) break; // w_j <= tol for all j in R → KKT satisfied
 
     R.delete(jMax);
     P.add(jMax);
 
     // Inner loop: resolve infeasibility introduced by adding jMax to P.
-    while (iterations < maxIter) {
-      iterations++;
+    // Bound: Lawson-Hanson's inner loop cannot exceed the number of columns,
+    // so `m + 1` is a safe upper bound per outer step.
+    let innerIterations = 0;
+    const maxInner = m + 1;
+    while (innerIterations < maxInner) {
+      innerIterations++;
       const active = [...P].sort((a, b) => a - b);
       const s = solveActiveOLS(active);
 
       // Intercept (index 0) is unconstrained; only feature columns must be > 0.
+      // Standard Lawson-Hanson uses strict feasibility (s_i <= 0), NOT a
+      // tolerance — a tiny positive coefficient like 1e-11 is a legitimate
+      // feasible solution and must not be clamped.
       let anyInfeasible = false;
       for (let i = 0; i < active.length; i++) {
-        if (active[i] !== 0 && s[i] <= tol) {
+        if (active[i] !== 0 && s[i] <= 0) {
           anyInfeasible = true;
           break;
         }
@@ -266,11 +277,11 @@ export function lawsonHansonNNLS(
       for (let i = 0; i < active.length; i++) {
         const col = active[i];
         if (col === 0) continue;
-        if (s[i] <= tol) {
+        if (s[i] <= 0) {
           const denom = x[col] - s[i];
           if (denom > tol) {
-            const a = x[col] / denom;
-            if (a < alpha) alpha = a;
+            const candidate = x[col] / denom;
+            if (candidate < alpha) alpha = candidate;
           }
         }
       }
@@ -280,10 +291,10 @@ export function lawsonHansonNNLS(
         x[col] = x[col] + alpha * (s[i] - x[col]);
       }
 
-      // Move all x_j ≤ tol (among feature columns) from P back to R.
+      // Move all x_j ≤ 0 (among feature columns) from P back to R.
       const toRemove: number[] = [];
       for (const j of P) {
-        if (j !== 0 && x[j] <= tol) toRemove.push(j);
+        if (j !== 0 && x[j] <= 0) toRemove.push(j);
       }
       for (const j of toRemove) {
         P.delete(j);
@@ -307,7 +318,7 @@ export function lawsonHansonNNLS(
   }
   const r2 = ssTot === 0 ? 0 : Math.max(0, 1 - ssRes / ssTot);
 
-  return { coefficients: [...x], r2, iterations };
+  return { coefficients: [...x], r2, iterations: outerIterations };
 }
 
 /**

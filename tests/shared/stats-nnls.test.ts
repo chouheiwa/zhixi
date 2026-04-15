@@ -27,6 +27,7 @@ describe('lawsonHansonNNLS', () => {
     const result = lawsonHansonNNLS(xs, y);
     expect(result.coefficients[2]).toBeCloseTo(0, 5);
     expect(result.coefficients[1]).toBeGreaterThanOrEqual(-1e-9);
+    expect(result.r2).toBeGreaterThan(0.5);
   });
 
   // Test 3: multicollinearity x1 ≈ x2, y = 2·x1
@@ -39,5 +40,12 @@ describe('lawsonHansonNNLS', () => {
     expect(sum).toBeGreaterThan(1.5);
     expect(sum).toBeLessThan(2.5);
     expect(result.r2).toBeGreaterThan(0.99);
+  });
+
+  it('returns zero coefficients for insufficient data', () => {
+    const result = lawsonHansonNNLS([[1]], [1]);
+    expect(result.coefficients).toEqual([0, 0]);
+    expect(result.r2).toBe(0);
+    expect(result.iterations).toBe(0);
   });
 });
