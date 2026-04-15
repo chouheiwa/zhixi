@@ -14,6 +14,8 @@ import {
   quantileRegressionPredict,
   residualAnalysis,
   computeRPM,
+  bootstrapCoefficientCI,
+  featureCorrelationMatrix,
 } from '@/shared/stats';
 import { FormulaBlock } from './FormulaHelp';
 import { themeColors } from '../theme';
@@ -130,6 +132,13 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
     })).sort((a, b) => Math.abs(b.pearson) - Math.abs(a.pearson));
 
     const regression = multipleLinearRegression(xs, incomeValues);
+    const coefficientCI = bootstrapCoefficientCI(
+      xs,
+      incomeValues,
+      (featureXs, y2) => multipleLinearRegression(featureXs, y2),
+      100, // 100 iterations keeps the main-thread cost under ~300ms for typical sample sizes
+    );
+    const corrMatrix = featureCorrelationMatrix(xs);
     const weights = METRIC_INFO.map(({ key, label, color }, i) => ({
       key,
       label,
@@ -195,6 +204,8 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
       residuals,
       contentCount: aggregated.length,
       topContrib,
+      coefficientCI,
+      corrMatrix,
     };
   }, [aggregated]);
 
@@ -369,6 +380,95 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
       </AntCard>
 
       <Row gutter={[16, 16]}>
+        {/* Bootstrap CI stability */}
+        <Col span={24}>
+          <Card title="采样稳定性 (100 次 bootstrap, 95% CI)" subtitle="单点系数在重采样下的波动范围">
+            {METRIC_INFO.map((metric, i) => {
+              const idx = i + 1; // coefficients[0] is intercept
+              const lo = analysis.coefficientCI.lo[idx];
+              const hi = analysis.coefficientCI.hi[idx];
+              const med = analysis.coefficientCI.median[idx];
+              const label = analysis.coefficientCI.stability[idx];
+              const icon = label === 'stable' ? '✅' : label === 'unstable' ? '⚠️' : '❌';
+              const text = label === 'stable' ? '稳定' : label === 'unstable' ? '不稳定' : '始终剔除';
+              return (
+                <div
+                  key={metric.key}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginBottom: 6,
+                    fontSize: 12,
+                  }}
+                >
+                  <div style={{ width: 60, color: '#666' }}>{metric.label}</div>
+                  <div style={{ flex: 1, fontFamily: 'monospace', color: '#333' }}>
+                    {med.toFixed(2)} ({lo.toFixed(2)} ~ {hi.toFixed(2)})
+                  </div>
+                  <div style={{ width: 110, textAlign: 'right' }}>
+                    <span style={{ marginRight: 4 }}>{icon}</span>
+                    {text}
+                  </div>
+                </div>
+              );
+            })}
+          </Card>
+        </Col>
+
+        {/* Feature correlation matrix */}
+        <Col span={24}>
+          <Card title="特征相关性矩阵 (Pearson)" subtitle="|r| > 0.7 的配对说明信号重叠，单点系数对采样敏感">
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ borderCollapse: 'collapse', fontSize: 11 }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: 4 }}></th>
+                    {METRIC_INFO.map((m) => (
+                      <th key={m.key} style={{ padding: 4, color: '#666', fontWeight: 500 }}>
+                        {m.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {METRIC_INFO.map((rowMetric, i) => (
+                    <tr key={rowMetric.key}>
+                      <td style={{ padding: 4, color: '#666' }}>{rowMetric.label}</td>
+                      {METRIC_INFO.map((_, j) => {
+                        const r = analysis.corrMatrix[i][j];
+                        const abs = Math.abs(r);
+                        const bg =
+                          i === j
+                            ? '#eee'
+                            : abs > 0.7
+                              ? 'rgba(235, 100, 100, 0.35)'
+                              : abs > 0.4
+                                ? 'rgba(235, 200, 80, 0.25)'
+                                : '#fafafa';
+                        return (
+                          <td
+                            key={j}
+                            style={{
+                              padding: 4,
+                              background: bg,
+                              textAlign: 'center',
+                              border: '1px solid #eee',
+                              fontFamily: 'monospace',
+                            }}
+                          >
+                            {r.toFixed(2)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </Col>
+
         {/* What metrics correlate with income? */}
         <Col span={12}>
           <Card title="哪些指标和收益关系最大？" subtitle="柱子越长 = 关系越紧密，靠右 = 正向关系">
@@ -386,7 +486,7 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
 
         {/* What drives income? */}
         <Col span={12}>
-          <Card title="收益主要靠什么？" subtitle="各指标对收益的贡献比例">
+          <Card title="当前样本下的贡献度估计" subtitle="请先查看上方的采样稳定性；高度不稳定的系数不应作为决策依据">
             {analysis.contributions.map(({ key, label, color, pct }) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                 <div style={{ width: 50, fontSize: 12, color: '#666' }}>{label}</div>
