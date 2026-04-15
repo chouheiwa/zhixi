@@ -540,49 +540,75 @@ export function earlyPerformanceMultiplier(
 }
 
 // ── Ridge Regression: minimize ||y - Xβ||² + λ||β||² ──
+//
+// Features are z-score standardized internally so the penalty λ applies
+// uniformly across feature scales; coefficients are then un-standardized
+// before being returned. λ is interpreted on the standardized scale:
+//   λ = 0   → equivalent to OLS
+//   λ = 1   → mild regularization (1 unit of L2 per standardized feature)
+//   λ = 100 → strong shrinkage
 
 export function ridgeRegression(xs: number[][], y: number[], lambda = 1.0): { coefficients: number[]; r2: number } {
   const n = y.length;
   const p = xs.length;
   const cols = p + 1;
-
   if (n < 2) return { coefficients: new Array(cols).fill(0), r2: 0 };
 
+  // Step 1: compute feature means and stds
+  const means = xs.map((x) => x.reduce((a, b) => a + b, 0) / n);
+  const stds = xs.map((x, i) => {
+    let variance = 0;
+    for (const v of x) variance += (v - means[i]) ** 2;
+    variance /= n;
+    const s = Math.sqrt(variance);
+    return s > 1e-12 ? s : 1; // protect against zero-variance features
+  });
+
+  // Step 2: standardize features
+  const xsStd = xs.map((x, i) => x.map((v) => (v - means[i]) / stds[i]));
+
+  // Step 3: build standardized XtX / Xty with intercept column
   const XtX: number[][] = Array.from({ length: cols }, () => new Array(cols).fill(0));
   const Xty: number[] = new Array(cols).fill(0);
-
   for (let i = 0; i < n; i++) {
-    const row = [1, ...xs.map((x) => x[i])];
+    const row = [1, ...xsStd.map((x) => x[i])];
     for (let j = 0; j < cols; j++) {
-      for (let k = 0; k < cols; k++) {
-        XtX[j][k] += row[j] * row[k];
-      }
+      for (let k = 0; k < cols; k++) XtX[j][k] += row[j] * row[k];
       Xty[j] += row[j] * y[i];
     }
   }
 
-  // Add λI to feature coefficients (not intercept)
-  for (let j = 1; j < cols; j++) {
-    XtX[j][j] += lambda;
+  // Step 4: apply ridge penalty on standardized feature columns only
+  for (let j = 1; j < cols; j++) XtX[j][j] += lambda;
+
+  const stdCoeffs = solveLinearSystem(XtX, Xty);
+  if (!stdCoeffs) return { coefficients: new Array(cols).fill(0), r2: 0 };
+
+  // Step 5: un-standardize
+  // Standardized model: y = b0_std + Σ b_j_std * (x_j - mean_j) / std_j
+  //                       = (b0_std - Σ b_j_std * mean_j / std_j) + Σ (b_j_std / std_j) * x_j
+  const finalCoeffs = new Array(cols).fill(0);
+  let intercept = stdCoeffs[0];
+  for (let j = 0; j < p; j++) {
+    finalCoeffs[j + 1] = stdCoeffs[j + 1] / stds[j];
+    intercept -= (stdCoeffs[j + 1] * means[j]) / stds[j];
   }
+  finalCoeffs[0] = intercept;
 
-  const coefficients = solveLinearSystem(XtX, Xty);
-  if (!coefficients) return { coefficients: new Array(cols).fill(0), r2: 0 };
-
+  // Step 6: R² on original scale
   let yMean = 0;
   for (let i = 0; i < n; i++) yMean += y[i];
   yMean /= n;
-
-  let ssTot = 0,
-    ssRes = 0;
+  let ssTot = 0;
+  let ssRes = 0;
   for (let i = 0; i < n; i++) {
-    let pred = coefficients[0];
-    for (let j = 0; j < p; j++) pred += coefficients[j + 1] * xs[j][i];
+    let pred = finalCoeffs[0];
+    for (let j = 0; j < p; j++) pred += finalCoeffs[j + 1] * xs[j][i];
     ssRes += (y[i] - pred) ** 2;
     ssTot += (y[i] - yMean) ** 2;
   }
 
-  return { coefficients, r2: ssTot === 0 ? 0 : Math.max(0, 1 - ssRes / ssTot) };
+  return { coefficients: finalCoeffs, r2: ssTot === 0 ? 0 : Math.max(0, 1 - ssRes / ssTot) };
 }
 
 // ── Interaction Terms Regression ──

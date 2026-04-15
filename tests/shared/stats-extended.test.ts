@@ -179,28 +179,62 @@ describe('earlyPerformanceMultiplier', () => {
 });
 
 describe('ridgeRegression', () => {
-  it('fits a simple linear relationship with a high r2', () => {
-    const result = ridgeRegression([[1, 2, 3, 4]], [3, 5, 7, 9], 0.01);
-
-    expect(result.coefficients[0]).toBeCloseTo(1, 1);
-    expect(result.coefficients[1]).toBeCloseTo(2, 1);
-    expect(result.r2).toBeGreaterThan(0.99);
+  it('with lambda=0 returns the OLS solution', () => {
+    // y = 2x + 1, λ=0 should recover exactly
+    const result = ridgeRegression([[1, 2, 3, 4]], [3, 5, 7, 9], 0);
+    expect(result.coefficients[0]).toBeCloseTo(1, 3);
+    expect(result.coefficients[1]).toBeCloseTo(2, 3);
+    expect(result.r2).toBeCloseTo(1, 5);
   });
 
-  it('shrinks coefficients more strongly when lambda increases', () => {
-    const lowPenalty = ridgeRegression([[1, 2, 3, 4]], [2, 4, 6, 8], 0.01);
-    const highPenalty = ridgeRegression([[1, 2, 3, 4]], [2, 4, 6, 8], 100);
+  it('with large lambda visibly shrinks feature coefficients', () => {
+    const xs = [[1, 2, 3, 4, 5, 6, 7, 8]];
+    const y = [2, 4, 6, 8, 10, 12, 14, 16];
+    const ols = ridgeRegression(xs, y, 0);
+    const shrunk = ridgeRegression(xs, y, 100);
+    expect(Math.abs(shrunk.coefficients[1])).toBeLessThan(Math.abs(ols.coefficients[1]) * 0.9);
+  });
 
-    expect(Math.abs(highPenalty.coefficients[1])).toBeLessThan(Math.abs(lowPenalty.coefficients[1]));
+  it('handles features with wildly different scales (standardization test)', () => {
+    // Two independent features with 1000× scale difference. Without
+    // standardization, a λ=1 penalty on raw XtX diagonals is negligible for
+    // x2 (~10^8) but dominates x1 (~hundreds) — the small-scale feature gets
+    // disproportionately shrunk. With z-score standardization, λ applies
+    // uniformly on the standardized scale and the reconstructed predictions
+    // should still closely track y.
+    const x1 = [1, 2, 3, 4, 5, 6, 7, 8];
+    const x2 = [500, 1500, 800, 3000, 1200, 4000, 2500, 3500]; // not collinear with x1
+    const y = x1.map((v, i) => 2 * v + 0.003 * x2[i] + 1);
+    const result = ridgeRegression([x1, x2], y, 1.0);
+    // High R² on the original scale — ridge with a mild λ on standardized
+    // features should still explain almost all variance.
+    expect(result.r2).toBeGreaterThan(0.95);
+    // Coefficients on the original scale should be in the right ballpark of
+    // the ground truth, even after un-standardization (not exact because
+    // λ=1 applies mild shrinkage).
+    expect(result.coefficients[1]).toBeGreaterThan(0.5); // ~2, shrunk
+    expect(result.coefficients[2]).toBeGreaterThan(0.001); // ~0.003, shrunk
+    expect(result.coefficients[2]).toBeLessThan(0.01);
   });
 
   it('returns zero coefficients for insufficient data', () => {
     expect(ridgeRegression([[1]], [2])).toEqual({ coefficients: [0, 0], r2: 0 });
   });
+
+  it('handles zero-variance features without NaN', () => {
+    // x2 is constant → std = 0, standardization must guard against NaN
+    const x1 = [1, 2, 3, 4, 5];
+    const x2 = [7, 7, 7, 7, 7];
+    const y = [2, 4, 6, 8, 10];
+    const result = ridgeRegression([x1, x2], y, 1.0);
+    expect(Number.isFinite(result.coefficients[0])).toBe(true);
+    expect(Number.isFinite(result.coefficients[1])).toBe(true);
+    expect(Number.isFinite(result.coefficients[2])).toBe(true);
+  });
 });
 
 describe('interactionRegression', () => {
-  it('includes original and interaction terms, sorted by coefficient magnitude', () => {
+  it('includes original and interaction terms and explains most variance', () => {
     const x1 = [1, 2, 3, 4, 5];
     const x2 = [2, 1, 2, 1, 2];
     const interaction = x1.map((value, index) => value * x2[index]);
@@ -212,7 +246,10 @@ describe('interactionRegression', () => {
     expect(names).toContain('reads');
     expect(names).toContain('likes');
     expect(names).toContain('reads×likes');
-    expect(result.terms[0].name).toBe('reads×likes');
+    // With standardized ridge, term ordering by raw-scale |coeff| depends on
+    // each feature's std and no longer tracks the underlying ground-truth
+    // magnitudes. Assert instead that the model still explains most of the
+    // variance and that all three labels are present.
     expect(result.r2).toBeGreaterThan(0.9);
   });
 
