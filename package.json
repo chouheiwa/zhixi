@@ -1,6 +1,6 @@
 {
   "name": "zhixi",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "知析 - 知乎致知计划收益智能分析工具",
   "type": "module",
   "scripts": {
