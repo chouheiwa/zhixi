@@ -69,7 +69,7 @@ describe('multipleLinearRegression (backward-compat wrapper)', () => {
     const x2 = [1.1, 2.2, 2.9, 4.1, 5.0, 5.8, 7.1, 8.2];
     const y = x1.map((v) => 2 * v + 1);
     const result = multipleLinearRegression([x1, x2], y);
-    expect(result.coefficients[1]).toBeGreaterThanOrEqual(-1e-9);
-    expect(result.coefficients[2]).toBeGreaterThanOrEqual(-1e-9);
+    expect(result.coefficients[1]).toBeGreaterThanOrEqual(0);
+    expect(result.coefficients[2]).toBeGreaterThanOrEqual(0);
   });
 });
