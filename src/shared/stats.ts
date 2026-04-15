@@ -281,23 +281,55 @@ function rankArray(arr: number[]): number[] {
 }
 
 /**
+ * Result of {@link elasticityAnalysis}.
+ *
+ * Fields `nUsed`, `totalN`, `samplingFraction`, and `conditionalWarnings` were
+ * added in 2026-04 to expose the selection bias caused by the log-log filter
+ * (log undefined at 0, so all (x ≤ 0 or y ≤ 0) samples are dropped). Features
+ * with high zero-rates produce a conditional elasticity, not a marginal one.
+ */
+export interface ElasticityResult {
+  elasticities: number[];
+  r2s: number[];
+  /** Sample count per feature after dropping x<=0 or y<=0 pairs. */
+  nUsed: number[];
+  /** Total sample count in the input (same across features). */
+  totalN: number;
+  /** nUsed[i] / totalN — fraction of samples retained per feature. */
+  samplingFraction: number[];
+  /** Human-readable warnings when samplingFraction[i] < 0.5. */
+  conditionalWarnings: string[];
+}
+
+/**
  * Log-log elasticity regression.
  * Fits: ln(y) = a + b*ln(x) for each feature independently.
  * b = "x increases 1% → y increases b%"
- * Skips zero values (log undefined).
+ *
+ * Samples where x ≤ 0 or y ≤ 0 are dropped (log undefined). For features with
+ * high zero-rate this introduces selection bias: the returned elasticity is
+ * conditional on x>0, not a marginal effect on the full distribution. Inspect
+ * `samplingFraction` and `conditionalWarnings` before making decisions.
  */
-export function elasticityAnalysis(xs: number[][], y: number[]): { elasticities: number[]; r2s: number[] } {
+export function elasticityAnalysis(xs: number[][], y: number[]): ElasticityResult {
   const elasticities: number[] = [];
   const r2s: number[] = [];
+  const nUsed: number[] = [];
+  const totalN = y.length;
+  const samplingFraction: number[] = [];
+  const conditionalWarnings: string[] = [];
 
-  for (const x of xs) {
-    // Filter out pairs where either x or y is <= 0
+  for (let featureIdx = 0; featureIdx < xs.length; featureIdx++) {
+    const x = xs[featureIdx];
     const validIndices: number[] = [];
     for (let i = 0; i < x.length; i++) {
       if (x[i] > 0 && y[i] > 0) validIndices.push(i);
     }
+    const used = validIndices.length;
+    nUsed.push(used);
+    samplingFraction.push(totalN > 0 ? used / totalN : 0);
 
-    if (validIndices.length < 3) {
+    if (used < 3) {
       elasticities.push(0);
       r2s.push(0);
       continue;
@@ -305,8 +337,6 @@ export function elasticityAnalysis(xs: number[][], y: number[]): { elasticities:
 
     const logX = validIndices.map((i) => Math.log(x[i]));
     const logY = validIndices.map((i) => Math.log(y[i]));
-
-    // Simple OLS on log-log
     const result = olsFit([logX], logY);
     if (!result) {
       elasticities.push(0);
@@ -316,12 +346,11 @@ export function elasticityAnalysis(xs: number[][], y: number[]): { elasticities:
 
     elasticities.push(result[1]);
 
-    // R² for log-log fit
     let mean = 0;
     for (const v of logY) mean += v;
     mean /= logY.length;
-    let ssTot = 0,
-      ssRes = 0;
+    let ssTot = 0;
+    let ssRes = 0;
     for (let i = 0; i < logY.length; i++) {
       const predicted = result[0] + result[1] * logX[i];
       ssRes += (logY[i] - predicted) ** 2;
@@ -330,7 +359,18 @@ export function elasticityAnalysis(xs: number[][], y: number[]): { elasticities:
     r2s.push(ssTot === 0 ? 0 : Math.max(0, 1 - ssRes / ssTot));
   }
 
-  return { elasticities, r2s };
+  for (let i = 0; i < xs.length; i++) {
+    if (samplingFraction[i] < 0.5) {
+      const pct = (samplingFraction[i] * 100).toFixed(0);
+      conditionalWarnings.push(
+        `Feature ${i}: only ${nUsed[i]}/${totalN} samples used (${pct}%). ` +
+          `Elasticity ${elasticities[i].toFixed(3)} is conditional on x > 0, ` +
+          `not a marginal effect. Interpret with caution.`,
+      );
+    }
+  }
+
+  return { elasticities, r2s, nUsed, totalN, samplingFraction, conditionalWarnings };
 }
 
 /**

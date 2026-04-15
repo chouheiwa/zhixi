@@ -96,6 +96,35 @@ describe('elasticityAnalysis', () => {
     const result = elasticityAnalysis([[0, 0, 0]], [0, 0, 0]);
     expect(result.elasticities[0]).toBe(0);
   });
+  it('reports nUsed / samplingFraction / totalN for each feature', () => {
+    const x = [1, 2, 3, 4, 5, 6, 7, 8];
+    const y = x.map((v) => 2 * v);
+    const result = elasticityAnalysis([x], y);
+    expect(result.totalN).toBe(8);
+    expect(result.nUsed[0]).toBe(8);
+    expect(result.samplingFraction[0]).toBeCloseTo(1, 5);
+    expect(result.conditionalWarnings).toEqual([]);
+  });
+
+  it('produces a conditional warning when more than half the samples are dropped', () => {
+    // 10 samples, only 3 valid (x > 0 AND y > 0) → samplingFraction = 0.3
+    const x = [0, 0, 0, 0, 0, 0, 0, 1, 2, 3];
+    const y = [0, 0, 0, 0, 0, 0, 0, 2, 4, 6];
+    const result = elasticityAnalysis([x], y);
+    expect(result.totalN).toBe(10);
+    expect(result.nUsed[0]).toBe(3);
+    expect(result.samplingFraction[0]).toBeCloseTo(0.3, 3);
+    expect(result.conditionalWarnings.length).toBe(1);
+    expect(result.conditionalWarnings[0]).toMatch(/conditional/i);
+  });
+
+  it('does not warn when samplingFraction exceeds 50%', () => {
+    const x = [0, 1, 2, 3, 4, 5, 6, 0, 0, 0];
+    const y = [0, 2, 4, 6, 8, 10, 12, 0, 0, 0];
+    const result = elasticityAnalysis([x], y);
+    expect(result.samplingFraction[0]).toBeGreaterThan(0.5);
+    expect(result.conditionalWarnings).toEqual([]);
+  });
 });
 
 describe('contributionPercentages', () => {

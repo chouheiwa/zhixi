@@ -56,7 +56,7 @@ export function IncomeAttributionChart({ dailyRecords, incomeRecords }: Props) {
     const xs = METRICS.map((m) => matchedDaily.map((r) => m.getter(r)));
     const y = matchedIncome;
 
-    const { elasticities, r2s } = elasticityAnalysis(xs, y);
+    const { elasticities, r2s, samplingFraction, conditionalWarnings } = elasticityAnalysis(xs, y);
 
     // Normalize elasticities to percentages for the bar chart
     const absElasticities = elasticities.map((e) => Math.max(0, e));
@@ -77,6 +77,8 @@ export function IncomeAttributionChart({ dailyRecords, incomeRecords }: Props) {
       contributions,
       elasticities,
       r2s,
+      samplingFraction,
+      conditionalWarnings,
       r2: avgR2,
       topDriver: METRICS[topIdx].label,
       metrics: METRICS,
@@ -114,6 +116,7 @@ export function IncomeAttributionChart({ dailyRecords, incomeRecords }: Props) {
       contribution: result.contributions[i],
       elasticity: result.elasticities[i],
       r2: result.r2s[i],
+      samplingFraction: result.samplingFraction[i],
     }))
     .sort((a, b) => b.contribution - a.contribution);
 
@@ -188,10 +191,24 @@ export function IncomeAttributionChart({ dailyRecords, incomeRecords }: Props) {
                   {lowR2 && <span style={{ marginLeft: 4, color: themeColors.amber }}>（拟合度低，结果仅供参考）</span>}
                 </>
               )}
+              {m.samplingFraction < 0.5 && (
+                <span style={{ marginLeft: 4, color: themeColors.amber }}>
+                  （仅 {(m.samplingFraction * 100).toFixed(0)}% 样本参与拟合，为非零条件弹性）
+                </span>
+              )}
             </div>
           );
         })}
       </div>
+      {result.conditionalWarnings.length > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginTop: 8, fontSize: 12 }}
+          message="部分指标的弹性为非零条件估计"
+          description='零值率高的指标（如分享、评论）在对数回归里只用到少量样本，结果是 "x > 0 时的条件弹性"，不代表边际效应。'
+        />
+      )}
       <FormulaBlock
         title="收益归因分析 — 基于弹性（Elasticity）"
         items={[
