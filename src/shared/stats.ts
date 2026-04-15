@@ -141,6 +141,176 @@ function olsFit(xs: number[][], y: number[]): number[] | null {
 }
 
 /**
+ * Lawson-Hanson non-negative least squares.
+ * Solves: min ||Ax - b||² s.t. x >= 0
+ *
+ * Guaranteed to find the global optimum of the constrained problem.
+ * Unlike the iterative-elimination heuristic in the original
+ * multipleLinearRegression, this algorithm:
+ *   1. Uses an active set method with exchange rule
+ *   2. Verifies KKT conditions at convergence
+ *   3. Allows dropped features to re-enter the active set
+ *
+ * Reference: Lawson, C.L. and Hanson, R.J. (1974)
+ *   Solving Least Squares Problems, SIAM.
+ *
+ * @param xs - Feature arrays (each entry is one feature column)
+ * @param y - Target array
+ * @returns coefficients [b0, b1, ...] with b1..bn >= 0, plus r2 and iteration count
+ */
+export function lawsonHansonNNLS(
+  xs: number[][],
+  y: number[],
+  maxIter: number = 1000,
+  tol: number = 1e-10,
+): { coefficients: number[]; r2: number; iterations: number } {
+  const n = y.length;
+  const p = xs.length;
+  if (n < 2) return { coefficients: new Array(p + 1).fill(0), r2: 0, iterations: 0 };
+
+  // Build design matrix A (n × (p+1)) with leading intercept column.
+  // The intercept is treated as an unconstrained column: we put it in P
+  // permanently so it is never dropped. All other columns start in R and are
+  // activated by the standard Lawson-Hanson rule.
+  const m = p + 1;
+  const A: number[][] = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const row = new Array(m);
+    row[0] = 1;
+    for (let j = 0; j < p; j++) row[j + 1] = xs[j][i];
+    A[i] = row;
+  }
+
+  const x = new Array(m).fill(0);
+  const P = new Set<number>([0]); // intercept always active
+  const R = new Set<number>();
+  for (let j = 1; j < m; j++) R.add(j);
+
+  const matVec = (M: number[][], v: number[]): number[] => {
+    const out = new Array(M.length).fill(0);
+    for (let i = 0; i < M.length; i++) {
+      for (let k = 0; k < v.length; k++) out[i] += M[i][k] * v[k];
+    }
+    return out;
+  };
+  const matTVec = (M: number[][], v: number[]): number[] => {
+    if (M.length === 0) return [];
+    const cols = M[0].length;
+    const out = new Array(cols).fill(0);
+    for (let k = 0; k < cols; k++) {
+      for (let i = 0; i < M.length; i++) out[k] += M[i][k] * v[i];
+    }
+    return out;
+  };
+
+  // Solve unconstrained least squares on the submatrix given by `active` columns.
+  const solveActiveOLS = (active: number[]): number[] => {
+    const k = active.length;
+    const AtA: number[][] = Array.from({ length: k }, () => new Array(k).fill(0));
+    const Atb: number[] = new Array(k).fill(0);
+    for (let i = 0; i < n; i++) {
+      for (let a = 0; a < k; a++) {
+        for (let c = 0; c < k; c++) AtA[a][c] += A[i][active[a]] * A[i][active[c]];
+        Atb[a] += A[i][active[a]] * y[i];
+      }
+    }
+    const sol = solveLinearSystem(AtA, Atb);
+    return sol ?? new Array(k).fill(0);
+  };
+
+  let iterations = 0;
+  while (iterations < maxIter) {
+    iterations++;
+    const Ax = matVec(A, x);
+    const resid = new Array(n);
+    for (let i = 0; i < n; i++) resid[i] = y[i] - Ax[i];
+    const w = matTVec(A, resid);
+
+    // Find the most promising column in R (largest positive gradient).
+    let jMax = -1;
+    let wMax = tol;
+    for (const j of R) {
+      if (w[j] > wMax) {
+        wMax = w[j];
+        jMax = j;
+      }
+    }
+    if (jMax === -1) break; // KKT satisfied
+
+    R.delete(jMax);
+    P.add(jMax);
+
+    // Inner loop: resolve infeasibility introduced by adding jMax to P.
+    while (iterations < maxIter) {
+      iterations++;
+      const active = [...P].sort((a, b) => a - b);
+      const s = solveActiveOLS(active);
+
+      // Intercept (index 0) is unconstrained; only feature columns must be > 0.
+      let anyInfeasible = false;
+      for (let i = 0; i < active.length; i++) {
+        if (active[i] !== 0 && s[i] <= tol) {
+          anyInfeasible = true;
+          break;
+        }
+      }
+
+      if (!anyInfeasible) {
+        for (let i = 0; i < active.length; i++) x[active[i]] = s[i];
+        for (const j of R) x[j] = 0;
+        break;
+      }
+
+      // Interpolate: find step α ∈ (0, 1] that keeps x ≥ 0 on feature columns.
+      let alpha = 1;
+      for (let i = 0; i < active.length; i++) {
+        const col = active[i];
+        if (col === 0) continue;
+        if (s[i] <= tol) {
+          const denom = x[col] - s[i];
+          if (denom > tol) {
+            const a = x[col] / denom;
+            if (a < alpha) alpha = a;
+          }
+        }
+      }
+
+      for (let i = 0; i < active.length; i++) {
+        const col = active[i];
+        x[col] = x[col] + alpha * (s[i] - x[col]);
+      }
+
+      // Move all x_j ≤ tol (among feature columns) from P back to R.
+      const toRemove: number[] = [];
+      for (const j of P) {
+        if (j !== 0 && x[j] <= tol) toRemove.push(j);
+      }
+      for (const j of toRemove) {
+        P.delete(j);
+        R.add(j);
+        x[j] = 0;
+      }
+    }
+  }
+
+  // R² on original scale
+  let yMean = 0;
+  for (let i = 0; i < n; i++) yMean += y[i];
+  yMean /= n;
+  let ssTot = 0;
+  let ssRes = 0;
+  for (let i = 0; i < n; i++) {
+    let pred = x[0];
+    for (let j = 0; j < p; j++) pred += x[j + 1] * xs[j][i];
+    ssRes += (y[i] - pred) ** 2;
+    ssTot += (y[i] - yMean) ** 2;
+  }
+  const r2 = ssTot === 0 ? 0 : Math.max(0, 1 - ssRes / ssTot);
+
+  return { coefficients: [...x], r2, iterations };
+}
+
+/**
  * Spearman rank correlation coefficient.
  * Measures monotonic (not necessarily linear) relationship.
  * Computed as Pearson correlation of ranked values.
