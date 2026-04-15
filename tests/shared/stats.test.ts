@@ -59,7 +59,7 @@ describe('multipleLinearRegression (NNLS)', () => {
   it('enforces non-negative feature coefficients', () => {
     const x1 = [1, 2, 3, 4, 5, 6, 7, 8];
     const x2 = [1.1, 2.2, 2.9, 4.1, 5.0, 5.8, 7.1, 8.2];
-    const y = x1.map(v => 2 * v + 1);
+    const y = x1.map((v) => 2 * v + 1);
     const result = multipleLinearRegression([x1, x2], y);
     expect(result.coefficients[1]).toBeGreaterThanOrEqual(0);
     expect(result.coefficients[2]).toBeGreaterThanOrEqual(0);
@@ -74,7 +74,7 @@ describe('elasticityAnalysis', () => {
   it('returns elasticity ~1 for proportional relationship', () => {
     // y = 2x → ln(y) = ln(2) + 1*ln(x), elasticity = 1
     const x = [1, 2, 3, 4, 5, 6, 7, 8];
-    const y = x.map(v => 2 * v);
+    const y = x.map((v) => 2 * v);
     const result = elasticityAnalysis([x], y);
     expect(result.elasticities[0]).toBeCloseTo(1, 1);
     expect(result.r2s[0]).toBeGreaterThan(0.95);
@@ -82,7 +82,7 @@ describe('elasticityAnalysis', () => {
   it('returns elasticity ~2 for quadratic relationship', () => {
     // y = x^2 → elasticity = 2
     const x = [1, 2, 3, 4, 5, 6, 7, 8];
-    const y = x.map(v => v * v);
+    const y = x.map((v) => v * v);
     const result = elasticityAnalysis([x], y);
     expect(result.elasticities[0]).toBeCloseTo(2, 1);
   });
@@ -99,20 +99,56 @@ describe('elasticityAnalysis', () => {
 });
 
 describe('contributionPercentages', () => {
-  it('returns percentages summing to 100', () => {
-    const pcts = contributionPercentages([0, 0.5, 0.3], [[10, 20, 30], [5, 10, 15]]);
-    const sum = pcts.reduce((a, b) => a + b, 0);
-    expect(sum).toBeCloseTo(100, 3);
+  it('returns feature + baseline percentages summing to 100', () => {
+    const result = contributionPercentages(
+      [0, 0.5, 0.3],
+      [
+        [10, 20, 30],
+        [5, 10, 15],
+      ],
+    );
+    const total = result.featurePercentages.reduce((a, b) => a + b, 0) + result.baselinePercentage;
+    expect(total).toBeCloseTo(100, 3);
   });
-  it('gives higher percentage to feature with larger mean * weight', () => {
-    // feature1: weight=1, mean=100 → contribution=100
-    // feature2: weight=10, mean=5 → contribution=50
-    const pcts = contributionPercentages([0, 1, 10], [[100, 100, 100], [5, 5, 5]]);
-    expect(pcts[0]).toBeGreaterThan(pcts[1]); // 100 > 50
+
+  it('exposes absolute contributions and flags negative coefficients', () => {
+    const result = contributionPercentages(
+      [10, -0.1, 0.5],
+      [
+        [100, 100, 100],
+        [50, 50, 50],
+      ],
+    );
+    expect(result.hasNegativeCoefficients).toBe(true);
+    expect(result.absoluteContributions.baseline).toBeCloseTo(10, 6);
+    expect(result.absoluteContributions.features[0]).toBeCloseTo(-10, 6);
+    expect(result.absoluteContributions.features[1]).toBeCloseTo(25, 6);
   });
-  it('handles zero coefficients', () => {
-    const pcts = contributionPercentages([0, 0, 0], [[1, 2], [3, 4]]);
-    expect(pcts).toEqual([0, 0]);
+
+  it('reports baseline percentage when intercept dominates', () => {
+    // intercept=100, each feature contributes 0 → baseline 100%
+    const result = contributionPercentages(
+      [100, 0, 0],
+      [
+        [1, 2],
+        [3, 4],
+      ],
+    );
+    expect(result.baselinePercentage).toBeCloseTo(100, 3);
+    expect(result.featurePercentages).toEqual([0, 0]);
+  });
+
+  it('handles zero total predicted income safely', () => {
+    const result = contributionPercentages(
+      [0, 0, 0],
+      [
+        [1, 2],
+        [3, 4],
+      ],
+    );
+    expect(result.featurePercentages).toEqual([0, 0]);
+    expect(result.baselinePercentage).toBe(0);
+    expect(result.hasNegativeCoefficients).toBe(false);
   });
 });
 

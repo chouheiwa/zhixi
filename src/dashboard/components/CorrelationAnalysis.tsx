@@ -137,13 +137,16 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
       weight: regression.coefficients[i + 1],
     })).sort((a, b) => b.weight - a.weight);
 
-    const contribPcts = contributionPercentages(regression.coefficients, xs);
+    const contribBreakdown = contributionPercentages(regression.coefficients, xs);
     const contributions = METRIC_INFO.map(({ key, label, color }, i) => ({
       key,
       label,
       color,
-      pct: contribPcts[i],
+      pct: contribBreakdown.featurePercentages[i],
     })).sort((a, b) => b.pct - a.pct);
+    const baselinePct = contribBreakdown.baselinePercentage;
+    const baselineAbs = contribBreakdown.absoluteContributions.baseline;
+    const contribHasNegative = contribBreakdown.hasNegativeCoefficients;
 
     const elastic = elasticityAnalysis(xs, incomeValues);
     const elasticities = METRIC_INFO.map(({ key, label, color }, i) => ({
@@ -180,6 +183,9 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
       regression,
       weights,
       contributions,
+      baselinePct,
+      baselineAbs,
+      contribHasNegative,
       elasticities,
       ridge,
       ridgeWeights,
@@ -402,6 +408,28 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
                 </div>
               </div>
             ))}
+            {/* Baseline (intercept) row — always visible even when small */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+              <div style={{ width: 50, fontSize: 12, color: '#999' }}>基础</div>
+              <div style={{ flex: 1, height: 16, background: '#eee', borderRadius: 8, overflow: 'hidden' }}>
+                <div
+                  style={{
+                    width: `${Math.min(Math.abs(analysis.baselinePct), 100)}%`,
+                    height: '100%',
+                    background: '#bbb',
+                    borderRadius: 8,
+                  }}
+                />
+              </div>
+              <div style={{ width: 45, fontSize: 12, textAlign: 'right', color: '#666' }}>
+                {analysis.baselinePct.toFixed(1)}%
+              </div>
+            </div>
+            {analysis.contribHasNegative && (
+              <div style={{ marginTop: 8, fontSize: 11, color: themeColors.amber }}>
+                ⚠️ 检测到负系数（通常来自 ridge 回归），贡献度含义被部分抵消；请结合绝对分解阅读。
+              </div>
+            )}
           </Card>
         </Col>
 

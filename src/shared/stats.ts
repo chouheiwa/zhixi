@@ -334,19 +334,54 @@ export function elasticityAnalysis(xs: number[][], y: number[]): { elasticities:
 }
 
 /**
- * Contribution percentage from NNLS coefficients.
- * Multiplies each coefficient by the mean of its feature, then normalizes to 100%.
+ * Decomposition of predicted mean income into feature and baseline contributions.
+ * Returned by {@link contributionPercentages}.
  */
-export function contributionPercentages(coefficients: number[], xs: number[][]): number[] {
-  // coefficients[0] is intercept, coefficients[1..] are feature weights
-  const contributions = xs.map((x, i) => {
-    const mean = x.reduce((a, b) => a + b, 0) / x.length;
-    return Math.max(0, coefficients[i + 1] * mean);
-  });
+export interface ContributionBreakdown {
+  /** Per-feature contribution as a percentage of predicted mean income. */
+  featurePercentages: number[];
+  /** Intercept (baseline) contribution as a percentage of predicted mean income. */
+  baselinePercentage: number;
+  /** Raw decomposition: intercept + Σ β_i · mean(x_i), in original y units. */
+  absoluteContributions: { baseline: number; features: number[] };
+  /** True if any feature coefficient is negative (indicates non-NNLS input). */
+  hasNegativeCoefficients: boolean;
+}
 
-  const total = contributions.reduce((a, b) => a + b, 0);
-  if (total === 0) return contributions.map(() => 0);
-  return contributions.map((c) => (c / total) * 100);
+/**
+ * Decompose the regression's predicted mean into per-feature and baseline
+ * contributions. Unlike the old version, this exposes the intercept as a
+ * first-class "baseline" so users can see the portion of predicted income that
+ * is NOT explained by any interaction feature.
+ *
+ * The returned `featurePercentages + baselinePercentage` sums to 100 only when
+ * no feature contribution is negative. When `hasNegativeCoefficients` is true,
+ * callers should surface a warning; the absolute decomposition is still valid.
+ */
+export function contributionPercentages(coefficients: number[], xs: number[][]): ContributionBreakdown {
+  const p = xs.length;
+  const intercept = coefficients[0] ?? 0;
+  const means = xs.map((x) => (x.length > 0 ? x.reduce((a, b) => a + b, 0) / x.length : 0));
+  const featureContribs = means.map((m, i) => (coefficients[i + 1] ?? 0) * m);
+  const hasNeg = featureContribs.some((c) => c < 0);
+
+  const totalPredicted = intercept + featureContribs.reduce((a, b) => a + b, 0);
+
+  if (totalPredicted === 0) {
+    return {
+      featurePercentages: new Array(p).fill(0),
+      baselinePercentage: 0,
+      absoluteContributions: { baseline: intercept, features: featureContribs },
+      hasNegativeCoefficients: hasNeg,
+    };
+  }
+
+  return {
+    featurePercentages: featureContribs.map((c) => (c / totalPredicted) * 100),
+    baselinePercentage: (intercept / totalPredicted) * 100,
+    absoluteContributions: { baseline: intercept, features: featureContribs },
+    hasNegativeCoefficients: hasNeg,
+  };
 }
 
 /**
