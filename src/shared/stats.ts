@@ -354,9 +354,12 @@ export interface ContributionBreakdown {
  * first-class "baseline" so users can see the portion of predicted income that
  * is NOT explained by any interaction feature.
  *
- * The returned `featurePercentages + baselinePercentage` sums to 100 only when
- * no feature contribution is negative. When `hasNegativeCoefficients` is true,
- * callers should surface a warning; the absolute decomposition is still valid.
+ * The returned percentages always sum to 100 (up to floating-point error) because
+ * they partition `totalPredicted`. However, when `hasNegativeCoefficients` is true,
+ * individual percentages can fall outside [0, 100] (e.g. a feature with a negative
+ * contribution may show as -40% while another shows as 140%). Callers should
+ * surface this to users and prefer `absoluteContributions` for any
+ * numerically-sensitive display.
  */
 export function contributionPercentages(coefficients: number[], xs: number[][]): ContributionBreakdown {
   const p = xs.length;
@@ -367,7 +370,13 @@ export function contributionPercentages(coefficients: number[], xs: number[][]):
 
   const totalPredicted = intercept + featureContribs.reduce((a, b) => a + b, 0);
 
-  if (totalPredicted === 0) {
+  // Guard against (a) exact zero and (b) catastrophic cancellation where
+  // |totalPredicted| is tiny relative to the magnitude of the components.
+  // Without this, opposing-sign contributions that nearly cancel would produce
+  // astronomical percentages (e.g. 10^6 fen / 0.01 fen = 10^8 %).
+  const componentMagnitude = Math.abs(intercept) + featureContribs.reduce((a, b) => a + Math.abs(b), 0);
+  const CANCELLATION_RATIO = 1e-6;
+  if (totalPredicted === 0 || Math.abs(totalPredicted) < componentMagnitude * CANCELLATION_RATIO) {
     return {
       featurePercentages: new Array(p).fill(0),
       baselinePercentage: 0,

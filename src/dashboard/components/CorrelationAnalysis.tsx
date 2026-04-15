@@ -416,14 +416,25 @@ export function GlobalCorrelationAnalysis({ records }: Props) {
                   style={{
                     width: `${Math.min(Math.abs(analysis.baselinePct), 100)}%`,
                     height: '100%',
-                    background: '#bbb',
+                    background: analysis.baselinePct < 0 ? '#d97706' : '#bbb',
                     borderRadius: 8,
                   }}
                 />
               </div>
-              <div style={{ width: 45, fontSize: 12, textAlign: 'right', color: '#666' }}>
+              <div
+                style={{
+                  width: 45,
+                  fontSize: 12,
+                  textAlign: 'right',
+                  fontWeight: 600,
+                  color: analysis.baselinePct < 0 ? themeColors.amber : '#666',
+                }}
+              >
                 {analysis.baselinePct.toFixed(1)}%
               </div>
+            </div>
+            <div style={{ marginLeft: 56, marginBottom: 4, fontSize: 11, color: '#999' }}>
+              （基础值 ≈ {currency.fmtValue(analysis.baselineAbs)}）
             </div>
             {analysis.contribHasNegative && (
               <div style={{ marginTop: 8, fontSize: 11, color: themeColors.amber }}>
