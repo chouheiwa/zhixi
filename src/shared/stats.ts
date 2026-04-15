@@ -297,7 +297,12 @@ export interface ElasticityResult {
   totalN: number;
   /** nUsed[i] / totalN — fraction of samples retained per feature. */
   samplingFraction: number[];
-  /** Human-readable warnings when samplingFraction[i] < 0.5. */
+  /**
+   * Human-readable warnings, one per feature where `samplingFraction[i] < 0.5`.
+   * Warnings are push-ordered by feature index; features without warnings are
+   * skipped, so the array is NOT index-aligned with `elasticities`. Each entry
+   * begins with `"Feature ${i}: "` so callers can recover the source feature.
+   */
   conditionalWarnings: string[];
 }
 
@@ -360,8 +365,15 @@ export function elasticityAnalysis(xs: number[][], y: number[]): ElasticityResul
   }
 
   for (let i = 0; i < xs.length; i++) {
-    if (samplingFraction[i] < 0.5) {
-      const pct = (samplingFraction[i] * 100).toFixed(0);
+    if (samplingFraction[i] >= 0.5) continue;
+    const pct = (samplingFraction[i] * 100).toFixed(0);
+    if (nUsed[i] < 3) {
+      conditionalWarnings.push(
+        `Feature ${i}: insufficient samples (${nUsed[i]}/${totalN}, ${pct}%). ` +
+          `Elasticity was not fit and is reported as 0. At least 3 (x>0, y>0) ` +
+          `pairs are required for a log-log regression.`,
+      );
+    } else {
       conditionalWarnings.push(
         `Feature ${i}: only ${nUsed[i]}/${totalN} samples used (${pct}%). ` +
           `Elasticity ${elasticities[i].toFixed(3)} is conditional on x > 0, ` +

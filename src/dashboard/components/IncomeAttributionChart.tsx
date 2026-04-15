@@ -193,7 +193,9 @@ export function IncomeAttributionChart({ dailyRecords, incomeRecords }: Props) {
               )}
               {m.samplingFraction < 0.5 && (
                 <span style={{ marginLeft: 4, color: themeColors.amber }}>
-                  （仅 {(m.samplingFraction * 100).toFixed(0)}% 样本参与拟合，为非零条件弹性）
+                  {m.elasticity === 0 && m.r2 === 0
+                    ? '（样本不足，未进行弹性拟合）'
+                    : `（仅 ${(m.samplingFraction * 100).toFixed(0)}% 样本参与拟合，为非零条件弹性）`}
                 </span>
               )}
             </div>

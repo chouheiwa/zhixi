@@ -125,6 +125,18 @@ describe('elasticityAnalysis', () => {
     expect(result.samplingFraction[0]).toBeGreaterThan(0.5);
     expect(result.conditionalWarnings).toEqual([]);
   });
+
+  it('reports an insufficient-samples warning distinct from the conditional-elasticity warning', () => {
+    // Only 1 valid sample pair → used < 3 → no fit, elasticities[0] = 0
+    const x = [0, 0, 0, 0, 0, 0, 0, 0, 0, 5];
+    const y = [0, 0, 0, 0, 0, 0, 0, 0, 0, 10];
+    const result = elasticityAnalysis([x], y);
+    expect(result.nUsed[0]).toBe(1);
+    expect(result.elasticities[0]).toBe(0);
+    expect(result.conditionalWarnings.length).toBe(1);
+    expect(result.conditionalWarnings[0]).toMatch(/insufficient samples/i);
+    expect(result.conditionalWarnings[0]).not.toMatch(/conditional on x > 0/i);
+  });
 });
 
 describe('contributionPercentages', () => {
