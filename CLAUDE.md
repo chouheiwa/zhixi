@@ -96,7 +96,11 @@ Lifetime of content detail pages is different: `ContentDetailPage.tsx` is render
 
 `src/shared/stats.ts` is a self-contained stats library — Pearson/Spearman correlation, multiple linear regression (NNLS), ridge regression, elasticity (log-log) analysis, quantile regression, EMA, Holt forecasting, exponential/power-law decay fits, efficiency frontier, z-score anomalies, and `simpleMovingAverage`. Always check this file before hand-rolling math — chances are it already exists.
 
-**NNLS multicollinearity caveat**: `multipleLinearRegression` + `contributionPercentages` will zero out highly correlated features (e.g. PV vs upvotes). For attribution UIs that must show non-zero contributions for every feature, prefer `elasticityAnalysis` (independent per-feature log-log regression) — see `IncomeAttributionChart.tsx` for the pattern.
+**NNLS multicollinearity caveat**: `multipleLinearRegression` (now internally delegating to the Lawson-Hanson solver `lawsonHansonNNLS`) + `contributionPercentages` will zero out highly correlated features (e.g. PV vs upvotes). For attribution UIs that must show non-zero contributions for every feature, prefer `elasticityAnalysis` (independent per-feature log-log regression) — see `IncomeAttributionChart.tsx` for the pattern.
+
+**Additionally**: On highly-correlated interaction features (any pair with `|r| > 0.7`), the non-zero coefficients from `multipleLinearRegression` are also sample-sensitive. A single-point output like "collect contributes 73.7%" has non-trivial variance under resampling. Any UI displaying regression coefficients on such data MUST also call `bootstrapCoefficientCI` and `featureCorrelationMatrix` (both in `src/shared/stats.ts`) so users see the instability — `CorrelationAnalysis.tsx` shows the expected pattern.
+
+When writing about regression results in user-facing content (articles, blog posts, documentation), do NOT claim "X is eliminated" or "X contributes 0%" as definitive statements. Instead, frame it as "under the current sample, X's coefficient is 0 in N out of K cross-validation folds" — the eliminated-vs-kept labeling is contingent on sampling and can flip with more data.
 
 `src/shared/ml-models.ts` + `ml-features.ts` implement the ensemble prediction model (Random Forest via `ml-random-forest` + Ridge + MLP via `@tensorflow/tfjs`). Trained models are persisted to the `mlModels` table as JSON.
 
