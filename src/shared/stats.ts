@@ -28,6 +28,97 @@ export function pearsonCorrelation(x: number[], y: number[]): number {
 }
 
 /**
+ * Fit a univariate linear model y = intercept + slope·x via ordinary least squares.
+ * Returns slope, intercept, and R² (fraction of y variance explained by x).
+ *
+ * This is the simplest "how well does one variable explain another" answer —
+ * use it when multi-variable regression is too unstable (small sample, highly
+ * collinear features) but you still want a defensible per-feature ranking.
+ *
+ * Edge cases:
+ *   - x has zero variance → returns { slope: 0, intercept: mean(y), r2: 0 }
+ *   - y has zero variance → returns { slope, intercept, r2: 0 }
+ *   - n < 2                → returns { slope: 0, intercept: 0, r2: 0 }
+ */
+export function univariateLinearFit(x: number[], y: number[]): { slope: number; intercept: number; r2: number } {
+  const n = x.length;
+  if (n < 2 || y.length !== n) return { slope: 0, intercept: 0, r2: 0 };
+
+  let sx = 0;
+  let sy = 0;
+  for (let i = 0; i < n; i++) {
+    sx += x[i];
+    sy += y[i];
+  }
+  const mx = sx / n;
+  const my = sy / n;
+
+  let sxx = 0;
+  let syy = 0;
+  let sxy = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = x[i] - mx;
+    const dy = y[i] - my;
+    sxx += dx * dx;
+    syy += dy * dy;
+    sxy += dx * dy;
+  }
+
+  if (sxx < 1e-12) return { slope: 0, intercept: my, r2: 0 };
+
+  const slope = sxy / sxx;
+  const intercept = my - slope * mx;
+
+  if (syy < 1e-12) return { slope, intercept, r2: 0 };
+
+  let ssRes = 0;
+  for (let i = 0; i < n; i++) {
+    const pred = intercept + slope * x[i];
+    ssRes += (y[i] - pred) ** 2;
+  }
+  const r2 = Math.max(0, 1 - ssRes / syy);
+  return { slope, intercept, r2 };
+}
+
+/**
+ * Partial Pearson correlation r(X, Y | Z).
+ *
+ * Measures the linear correlation between X and Y after removing the linear
+ * effect of the controlling variable Z from both. Uses the textbook formula:
+ *
+ *   r(X,Y|Z) = (r_XY - r_XZ · r_YZ) / √((1 - r²_XZ)(1 - r²_YZ))
+ *
+ * Interpretation: if r(X, Y) is high but r(X, Y | Z) is near 0, X and Y are
+ * both driven by Z and neither "independently explains" the other. On this
+ * project's data this is the clearest way to distinguish real income drivers
+ * (e.g. collect) from read-count proxies (e.g. comment).
+ *
+ * Returns 0 if any variance is degenerate or the denominator is undefined.
+ */
+export function partialCorrelation(x: number[], y: number[], z: number[]): number {
+  const n = z.length;
+  if (n < 2 || x.length !== n || y.length !== n) return 0;
+  // Require z to have variance — otherwise "controlling for z" is meaningless
+  // and we can't compute r_xz / r_yz reliably.
+  let zSum = 0;
+  for (let i = 0; i < n; i++) zSum += z[i];
+  const zMean = zSum / n;
+  let zVar = 0;
+  for (let i = 0; i < n; i++) {
+    const d = z[i] - zMean;
+    zVar += d * d;
+  }
+  if (zVar < 1e-12) return 0;
+
+  const rxy = pearsonCorrelation(x, y);
+  const rxz = pearsonCorrelation(x, z);
+  const ryz = pearsonCorrelation(y, z);
+  const denom = Math.sqrt((1 - rxz * rxz) * (1 - ryz * ryz));
+  if (denom < 1e-12) return 0;
+  return (rxy - rxz * ryz) / denom;
+}
+
+/**
  * Non-negative multiple linear regression.
  *
  * Fits: y = b0 + b1*x1 + b2*x2 + ... + bn*xn  where b1..bn >= 0

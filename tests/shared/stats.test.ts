@@ -6,6 +6,8 @@ import {
   elasticityAnalysis,
   contributionPercentages,
   laggedCorrelation,
+  univariateLinearFit,
+  partialCorrelation,
 } from '@/shared/stats';
 
 describe('pearsonCorrelation', () => {
@@ -212,5 +214,62 @@ describe('laggedCorrelation', () => {
   it('returns results for each lag', () => {
     const results = laggedCorrelation([1, 2, 3, 4, 5], [5, 4, 3, 2, 1], 3);
     expect(results).toHaveLength(4); // lag 0, 1, 2, 3
+  });
+});
+
+describe('univariateLinearFit', () => {
+  it('recovers exact slope and intercept on clean linear data', () => {
+    const x = [1, 2, 3, 4, 5];
+    const y = [3, 5, 7, 9, 11]; // y = 1 + 2x
+    const fit = univariateLinearFit(x, y);
+    expect(fit.slope).toBeCloseTo(2, 5);
+    expect(fit.intercept).toBeCloseTo(1, 5);
+    expect(fit.r2).toBeCloseTo(1, 5);
+  });
+
+  it('returns partial r² on noisy data', () => {
+    const x = [1, 2, 3, 4, 5, 6, 7, 8];
+    const y = x.map((v, i) => 2 * v + 1 + (i % 2 === 0 ? 0.5 : -0.5));
+    const fit = univariateLinearFit(x, y);
+    expect(fit.r2).toBeGreaterThan(0.95);
+    expect(fit.r2).toBeLessThan(1);
+  });
+
+  it('handles zero-variance x without NaN', () => {
+    const fit = univariateLinearFit([3, 3, 3, 3], [1, 2, 3, 4]);
+    expect(fit.slope).toBe(0);
+    expect(fit.r2).toBe(0);
+    expect(fit.intercept).toBeCloseTo(2.5, 5); // mean(y)
+  });
+
+  it('handles insufficient data', () => {
+    expect(univariateLinearFit([1], [2])).toEqual({ slope: 0, intercept: 0, r2: 0 });
+  });
+});
+
+describe('partialCorrelation', () => {
+  it('matches simple Pearson when z is uncorrelated with x and y', () => {
+    const x = [1, 2, 3, 4, 5, 6, 7, 8];
+    const y = x.map((v) => 2 * v + 1);
+    // z is a shuffled sequence, weakly correlated with x
+    const z = [5, 2, 8, 1, 6, 3, 7, 4];
+    const partial = partialCorrelation(x, y, z);
+    const raw = pearsonCorrelation(x, y);
+    // Partial should still be high (x and y are perfectly linear regardless of z)
+    expect(partial).toBeGreaterThan(0.9);
+    expect(raw).toBeCloseTo(1, 5);
+  });
+
+  it('collapses to ~0 when x and y are both driven entirely by z', () => {
+    // x ≈ 2z, y ≈ 3z → both just track z
+    const z = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const x = z.map((v) => 2 * v);
+    const y = z.map((v) => 3 * v + 1);
+    const partial = partialCorrelation(x, y, z);
+    expect(Math.abs(partial)).toBeLessThan(0.01);
+  });
+
+  it('returns 0 for zero-variance z', () => {
+    expect(partialCorrelation([1, 2, 3, 4], [4, 5, 6, 7], [7, 7, 7, 7])).toBe(0);
   });
 });

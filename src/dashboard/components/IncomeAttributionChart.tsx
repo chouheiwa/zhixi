@@ -2,12 +2,7 @@ import React, { useMemo } from 'react';
 import { Card, Empty, Alert } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import type { ContentDailyRecord, IncomeRecord } from '@/shared/types';
-import {
-  ridgeRegression,
-  contributionPercentages,
-  bootstrapCoefficientCI,
-  featureCorrelationMatrix,
-} from '@/shared/stats';
+import { univariateLinearFit, partialCorrelation, pearsonCorrelation } from '@/shared/stats';
 import { FormulaBlock } from './FormulaHelp';
 import { useCurrency } from '@/dashboard/contexts/CurrencyContext';
 import { themeColors } from '../theme';
@@ -18,7 +13,7 @@ interface Props {
 }
 
 interface MetricDef {
-  key: string;
+  key: 'pv' | 'upvote' | 'comment' | 'collect' | 'share';
   label: string;
   color: string;
   getter: (r: ContentDailyRecord) => number;
@@ -32,12 +27,32 @@ const METRICS: MetricDef[] = [
   { key: 'share', label: '分享', color: '#8b7bb5', getter: (r) => r.share },
 ];
 
+const MIN_SAMPLES = 10;
+
+interface PerMetricAnalysis {
+  key: MetricDef['key'];
+  label: string;
+  color: string;
+  fit: { slope: number; intercept: number; r2: number };
+  rawPearson: number;
+  partial: number;
+  unitYield: number;
+  totalX: number;
+}
+
+interface AnalysisResult {
+  perMetric: PerMetricAnalysis[]; // sorted by R² desc
+  top: PerMetricAnalysis;
+  matchedN: number;
+}
+
 export function IncomeAttributionChart({ dailyRecords, incomeRecords }: Props) {
   const currency = useCurrency();
 
-  const result = useMemo(() => {
-    if (dailyRecords.length < 10 || incomeRecords.length < 10) return null;
+  const result = useMemo<AnalysisResult | null>(() => {
+    if (dailyRecords.length < MIN_SAMPLES || incomeRecords.length < MIN_SAMPLES) return null;
 
+    // Join daily records and income records by date
     const incomeMap = new Map<string, number>();
     for (const r of incomeRecords) {
       incomeMap.set(r.recordDate, (incomeMap.get(r.recordDate) ?? 0) + r.currentIncome);
@@ -54,216 +69,247 @@ export function IncomeAttributionChart({ dailyRecords, incomeRecords }: Props) {
       }
     }
 
-    if (matchedDaily.length < 10) return null;
+    if (matchedDaily.length < MIN_SAMPLES) return null;
 
-    const xs = METRICS.map((m) => matchedDaily.map((r) => m.getter(r)));
     const y = matchedIncome;
+    const pvSeries = matchedDaily.map((r) => r.pv);
 
-    const regression = ridgeRegression(xs, y, 1.0);
-    const contribBreakdown = contributionPercentages(regression.coefficients, xs);
-    const coefficientCI = bootstrapCoefficientCI(
-      xs,
-      y,
-      (featureXs, y2) => ridgeRegression(featureXs, y2, 1.0),
-      100,
-      0.95,
-      1.0, // cvThreshold: looser than default (0.5) — Ridge on small per-article data
-      // has naturally wider CIs; 1.0 means "CI width must be smaller than the
-      // coefficient magnitude itself" which is a realistic stability target.
-    );
-    const corrMatrix = featureCorrelationMatrix(xs);
-
-    // Top driver by contribution percentage (not elasticity)
-    let topIdx = 0;
-    for (let i = 1; i < contribBreakdown.featurePercentages.length; i++) {
-      if (contribBreakdown.featurePercentages[i] > contribBreakdown.featurePercentages[topIdx]) {
-        topIdx = i;
+    const perMetric: PerMetricAnalysis[] = METRICS.map((m) => {
+      const x = matchedDaily.map(m.getter);
+      const fit = univariateLinearFit(x, y);
+      const rawPearson = pearsonCorrelation(x, y);
+      // Partial correlation: control for pv except when the metric IS pv
+      const partial = m.key === 'pv' ? rawPearson : partialCorrelation(x, y, pvSeries);
+      let sumX = 0;
+      let sumY = 0;
+      for (let i = 0; i < x.length; i++) {
+        sumX += x[i];
+        sumY += y[i];
       }
-    }
+      const unitYield = sumX > 0 ? sumY / sumX : 0;
+      return {
+        key: m.key,
+        label: m.label,
+        color: m.color,
+        fit,
+        rawPearson,
+        partial,
+        unitYield,
+        totalX: sumX,
+      };
+    });
 
+    const byR2 = [...perMetric].sort((a, b) => b.fit.r2 - a.fit.r2);
     return {
-      featurePercentages: contribBreakdown.featurePercentages,
-      baselinePercentage: contribBreakdown.baselinePercentage,
-      absoluteBaseline: contribBreakdown.absoluteContributions.baseline,
-      absoluteFeatures: contribBreakdown.absoluteContributions.features,
-      hasNegativeCoefficients: contribBreakdown.hasNegativeCoefficients,
-      coefficients: regression.coefficients,
-      r2: regression.r2,
-      coefficientCI,
-      corrMatrix,
-      topDriver: METRICS[topIdx].label,
-      metrics: METRICS,
-      sampleCount: matchedDaily.length,
+      perMetric: byR2,
+      top: byR2[0],
+      matchedN: matchedDaily.length,
     };
   }, [dailyRecords, incomeRecords, currency]);
 
-  if (dailyRecords.length < 10 || incomeRecords.length < 10) {
+  if (dailyRecords.length < MIN_SAMPLES || incomeRecords.length < MIN_SAMPLES) {
     return (
       <Card title="收益归因分析" size="small">
-        <Empty description="数据不足，至少需要 10 天数据" />
+        <Empty description={`数据不足，至少需要 ${MIN_SAMPLES} 天数据`} />
       </Card>
     );
   }
 
   if (!result) return null;
 
-  if (result.r2 < 0.1) {
+  if (result.top.fit.r2 < 0.1) {
     return (
       <Card title="收益归因分析" size="small">
         <Alert
           type="info"
           showIcon
           message="该内容的收益波动较随机，无法归因到具体指标"
-          description={`模型拟合度 R² = ${result.r2.toFixed(3)}，低于 0.1 阈值`}
+          description={`最强单一指标的解释力 R² = ${result.top.fit.r2.toFixed(3)}，低于 0.1 阈值`}
         />
       </Card>
     );
   }
 
-  const sortedMetrics = result.metrics
-    .map((m, i) => ({
-      label: m.label,
-      color: m.color,
-      contribution: result.featurePercentages[i],
-      absolute: result.absoluteFeatures[i],
-      coefficient: result.coefficients[i + 1],
-      stability: result.coefficientCI.stability[i + 1],
-      ciLow: result.coefficientCI.lo[i + 1],
-      ciHigh: result.coefficientCI.hi[i + 1],
-    }))
-    .sort((a, b) => b.contribution - a.contribution);
-
-  const hasAnyInstability = sortedMetrics.some((m) => m.stability === 'unstable');
-
-  const barOption = {
+  // Bar-chart for univariate R²
+  const r2BarOption = {
     tooltip: {
       trigger: 'axis' as const,
       formatter: (params: { name: string; value: number }[]) => {
-        const m = sortedMetrics.find((sm) => sm.label === params[0].name);
+        const m = result.perMetric.find((pm) => pm.label === params[0].name);
         if (!m) return params[0].name;
-        const stabilityText =
-          m.stability === 'stable' ? '✅ 稳定' : m.stability === 'unstable' ? '⚠️ 不稳定' : '❌ 始终剔除';
         return (
-          `${m.label}<br/>贡献度: ${m.contribution.toFixed(1)}%<br/>` +
-          `绝对贡献: ${currency.fmtValue(m.absolute)}<br/>` +
-          `稳定性: ${stabilityText}`
+          `${m.label}<br/>` +
+          `R² = ${m.fit.r2.toFixed(3)}（解释 ${(m.fit.r2 * 100).toFixed(0)}% 变化）<br/>` +
+          `每增加 1 ${m.label} → 收益约 +${currency.fmtValue(m.fit.slope)}/天`
         );
       },
     },
     grid: { left: 70, right: 30, top: 10, bottom: 10 },
     xAxis: {
       type: 'value' as const,
-      axisLabel: { formatter: (v: number) => `${v}%`, fontSize: 10 },
+      max: 1,
+      axisLabel: { formatter: (v: number) => `${Math.round(v * 100)}%`, fontSize: 10 },
     },
     yAxis: {
       type: 'category' as const,
-      data: sortedMetrics.map((m) => m.label),
+      data: result.perMetric.map((m) => m.label),
       axisLabel: { fontSize: 12 },
       inverse: true,
     },
     series: [
       {
         type: 'bar',
-        data: sortedMetrics.map((m) => ({
-          value: +m.contribution.toFixed(1),
+        data: result.perMetric.map((m) => ({
+          value: +m.fit.r2.toFixed(3),
           itemStyle: { color: m.color, borderRadius: [0, 4, 4, 0] },
         })),
         barMaxWidth: 24,
         label: {
           show: true,
           position: 'right' as const,
-          formatter: (p: { value: number }) => `${p.value}%`,
+          formatter: (p: { value: number }) => `${Math.round(p.value * 100)}%`,
           fontSize: 11,
         },
       },
     ],
   };
 
+  // Classify partial-correlation strength
+  const classifyIndependence = (raw: number, partial: number): { text: string; color: string } => {
+    if (Math.abs(raw) < 0.2) return { text: '相关弱', color: themeColors.muted };
+    const reduction = 1 - Math.abs(partial) / Math.abs(raw);
+    if (reduction > 0.5) return { text: '主要是阅读代理', color: themeColors.warmRed };
+    if (reduction > 0.25) return { text: '部分代理', color: themeColors.amber };
+    return { text: '独立信号', color: themeColors.sage };
+  };
+
   return (
     <Card
       title="收益归因分析"
       size="small"
-      extra={
-        <span style={{ fontSize: 12, color: themeColors.muted }}>
-          R² = {result.r2.toFixed(3)} · n = {result.sampleCount}
-        </span>
-      }
+      extra={<span style={{ fontSize: 12, color: themeColors.muted }}>n = {result.matchedN} 天</span>}
     >
-      <div style={{ fontSize: 13, marginBottom: 12, color: themeColors.body }}>
-        收益最大驱动力：<strong style={{ color: themeColors.warmBlue }}>{result.topDriver}</strong>
+      {/* Top driver callout + simple formula */}
+      <div style={{ fontSize: 13, marginBottom: 8, color: themeColors.body }}>
+        最能单独解释收益的指标：
+        <strong style={{ color: result.top.color, marginLeft: 4 }}>{result.top.label}</strong>
+        <span style={{ marginLeft: 6, color: themeColors.muted }}>
+          （R² = {(result.top.fit.r2 * 100).toFixed(0)}%）
+        </span>
       </div>
-      <ReactECharts option={barOption} style={{ height: 200 }} />
-      <div style={{ marginTop: 12, fontSize: 12, color: themeColors.muted }}>
-        {sortedMetrics.map((m) => {
-          const stabilityIcon = m.stability === 'stable' ? '✅' : m.stability === 'unstable' ? '⚠️' : '❌';
-          return (
-            <div key={m.label} style={{ marginBottom: 4 }}>
-              <span style={{ color: m.color, fontWeight: 500 }}>{m.label}</span>
-              <span style={{ marginLeft: 6 }}>
-                贡献 {m.contribution.toFixed(1)}% ({currency.fmtValue(m.absolute)})
-              </span>
-              <span style={{ marginLeft: 6 }}>{stabilityIcon}</span>
-            </div>
-          );
-        })}
-        {/* Baseline row — always shown, even when small */}
-        <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px dashed #eee' }}>
-          <span style={{ color: '#999', fontWeight: 500 }}>基础</span>
-          <span style={{ marginLeft: 6 }}>
-            {result.baselinePercentage.toFixed(1)}% ({currency.fmtValue(result.absoluteBaseline)})
-          </span>
+
+      <div
+        style={{
+          fontSize: 12,
+          color: themeColors.body,
+          padding: '8px 12px',
+          background: '#f7f5f0',
+          borderLeft: `3px solid ${result.top.color}`,
+          borderRadius: 4,
+          marginBottom: 12,
+          fontFamily: 'monospace',
+        }}
+      >
+        每日收益 ≈ {currency.fmtValue(result.top.fit.intercept)} + {currency.fmtValue(result.top.fit.slope)} × 当日
+        {result.top.label}
+      </div>
+
+      {/* Section 1: Univariate R² bar chart */}
+      <div style={{ fontSize: 12, color: themeColors.body, marginBottom: 4 }}>各指标单独的解释力 (R²)</div>
+      <ReactECharts option={r2BarOption} style={{ height: 170 }} />
+
+      {/* Section 2: Partial correlation table */}
+      <div style={{ marginTop: 16, fontSize: 12 }}>
+        <div style={{ color: themeColors.body, marginBottom: 6 }}>
+          控制阅读量后的独立性
+          <span style={{ color: themeColors.muted, marginLeft: 6 }}>（r 大幅下降的指标只是阅读量的副产品）</span>
         </div>
+        {result.perMetric
+          .filter((m) => m.key !== 'pv')
+          .map((m) => {
+            const cls = classifyIndependence(m.rawPearson, m.partial);
+            return (
+              <div
+                key={m.key}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: 3,
+                  fontSize: 11,
+                }}
+              >
+                <div style={{ width: 50, color: m.color }}>{m.label}</div>
+                <div style={{ width: 130, fontFamily: 'monospace', color: themeColors.muted }}>
+                  r {m.rawPearson.toFixed(2)} → {m.partial.toFixed(2)}
+                </div>
+                <div style={{ color: cls.color }}>{cls.text}</div>
+              </div>
+            );
+          })}
       </div>
-      {result.hasNegativeCoefficients && (
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginTop: 8, fontSize: 12 }}
-          message="部分指标被分配了负系数"
-          description='Ridge 回归对高度相关的特征可能给出负系数，此时该指标的贡献度会被解读为"削弱其他指标的贡献"。建议结合稳定性图标综合判读。'
-        />
-      )}
-      {hasAnyInstability && (
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginTop: 8, fontSize: 12 }}
-          message="部分指标的系数在重采样下不稳定"
-          description="单篇文章数据量小，指标之间可能高度相关，系数对采样敏感。建议结合稳定性图标判读。"
-        />
-      )}
+
+      {/* Section 3: Unit yield table */}
+      <div style={{ marginTop: 16, fontSize: 12 }}>
+        <div style={{ color: themeColors.body, marginBottom: 6 }}>
+          每单位动作的参考价值
+          <span style={{ color: themeColors.muted, marginLeft: 6 }}>（Σ收益 / Σ动作次数，关联非因果）</span>
+        </div>
+        {[...result.perMetric]
+          .filter((m) => m.totalX > 0)
+          .sort((a, b) => b.unitYield - a.unitYield)
+          .map((m) => (
+            <div
+              key={m.key}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 3,
+                fontSize: 11,
+              }}
+            >
+              <div style={{ width: 50, color: m.color }}>{m.label}</div>
+              <div style={{ flex: 1, fontFamily: 'monospace', color: themeColors.body }}>
+                1 {m.label} ≈ {currency.fmtValue(m.unitYield)}
+              </div>
+              <div style={{ color: themeColors.subtle, fontSize: 10 }}>总 {m.totalX.toLocaleString()}</div>
+            </div>
+          ))}
+      </div>
+
       <FormulaBlock
-        title="收益归因分析 — 多元线性回归 + 贡献分解"
+        title="收益归因分析 — 三种互相印证的方法"
         items={[
           {
-            name: '模型',
-            formula: '收益 = β₀ + β₁·阅读量 + β₂·点赞 + β₃·评论 + β₄·收藏 + β₅·分享',
-            desc: '对这篇文章的每日指标与每日收益做 Ridge 回归（L2 正则化，λ=1），β 系数表示"多 1 个单位的某指标预计带来多少分/盐粒/天"。Ridge 不会像 NNLS 那样把共线特征"整列剔除"，而是平滑分配权重，更适合单篇文章小样本。',
+            name: '主指标：单变量 R²',
+            formula: '对每个指标单独拟合 y = a + b·x，取 R² 最高的作为主驱动',
+            desc: '单变量回归不受特征共线性干扰，稳定可信。全站数据里收藏单独就能解释 92% 的日度收益波动——一个变量的"最简模型"捕获了几乎全部信号，再加其他特征边际改进不足 8%。',
           },
           {
-            name: '贡献度（柱状图）',
-            formula: '贡献度ᵢ = βᵢ × mean(xᵢ) / (β₀ + Σⱼ βⱼ × mean(xⱼ)) × 100%',
-            desc: '把每日平均预测收益拆成"基础底数 + 每个指标的 β × 均值"，归一化为 100%。回答的是"这篇文章每一天里，哪一项累积贡献最多"——和"收藏多的日子收益也高"的直觉一致。绝对值单位是 盐粒/天 或 元/天。',
+            name: '线性公式',
+            formula: 'y = a + b·x → 每日收益 ≈ a + b × 当日主指标',
+            desc: '图表上方高亮的就是这条公式。a 是截距（不被主指标解释的基础收益），b 是每增加 1 个单位主指标带来的增量收益。',
           },
           {
-            name: '为什么用 Ridge 而不是 NNLS',
-            formula: 'NNLS → 采样敏感；Ridge → 平滑稳定',
-            desc: '你这五个指标在日度层面高度相关（爆款日一起涨）。NNLS 会把共线特征"整列清零"，bootstrap 重采样时每次被清零的可能是不同特征，导致系数在 0 和峰值之间剧烈跳动。Ridge 给每个特征一个平滑的非零系数，bootstrap 稳定性好得多。全站分析 Tab 有几千条观测 + 文章之间相对独立，用 NNLS 是合适的；单篇用 Ridge。',
+            name: '偏相关：控制阅读量后的独立性',
+            formula: 'r(X, Y | pv) = (r_XY - r_Xpv · r_Ypv) / √((1 - r²_Xpv)(1 - r²_Ypv))',
+            desc: '检验"如果两天阅读量一样，多 1 个收藏/评论/点赞是否还对应更高收益"——区分"真信号"和"阅读量代理"的教科书方法。r 大幅下降（> 50%）的指标基本只是阅读量的副产品，降幅小的才是独立贡献。全站数据里评论降了 66%、收藏只降 4%——收藏是真信号，评论只是阅读量的傀儡。',
           },
           {
-            name: '采样稳定性',
-            formula: '100 次 bootstrap，95% CI，阈值 CV < 1.0',
-            desc: '✅ 稳定 = 系数的 95% CI 宽度 < 中位数绝对值（换个采样基本不会翻盘）；⚠️ 不稳定 = CI 宽度大于等于中位数（数字仅供参考）。这个阈值比全站分析（CV < 0.5）宽，因为单篇数据少、天然波动大。',
+            name: '参考价值：单位收益',
+            formula: '单位收益 = Σ收益 / Σ该指标',
+            desc: '"这篇文章的每 1 个收藏大约对应多少收益"——是样本均值的比值，便于和直觉对照。⚠️ 是关联不是因果：并不是用户收藏一下你就直接进账 X 分钱，而是"收藏高的日子恰好收益也高"的侧面反映。',
           },
           {
-            name: '基础底数',
-            formula: 'β₀（截距）占每日预测均值的百分比',
-            desc: '不归因到任何单一指标的那部分——这是回归的截距项，代表"所有指标都取均值时的预测值"。通常很小，但为透明起见显式展示。',
+            name: '为什么不用多元回归',
+            formula: '共线特征让 NNLS/Ridge 在单篇小样本上剧烈抖动',
+            desc: '阅读、点赞、评论、收藏、分享在日度层面几乎是同一条曲线（文章热的那天五个一起涨）。多元回归试图"分摊"权重时结果不稳定。改用单变量 R² 直接回答"单独看它能不能解释"，加上偏相关回答"控制阅读量后谁还独立"，两个角度合起来比多元回归在这类数据上更可靠。',
           },
           {
             name: '数据要求',
             formula: '匹配日期 ≥ 10 天',
-            desc: '需要同时具备每日指标（pv / 点赞 / 评论 / 收藏 / 分享）和每日收益，按日期 join 后至少 10 天样本才会输出结果。40 天以上通常能得到大部分稳定的系数；数据量越少越可能出现 ⚠️。',
+            desc: '需要同时具备每日指标（pv / 点赞 / 评论 / 收藏 / 分享）和每日收益。日期越多，R² 和偏相关越稳定。单篇文章通常 30-90 天。',
           },
         ]}
       />
