@@ -282,6 +282,9 @@ export type StabilityLabel = 'stable' | 'unstable' | 'dropped';
  * @param regressionFn - Regression function returning { coefficients, r2 }
  * @param B  - Number of bootstrap iterations (default 200)
  * @param ciLevel - Confidence level in (0, 1), default 0.95
+ * @param cvThreshold - Classification threshold for 'stable': (hi - lo) / |median|
+ *   must be below this value. Default 0.5 (strict, appropriate for large-n NNLS).
+ *   Relax to ~1.0 for small-n Ridge where the CI naturally includes more spread.
  *
  * @remarks
  * Performance: each iteration calls `regressionFn` on a fresh resampled dataset.
@@ -296,6 +299,7 @@ export function bootstrapCoefficientCI(
   regressionFn: (xs: number[][], y: number[]) => { coefficients: number[]; r2: number },
   B: number = 200,
   ciLevel: number = 0.95,
+  cvThreshold: number = 0.5,
 ): {
   lo: number[];
   median: number[];
@@ -372,10 +376,9 @@ export function bootstrapCoefficientCI(
       stability[j] = 'dropped';
     } else if (
       Math.abs(median[j]) > 1e-9 &&
-      // A CI width of less than 50% of the median magnitude is a "tight enough"
-      // heuristic for bootstrap stability — below this the point estimate
-      // communicates meaningful information about the underlying parameter.
-      (hi[j] - lo[j]) / Math.abs(median[j]) < 0.5
+      // The default cvThreshold=0.5 is a "tight enough" heuristic for large-sample
+      // NNLS regressions; per-article Ridge regressions should use ~1.0.
+      (hi[j] - lo[j]) / Math.abs(median[j]) < cvThreshold
     ) {
       stability[j] = 'stable';
     } else {

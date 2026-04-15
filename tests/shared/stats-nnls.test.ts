@@ -145,6 +145,29 @@ describe('bootstrapCoefficientCI', () => {
     expect(ci.stability[0]).toBe('dropped');
     expect(ci.stability[1]).toBe('dropped');
   });
+
+  it('respects the cvThreshold parameter for stable/unstable classification', () => {
+    // Construct data with moderate noise so coefficients have a wide but not huge CI.
+    const x1 = Array.from({ length: 40 }, (_, i) => i + 1);
+    const y = x1.map((v) => 2 * v + (Math.random() - 0.5) * 5);
+    const regressionFn = (xs: number[][], y2: number[]) => multipleLinearRegression(xs, y2);
+
+    // Strict threshold — classification may be unstable
+    const strict = bootstrapCoefficientCI([x1], y, regressionFn, 100, 0.95, 0.2);
+    // Lenient threshold — same data, should be more likely stable
+    const lenient = bootstrapCoefficientCI([x1], y, regressionFn, 100, 0.95, 2.0);
+
+    // With a lenient threshold, the classification should never be stricter
+    // than with a strict threshold (for the same data). Specifically, if strict
+    // says 'stable', lenient must also say 'stable'.
+    if (strict.stability[1] === 'stable') {
+      expect(lenient.stability[1]).toBe('stable');
+    }
+    // And lenient should classify at least as many features stable as strict.
+    const strictStable = strict.stability.filter((s) => s === 'stable').length;
+    const lenientStable = lenient.stability.filter((s) => s === 'stable').length;
+    expect(lenientStable).toBeGreaterThanOrEqual(strictStable);
+  });
 });
 
 describe('featureCorrelationMatrix', () => {
